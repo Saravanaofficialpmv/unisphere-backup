@@ -6,19 +6,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/parent_service.dart';
+import 'package:unisphere/services/institution_service.dart';
 import 'package:unisphere/models/parent_portal_types.dart';
+import 'package:flutter/services.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
-import 'package:unisphere/widgets/common/department_vision_sheet.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 import 'package:unisphere/widgets/common/main_sidebar.dart';
 import 'package:unisphere/widgets/parent/parent_floating_nav_bar.dart';
 import 'package:unisphere/widgets/parent/parent_navigation_sheet.dart';
+import 'package:unisphere/widgets/parent/parent_quick_navigation_bar.dart';
+import 'package:unisphere/widgets/parent/parent_summary_carousel.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
-import 'package:unisphere/screens/features/fees_screen.dart';
 import 'package:unisphere/screens/profile/profile_screen.dart';
 import 'package:unisphere/widgets/common/recent_photos_section.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/screens/features/events_screen.dart';
+import 'package:unisphere/screens/features/exams_detail_screen.dart';
+import 'package:unisphere/screens/features/academic_schedule_detail_screen.dart';
+import 'package:unisphere/screens/student/modules/student_upcoming_tasks_screen.dart';
+import 'package:unisphere/screens/features/certifications_screen.dart';
 import 'package:unisphere/core/theme/app_animations.dart';
 
 
@@ -63,19 +70,54 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
   int _currentIndex = 0;
   bool _isNavigationSheetOpen = false;
   bool _isDockVisible = true;
+  ParentStudentWard? _activeWard;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initActiveWard());
+  }
+
+  Future<void> _initActiveWard() async {
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+    final parentService = ref.read(parentServiceProvider);
+
+    final wards = userKey.isNotEmpty
+        ? await parentService.getStudentWardsForParent(userKey)
+        : parentService.getDefaultStudentWards();
+
+    if (wards.isNotEmpty && mounted) {
+      final activeReg = userKey.isNotEmpty ? await parentService.getActiveWardPreference(userKey) : null;
+      final selected = (activeReg != null && activeReg.isNotEmpty)
+          ? wards.firstWhere((w) => w.regNo.toUpperCase() == activeReg.toUpperCase(), orElse: () => wards.first)
+          : wards.first;
+
+      setState(() => _activeWard = selected);
+      ref.read(activeParentWardProvider.notifier).state = selected;
+    }
+  }
+
+  void _handleWardChanged(ParentStudentWard ward) {
+    setState(() => _activeWard = ward);
+    ref.read(activeParentWardProvider.notifier).state = ward;
+  }
+
   static final List<SidebarItem> parentSidebarItems = [
     SidebarItem(label: 'Dashboard Home', icon: Icons.dashboard_outlined),
-    SidebarItem(label: 'Attendance History', icon: Icons.calendar_month_outlined),
-    SidebarItem(label: 'Performance Marks', icon: Icons.bar_chart_outlined),
-    SidebarItem(label: 'Institutional Alerts', icon: Icons.campaign_outlined, badge: 'New'),
+    SidebarItem(label: 'Attendance History', icon: Icons.pie_chart_outline_rounded),
+    SidebarItem(label: 'Performance Marks', icon: Icons.school_outlined),
+    SidebarItem(label: 'Institutional Alerts', icon: Icons.notifications_active_outlined, badge: 'New'),
     SidebarItem(label: 'Parent Profile', icon: Icons.person_outline),
     SidebarItem.divider('CAMPUS & CHILD SERVICES'),
-    SidebarItem(label: 'Child Fee Status', icon: Icons.payments_outlined),
+    SidebarItem(label: 'Exams & Results', icon: Icons.description_outlined),
+    SidebarItem(label: 'Class Timetable', icon: Icons.schedule_outlined),
     SidebarItem(label: 'Campus Photo Gallery', icon: Icons.collections_outlined, badge: 'Gallery'),
     SidebarItem(label: 'Events & Fests', icon: Icons.event_outlined),
+    SidebarItem(label: 'Assignments & Tasks', icon: Icons.assignment_outlined),
+    SidebarItem(label: 'Certificates & Docs', icon: Icons.verified_outlined),
     SidebarItem(label: 'Transport Details', icon: Icons.bus_alert_outlined),
   ];
 
@@ -84,30 +126,48 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
   final List<int> _navigationHistory = [0];
 
   Widget _buildScreen(int index) {
+    final activeWard = _activeWard ?? ref.watch(activeParentWardProvider) ?? ref.read(parentServiceProvider).getDefaultStudentWards().first;
+
     switch (index) {
       case 0:
         return ParentHomeScreen(
+          selectedWard: activeWard,
+          onWardChanged: _handleWardChanged,
           onNavigateToTab: _handleNavigation,
           onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         );
       case 1:
-        return ParentAttendanceDetailTab(onNavigateToTab: _handleNavigation);
+        return ParentAttendanceDetailTab(
+          selectedWard: activeWard,
+          onNavigateToTab: _handleNavigation,
+        );
       case 2:
-        return ParentAcademicPerformanceTab(onNavigateToTab: _handleNavigation);
+        return ParentAcademicPerformanceTab(
+          selectedWard: activeWard,
+          onNavigateToTab: _handleNavigation,
+        );
       case 3:
         return StudentAnnouncementsScreen(onBack: _handleBackNavigation);
       case 4:
         return ProfileScreen(onBack: _handleBackNavigation);
+      case 5:
+        return ExamsDetailScreen(onBack: _handleBackNavigation);
       case 6:
-        return FeesScreen(onBack: _handleBackNavigation);
+        return AcademicScheduleDetailScreen(onBack: _handleBackNavigation);
       case 7:
         return FullPhotoGalleryScreen(onBack: _handleBackNavigation);
       case 8:
         return EventsScreen(onBack: _handleBackNavigation);
       case 9:
+        return StudentUpcomingTasksScreen(onBack: _handleBackNavigation);
+      case 10:
+        return CertificationsScreen(onBack: _handleBackNavigation);
+      case 11:
         return const Center(child: Text('School Transport Map'));
       default:
         return ParentHomeScreen(
+          selectedWard: activeWard,
+          onWardChanged: _handleWardChanged,
           onNavigateToTab: _handleNavigation,
           onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
         );
@@ -254,108 +314,246 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
 class ParentHomeScreen extends ConsumerStatefulWidget {
   final Function(int index)? onNavigateToTab;
   final VoidCallback? onOpenDrawer;
+  final ParentStudentWard? selectedWard;
+  final ValueChanged<ParentStudentWard>? onWardChanged;
 
   const ParentHomeScreen({
     super.key,
     this.onNavigateToTab,
     this.onOpenDrawer,
+    this.selectedWard,
+    this.onWardChanged,
   });
 
   @override
   ConsumerState<ParentHomeScreen> createState() => _ParentHomeScreenState();
 }
 
-class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
+class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with SingleTickerProviderStateMixin {
   late List<ParentStudentWard> _wards;
   late ParentStudentWard _selectedWard;
   String _selectedTrendMode = 'CGPA'; // 'CGPA' or 'SGPA'
+  bool _isRefreshing = false;
+  int _refreshEpoch = 0;
+
+  String get _parentDisplayName {
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final name = currentUser?.name;
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
+    }
+    return 'Parent / Guardian';
+  }
+
+  String get _parentDisplayEmail {
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final email = currentUser?.email;
+    if (email != null && email.trim().isNotEmpty) {
+      return email.trim();
+    }
+    return 'parent@unisphere.edu';
+  }
 
   @override
   void initState() {
     super.initState();
     final parentService = ref.read(parentServiceProvider);
     _wards = parentService.getDefaultStudentWards();
-    _selectedWard = _wards.first;
+    _selectedWard = widget.selectedWard ?? _wards.first;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadParentWards());
+  }
+
+  @override
+  void didUpdateWidget(ParentHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedWard != null && widget.selectedWard!.id != _selectedWard.id) {
+      setState(() {
+        _selectedWard = widget.selectedWard!;
+      });
+    }
+  }
+
+  Future<void> _loadParentWards() async {
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final parentService = ref.read(parentServiceProvider);
+      final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+      if (userKey.isNotEmpty) {
+        final fetchedWards = await parentService.getStudentWardsForParent(userKey);
+        final activePref = await parentService.getActiveWardPreference(userKey);
+
+        if (fetchedWards.isNotEmpty && mounted) {
+          setState(() {
+            _wards = fetchedWards;
+            if (activePref != null && activePref.isNotEmpty) {
+              _selectedWard = _wards.firstWhere(
+                (w) => w.regNo.toUpperCase() == activePref.toUpperCase(),
+                orElse: () => _wards.first,
+              );
+            } else if (widget.selectedWard != null) {
+              _selectedWard = _wards.firstWhere(
+                (w) => w.id == widget.selectedWard!.id,
+                orElse: () => _wards.first,
+              );
+            } else {
+              _selectedWard = _wards.first;
+            }
+          });
+          ref.read(activeParentWardProvider.notifier).state = _selectedWard;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading parent wards: $e');
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isRefreshing = true;
+      _refreshEpoch++;
+    });
+
+    final currentUser = ref.read(authServiceProvider).currentUser;
+    final parentService = ref.read(parentServiceProvider);
+    final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+    
+    final freshWards = userKey.isNotEmpty
+        ? await parentService.getStudentWardsForParent(userKey)
+        : parentService.getDefaultStudentWards();
+
+    await Future.delayed(const Duration(milliseconds: 900));
+
+    if (mounted) {
+      setState(() {
+        _wards = freshWards;
+        _selectedWard = _wards.firstWhere(
+          (w) => w.id == _selectedWard.id,
+          orElse: () => _wards.first,
+        );
+        _isRefreshing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Parent portal updated with latest sync',
+                style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF1E293B),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.symmetric(
-        horizontal: isDesktop ? 28 : 16,
-        vertical: 12,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. TOP PARENT WELCOME & NOTIFICATION BAR
-              _buildParentTopWelcomeBar(context),
+    return Column(
+      children: [
+        // 🌟 PINNED & STABLE TOP HEADER & SEARCH BAR (Does not jitter on scroll)
+        Container(
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 28 : 16,
+            12,
+            isDesktop ? 28 : 16,
+            10,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. TOP PARENT WELCOME & NOTIFICATION & REFRESH BAR
+                  _buildParentTopWelcomeBar(context),
 
-              const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-              // 2. SEARCH & QUICK ACTION BAR
-              _buildSearchBarAndQuickAction(context),
-
-              const SizedBox(height: 18),
-
-              // 3. STUDENT IDENTITY PROFILE CARD (ALEX JOHNSON)
-              _buildStudentIdentityCard(context),
-
-              const SizedBox(height: 16),
-
-              // 4. 3-COLUMN KEY METRICS STRIP (STUDENT / PRESENCE / INTERNAL SCORE)
-              _buildThreeColumnKeyMetricsStrip(context),
-
-              const SizedBox(height: 20),
-
-              // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS
-              _buildFiveQuickLauncherIcons(context),
-
-              const SizedBox(height: 22),
-
-              // 6. UPCOMING (EXAMS & MEETINGS) & RECENT UPDATES
-              if (isDesktop)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildUpcomingCard(context)),
-                    const SizedBox(width: 18),
-                    Expanded(child: _buildRecentUpdatesCard(context)),
-                  ],
-                )
-              else ...[
-                _buildUpcomingCard(context),
-                const SizedBox(height: 18),
-                _buildRecentUpdatesCard(context),
-              ],
-
-              const SizedBox(height: 22),
-
-              // 7. ACADEMIC PERFORMANCE TREND & INSIGHT CARD
-              _buildAcademicPerformanceTrendSection(context, isDesktop),
-
-              const SizedBox(height: 28),
-
-              // 8. CAMPUS RECENT PHOTO GALLERY
-              const RecentPhotosSection(),
-
-              // Clearance for floating bottom navigation bar
-              const SizedBox(height: 96),
-            ],
+                  // 2. SEARCH & QUICK ACTION BAR (Pinned & Fixed)
+                  _buildSearchBarAndQuickAction(context),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+        // 🌟 SCROLLABLE DASHBOARD BODY WRAPPED IN LIQUID PULL-TO-REFRESH
+        Expanded(
+          child: AppLiquidPullToRefresh(
+            onRefresh: _handleRefresh,
+            child: SingleChildScrollView(
+              key: ValueKey('parent_home_scroll_$_refreshEpoch'),
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 28 : 16,
+                vertical: 14,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 3. STUDENT IDENTITY PROFILE CARD
+                      _buildStudentIdentityCard(context),
+
+                      const SizedBox(height: 14),
+
+                      // 4. HORIZONTALLY SLIDING TOP SUMMARY CAROUSEL
+                      ParentSummaryCarousel(
+                        selectedWard: _selectedWard,
+                        onNavigateToTab: widget.onNavigateToTab,
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS
+                      _buildFiveQuickLauncherIcons(context),
+
+                      const SizedBox(height: 20),
+
+                      // 6. RECENT UPDATES & BULLETINS
+                      _buildRecentUpdatesCard(context),
+
+                      const SizedBox(height: 22),
+
+                      // 8. ACADEMIC PERFORMANCE TREND & INSIGHT CARD
+                      _buildAcademicPerformanceTrendSection(context, isDesktop),
+
+                      const SizedBox(height: 28),
+
+                      // 8. CAMPUS RECENT PHOTO GALLERY
+                      const RecentPhotosSection(),
+
+                      // Clearance for floating bottom navigation bar
+                      const SizedBox(height: 96),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 1. TOP PARENT HEADER (WELCOME BAR)
+  // 1. TOP PARENT HEADER (WELCOME BAR WITH REFRESH BUTTON)
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildParentTopWelcomeBar(BuildContext context) {
     return Row(
@@ -398,13 +596,15 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               ),
               const SizedBox(height: 1),
               Text(
-                'Mrs. Rajesh',
+                _parentDisplayName,
                 style: GoogleFonts.manrope(
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A),
                   letterSpacing: -0.3,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 1),
               InkWell(
@@ -438,71 +638,62 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
           ),
         ),
 
-        // Right Action Buttons: Academic Vision & Notifications
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Department Vision / Academics button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => showDepartmentVisionSheet(context),
+        // Right Action Button: Notification Bell with Badge
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => showNotificationSheet(context),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDBEAFE)),
-                  ),
-                  child: const Icon(Icons.school_rounded, color: AppColors.primary, size: 20),
-                ),
+                border: Border.all(color: const Color(0xFFDBEAFE)),
               ),
-            ),
-            const SizedBox(width: 8),
-
-            // Notification Bell with Badge
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => showNotificationSheet(context),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDBEAFE)),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Image.asset(
+                    'assets/bell_ring_2.png',
+                    width: 22,
+                    height: 22,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/bell-ring-2.png',
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.notifications_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
                   ),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications_rounded, color: AppColors.primary, size: 20),
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(3.5),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '3',
-                            style: GoogleFonts.manrope(
-                              color: Colors.white,
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3.5),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '3',
+                        style: GoogleFonts.manrope(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -557,7 +748,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               // Placeholder Text
               const Expanded(
                 child: Text(
-                  'Search updates, exams, fees, timetable...',
+                  'Search academics, attendance, exams, updates...',
                   style: TextStyle(
                     fontSize: 13.5,
                     color: Color(0xFF94A3B8),
@@ -578,8 +769,8 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                       selectedIndex: 0,
                       onDestinationSelected: (idx) => widget.onNavigateToTab?.call(idx),
                       items: _ParentDashboardState.parentSidebarItems,
-                      userName: 'Mrs. Rajesh',
-                      userEmail: 'parent.rajesh@gmail.com',
+                      userName: _parentDisplayName,
+                      userEmail: _parentDisplayEmail,
                     );
                   },
                   borderRadius: BorderRadius.circular(19),
@@ -617,15 +808,17 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
   void _showParentSearchModal(BuildContext context) {
     String query = '';
     final List<Map<String, dynamic>> parentSearchItems = [
-      {'title': 'Attendance History & Logs', 'subtitle': 'Subject attendance percentage & shortage alerts', 'icon': Icons.calendar_month_rounded, 'color': const Color(0xFF10B981), 'tabIndex': 1},
-      {'title': 'Performance Marks & CGPA', 'subtitle': 'Internal test scores, grades & academic analysis', 'icon': Icons.bar_chart_rounded, 'color': const Color(0xFF7C3AED), 'tabIndex': 2},
-      {'title': 'Important Announcements & Circulars', 'subtitle': 'Official college notices, exam policies & holiday lists', 'icon': Icons.campaign_rounded, 'color': const Color(0xFFEA580C), 'tabIndex': 3},
-      {'title': 'Parent Profile & Contact Info', 'subtitle': 'Guardian details, phone number & ward mappings', 'icon': Icons.person_rounded, 'color': const Color(0xFF2563EB), 'tabIndex': 4},
-      {'title': 'Student Fee Status & Online Pay', 'subtitle': 'Tuition fees, transport charges & e-receipts', 'icon': Icons.payments_rounded, 'color': const Color(0xFFF59E0B), 'tabIndex': 6},
+      {'title': 'Academics & Performance Marks', 'subtitle': 'Internal test scores, GPA/CGPA & academic analysis', 'icon': Icons.school_rounded, 'color': const Color(0xFF7C3AED), 'tabIndex': 2},
+      {'title': 'Attendance History & Shortage Alerts', 'subtitle': 'Subject attendance percentage & shortage alerts', 'icon': Icons.pie_chart_outline_rounded, 'color': const Color(0xFF10B981), 'tabIndex': 1},
+      {'title': 'Exams, Schedules & Results', 'subtitle': 'Examination timetable, test venues & performance', 'icon': Icons.description_rounded, 'color': const Color(0xFF2563EB), 'tabIndex': 5},
+      {'title': 'Important Announcements & Circulars', 'subtitle': 'Official college notices, academic policies & holiday lists', 'icon': Icons.campaign_rounded, 'color': const Color(0xFFEA580C), 'tabIndex': 3},
+      {'title': 'Class Timetable & Schedule', 'subtitle': 'Daily lecture timetable & faculty sessions', 'icon': Icons.schedule_rounded, 'color': const Color(0xFF6366F1), 'tabIndex': 6},
+      {'title': 'Assignments & Tasks Progress', 'subtitle': 'Homework, projects & submission deadlines', 'icon': Icons.assignment_rounded, 'color': const Color(0xFFD97706), 'tabIndex': 9},
+      {'title': 'Certificates & Documents', 'subtitle': 'Academic bonafide, grade sheets & certificates', 'icon': Icons.verified_rounded, 'color': const Color(0xFF0284C7), 'tabIndex': 10},
+      {'title': 'Parent Profile & Contact Info', 'subtitle': 'Guardian details, phone number & ward mappings', 'icon': Icons.person_rounded, 'color': const Color(0xFF475569), 'tabIndex': 4},
       {'title': 'Campus Photo Gallery', 'subtitle': 'Annual events, technical symposia & student fests', 'icon': Icons.collections_rounded, 'color': const Color(0xFF0284C7), 'tabIndex': 7},
-      {'title': 'Upcoming Exams & Events Calendar', 'subtitle': 'Examination timetable, PTM schedule & sports meet', 'icon': Icons.event_rounded, 'color': const Color(0xFF6366F1), 'tabIndex': 8},
-      {'title': 'College Transport Details', 'subtitle': 'Bus routes, pickup timing & driver contacts', 'icon': Icons.directions_bus_rounded, 'color': const Color(0xFF0D9488), 'tabIndex': 9},
-      {'title': 'Department Vision & Outcomes', 'subtitle': 'Academic PEOs, POs and curriculum mission', 'icon': Icons.school_rounded, 'color': const Color(0xFF4F46E5), 'isVision': true},
+      {'title': 'College Events & Fests', 'subtitle': 'Campus festivals, conferences & guest talks', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6), 'tabIndex': 8},
+      {'title': 'College Transport Details', 'subtitle': 'Bus routes, pickup timing & driver contacts', 'icon': Icons.directions_bus_rounded, 'color': const Color(0xFF0D9488), 'tabIndex': 11},
       {'title': 'Notifications & Alerts Feed', 'subtitle': 'All urgent push notifications and reminders', 'icon': Icons.notifications_active_rounded, 'color': const Color(0xFFEF4444), 'isNotification': true},
     ];
 
@@ -668,7 +861,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                   TextField(
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'Type to search updates, exams, marks, fees...',
+                      hintText: 'Type to search academics, attendance, exams, updates...',
                       hintStyle: GoogleFonts.manrope(fontSize: 13, color: const Color(0xFF94A3B8)),
                       prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
                       suffixIcon: query.isNotEmpty
@@ -768,9 +961,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Color(0xFFCBD5E1)),
                                 onTap: () {
                                   Navigator.pop(ctx);
-                                  if (item['isVision'] == true) {
-                                    showDepartmentVisionSheet(context);
-                                  } else if (item['isNotification'] == true) {
+                                  if (item['isNotification'] == true) {
                                     showNotificationSheet(context);
                                   } else if (item['tabIndex'] != null) {
                                     widget.onNavigateToTab?.call(item['tabIndex'] as int);
@@ -790,9 +981,15 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 3. STUDENT IDENTITY PROFILE CARD (ALEX JOHNSON)
+  // 3. STUDENT IDENTITY PROFILE CARD (DYNAMIC PER ACTIVE WARD)
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildStudentIdentityCard(BuildContext context) {
+    final deptName = _selectedWard.department.contains('Computer')
+        ? 'Computer Science'
+        : (_selectedWard.department.contains('Electronics')
+            ? 'Electronics & Comm.'
+            : _selectedWard.department);
+
     return InkWell(
       onTap: () => _showStudentSelectorSheet(context),
       borderRadius: BorderRadius.circular(24),
@@ -824,11 +1021,15 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                     border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
                   ),
                   child: ClipOval(
-                    child: _selectedWard.photoUrl != null
+                    child: (_selectedWard.photoUrl != null && _selectedWard.photoUrl!.isNotEmpty)
                         ? Image.network(
                             _selectedWard.photoUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _buildAvatarFallback(),
+                            loadingBuilder: (ctx, child, progress) {
+                              if (progress == null) return child;
+                              return _buildAvatarFallback();
+                            },
                           )
                         : _buildAvatarFallback(),
                   ),
@@ -850,7 +1051,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
             ),
             const SizedBox(width: 14),
 
-            // Name, RegNo, and Tag Chips
+            // Name, Active Tag, RegNo, and Department Chip (Year & Section removed)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -891,43 +1092,52 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                   Text(
                     'Reg No: ${_selectedWard.regNo}',
                     style: GoogleFonts.manrope(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       color: const Color(0xFF64748B),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      _buildSmallTag(Icons.computer_rounded, 'Computer Science', const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
-                      _buildSmallTag(Icons.calendar_today_rounded, '3rd Year', const Color(0xFFF5F3FF), const Color(0xFF7C3AED)),
-                      _buildSmallTag(Icons.shield_outlined, 'Sec B', const Color(0xFFF1F5F9), const Color(0xFF475569)),
-                    ],
+                  _buildSmallTag(
+                    _selectedWard.department.contains('Computer')
+                        ? Icons.computer_rounded
+                        : Icons.memory_rounded,
+                    deptName,
+                    const Color(0xFFEFF6FF),
+                    const Color(0xFF2563EB),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
 
-            // College / Institution Branding
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Icon(Icons.account_balance_rounded, color: Color(0xFF6366F1), size: 26),
-                const SizedBox(height: 4),
-                Text(
-                  'SRI ECT College\nof Engineering',
-                  style: GoogleFonts.manrope(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1E293B),
-                    height: 1.15,
+            // College / Institution Branding (Dynamic per Admin Configuration)
+            Consumer(
+              builder: (context, ref, _) {
+                final collegeName = ref.watch(collegeNameProvider);
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 108),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Icon(Icons.account_balance_rounded, color: Color(0xFF4F46E5), size: 24),
+                      const SizedBox(height: 3),
+                      Text(
+                        collegeName,
+                        style: GoogleFonts.manrope(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1E293B),
+                          height: 1.15,
+                        ),
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.right,
-                ),
-              ],
+                );
+              },
             ),
           ],
         ),
@@ -1017,203 +1227,383 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               ..._wards.map((ward) {
                 final isSelected = ward.id == _selectedWard.id;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
+                  margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    color: isSelected ? const Color(0xFFF0F6FF) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 1.5 : 1.0,
+                      color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                      width: isSelected ? 1.8 : 1.0,
                     ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                   ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-                      child: Text(
-                        ward.avatarInitials,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      ward.name,
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    subtitle: Text(
-                      '${ward.department} • ${ward.yearSection}',
-                      style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
-                        : null,
-                    onTap: () {
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      final nav = Navigator.of(ctx);
+                      final messenger = ScaffoldMessenger.of(context);
+
                       setState(() => _selectedWard = ward);
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+                      ref.read(activeParentWardProvider.notifier).state = ward;
+                      widget.onWardChanged?.call(ward);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 4. 3-COLUMN KEY METRIC STRIP
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildThreeColumnKeyMetricsStrip(BuildContext context) {
-    final presencePercent = (_selectedWard.attendancePercent * 100).toInt();
+                      final currentUser = ref.read(authServiceProvider).currentUser;
+                      final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+                      if (userKey.isNotEmpty) {
+                        await ref.read(parentServiceProvider).saveActiveWardPreference(
+                          parentUidOrEmail: userKey,
+                          wardRegNo: ward.regNo,
+                        );
+                      }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // 1. Student
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Student',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.school_outlined, size: 16, color: Color(0xFF0F172A)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _selectedWard.currentYear.isNotEmpty ? _selectedWard.currentYear : '2nd Year',
-                        style: GoogleFonts.manrope(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          Container(height: 34, width: 1, color: const Color(0xFFE2E8F0)),
-
-          // 2. Presence
-          Expanded(
-            child: InkWell(
-              onTap: () => widget.onNavigateToTab?.call(1),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Presence',
-                          style: GoogleFonts.manrope(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF94A3B8)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF0F172A)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$presencePercent%',
-                          style: GoogleFonts.manrope(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          Container(height: 34, width: 1, color: const Color(0xFFE2E8F0)),
-
-          // 3. Internal Score
-          Expanded(
-            child: InkWell(
-              onTap: () => widget.onNavigateToTab?.call(2),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Internal Score',
-                      style: GoogleFonts.manrope(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.menu_book_rounded, size: 15, color: Color(0xFF0F172A)),
-                        const SizedBox(width: 4),
-                        RichText(
-                          text: TextSpan(
+                      if (!mounted) return;
+                      nav.pop();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Row(
                             children: [
-                              TextSpan(
-                                text: '85',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF0F172A),
-                                ),
-                              ),
-                              TextSpan(
-                                text: '/100',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF64748B),
-                                ),
+                              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Active profile switched to ${ward.name}',
+                                style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                             ],
                           ),
+                          backgroundColor: const Color(0xFF1E293B),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                ward.avatarInitials,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ward.name,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${ward.department} • ${ward.yearSection}',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2563EB),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _showAddStudentWardDialog(context);
+                },
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18, color: Color(0xFF2563EB)),
+                label: Text(
+                  '+ Link Another Student Ward (Sibling)',
+                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 46),
+                  side: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddStudentWardDialog(BuildContext context) {
+    final regController = TextEditingController();
+    Map<String, dynamic>? studentMatch;
+    bool isSearching = false;
+    bool isSaving = false;
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Link Sibling / Another Student Ward',
+                      style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Enter your other child\'s College Register Number to monitor both wards under one parent login.',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: regController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: 'Child Register Number',
+                        hintText: 'e.g. 24ECE2018 or RA2111003010001',
+                        prefixIcon: const Icon(Icons.school_outlined, color: Color(0xFF2563EB)),
+                        suffixIcon: isSearching
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : (studentMatch != null
+                                ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981))
+                                : null),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        errorText: errorText,
+                      ),
+                      onChanged: (val) async {
+                        final clean = val.trim().toUpperCase();
+                        if (clean.length >= 3) {
+                          setDialogState(() {
+                            isSearching = true;
+                            errorText = null;
+                          });
+                          final match = await ref.read(parentServiceProvider).lookupStudentByRegNo(clean);
+                          setDialogState(() {
+                            isSearching = false;
+                            studentMatch = match;
+                            if (match == null && clean.length >= 6) {
+                              errorText = 'No student record found for "$clean"';
+                            }
+                          });
+                        } else {
+                          setDialogState(() {
+                            studentMatch = null;
+                            errorText = null;
+                          });
+                        }
+                      },
+                    ),
+                    if (studentMatch != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: const Color(0xFF16A34A),
+                              child: Text(
+                                (studentMatch!['avatarInitials'] ?? 'SW').toString(),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    studentMatch!['fullName'] ?? studentMatch!['name'] ?? 'Student',
+                                    style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14.5),
+                                  ),
+                                  Text(
+                                    '${studentMatch!['departmentName'] ?? studentMatch!['department']} • ${studentMatch!['semester'] ?? 'Semester IV'}',
+                                    style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF166534)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(dlgCtx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 48),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: (studentMatch == null || isSaving)
+                                ? null
+                                : () async {
+                                    setDialogState(() => isSaving = true);
+                                    final dlgNav = Navigator.of(dlgCtx);
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    final currentUser = ref.read(authServiceProvider).currentUser;
+                                    final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+                                    final regNo = regController.text.trim().toUpperCase();
+
+                                    final success = await ref.read(parentServiceProvider).linkAdditionalChild(
+                                      parentUidOrEmail: userKey,
+                                      childRegisterNumber: regNo,
+                                      parentName: currentUser?.name ?? 'Parent / Guardian',
+                                      phone: currentUser?.phone,
+                                    );
+
+                                    if (success) {
+                                      await _loadParentWards();
+                                      final updatedWards = await ref.read(parentServiceProvider).getStudentWardsForParent(userKey);
+                                      final newWard = updatedWards.firstWhere(
+                                        (w) => w.regNo.toUpperCase() == regNo,
+                                        orElse: () => updatedWards.last,
+                                      );
+
+                                      setState(() => _selectedWard = newWard);
+                                      ref.read(activeParentWardProvider.notifier).state = newWard;
+                                      widget.onWardChanged?.call(newWard);
+
+                                      await ref.read(parentServiceProvider).saveActiveWardPreference(
+                                        parentUidOrEmail: userKey,
+                                        wardRegNo: newWard.regNo,
+                                      );
+
+                                      if (!mounted) return;
+                                      dlgNav.pop();
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Successfully linked and switched to ${newWard.name}!'),
+                                          backgroundColor: const Color(0xFF16A34A),
+                                        ),
+                                      );
+                                    } else {
+                                      setDialogState(() {
+                                        isSaving = false;
+                                        errorText = 'Could not link student. Please try again.';
+                                      });
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 48),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: isSaving
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('Link & Switch Ward', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
                         ),
                       ],
                     ),
@@ -1221,301 +1611,30 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 ),
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
-
   // ───────────────────────────────────────────────────────────────────────────
-  // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS
+  // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS (PARENT QUICK NAVIGATION BAR)
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildFiveQuickLauncherIcons(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildLauncherItem(
-            label: 'Classes',
-            icon: Icons.school_outlined,
-            bgColor: const Color(0xFFF3E8FF),
-            iconColor: const Color(0xFF7C3AED),
-            onTap: () => widget.onNavigateToTab?.call(8),
-          ),
-          _buildLauncherItem(
-            label: 'Exam',
-            icon: Icons.description_outlined,
-            bgColor: const Color(0xFFEFF6FF),
-            iconColor: const Color(0xFF2563EB),
-            onTap: () => widget.onNavigateToTab?.call(8),
-          ),
-          _buildLauncherItem(
-            label: 'Assignment',
-            icon: Icons.auto_stories_outlined,
-            bgColor: const Color(0xFFFFF7ED),
-            iconColor: const Color(0xFFEA580C),
-            onTap: () => widget.onNavigateToTab?.call(2),
-          ),
-          _buildLauncherItem(
-            label: 'Presence',
-            icon: Icons.how_to_reg_outlined,
-            bgColor: const Color(0xFFF0FDF4),
-            iconColor: const Color(0xFF16A34A),
-            onTap: () => widget.onNavigateToTab?.call(1),
-          ),
-          _buildLauncherItem(
-            label: 'More',
-            icon: Icons.grid_view_rounded,
-            bgColor: const Color(0xFFF8FAFC),
-            iconColor: const Color(0xFF0F172A),
-            onTap: () {
-              showParentNavigationSheet(
-                context: context,
-                selectedIndex: 0,
-                onDestinationSelected: (idx) => widget.onNavigateToTab?.call(idx),
-                items: _ParentDashboardState.parentSidebarItems,
-                userName: 'Mrs. Rajesh',
-                userEmail: 'parent.rajesh@gmail.com',
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLauncherItem({
-    required String label,
-    required IconData icon,
-    required Color bgColor,
-    required Color iconColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: iconColor.withValues(alpha: 0.15)),
-              ),
-              child: Center(
-                child: Icon(icon, color: iconColor, size: 23),
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              label,
-              style: GoogleFonts.manrope(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 6. UPCOMING CARD (EXAMS & MEETINGS)
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildUpcomingCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Upcoming',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              InkWell(
-                onTap: () => widget.onNavigateToTab?.call(8),
-                child: Text(
-                  'View All',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Item 1: Data Structures Exam
-          _buildUpcomingRow(
-            icon: Icons.calendar_month_rounded,
-            iconBg: const Color(0xFFF3E8FF),
-            iconColor: const Color(0xFF7C3AED),
-            title: 'Data Structures Exam',
-            subtitle: '15 May 2025',
-            badgeText: '12 Days Left',
-            badgeBg: const Color(0xFFF5F3FF),
-            badgeColor: const Color(0xFF7C3AED),
-          ),
-          const SizedBox(height: 12),
-
-          // Item 2: Operating Systems Exam
-          _buildUpcomingRow(
-            icon: Icons.calendar_month_rounded,
-            iconBg: const Color(0xFFDCFCE7),
-            iconColor: const Color(0xFF16A34A),
-            title: 'Operating Systems Exam',
-            subtitle: '20 May 2025',
-            badgeText: '17 Days Left',
-            badgeBg: const Color(0xFFECFDF5),
-            badgeColor: const Color(0xFF059669),
-          ),
-          const SizedBox(height: 12),
-
-          // Item 3: Parent Meeting
-          _buildUpcomingRow(
-            icon: Icons.group_rounded,
-            iconBg: const Color(0xFFEFF6FF),
-            iconColor: const Color(0xFF2563EB),
-            title: 'Parent Meeting',
-            subtitle: '24 May 2025 • 10:00 AM',
-            badgeText: '21 Days Left',
-            badgeBg: const Color(0xFFEFF6FF),
-            badgeColor: const Color(0xFF2563EB),
-          ),
-          const SizedBox(height: 14),
-
-          // View Calendar Link
-          Center(
-            child: InkWell(
-              onTap: () => widget.onNavigateToTab?.call(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View Calendar',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: AppColors.primary),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingRow({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required String badgeText,
-    required Color badgeBg,
-    required Color badgeColor,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: iconBg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                subtitle,
-                style: GoogleFonts.manrope(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: badgeBg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            badgeText,
-            style: GoogleFonts.manrope(
-              fontSize: 10.5,
-              fontWeight: FontWeight.bold,
-              color: badgeColor,
-            ),
-          ),
-        ),
-      ],
+    return ParentQuickNavigationBar(
+      onAcademicsTap: () => widget.onNavigateToTab?.call(2),
+      onAttendanceTap: () => widget.onNavigateToTab?.call(1),
+      onExamsTap: () => widget.onNavigateToTab?.call(5),
+      onUpdatesTap: () => widget.onNavigateToTab?.call(3),
+      onMoreTap: () {
+        showParentNavigationSheet(
+          context: context,
+          selectedIndex: 0,
+          onDestinationSelected: (idx) => widget.onNavigateToTab?.call(idx),
+          items: _ParentDashboardState.parentSidebarItems,
+          userName: _parentDisplayName,
+          userEmail: _parentDisplayEmail,
+        );
+      },
     );
   }
 
@@ -2006,18 +2125,44 @@ class _AcademicTrendChartPainter extends CustomPainter {
 // FULL TAB VIEW FOR ATTENDANCE HISTORY (TAB 1)
 class ParentAttendanceDetailTab extends StatelessWidget {
   final Function(int index)? onNavigateToTab;
+  final ParentStudentWard? selectedWard;
 
-  const ParentAttendanceDetailTab({super.key, this.onNavigateToTab});
+  const ParentAttendanceDetailTab({
+    super.key,
+    this.onNavigateToTab,
+    this.selectedWard,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> subjects = [
-      {'code': 'CS301', 'name': 'Data Structures & Algorithms', 'attended': 32, 'total': 35, 'percent': 0.914, 'status': 'SAFE'},
-      {'code': 'CS302', 'name': 'Operating Systems Concepts', 'attended': 28, 'total': 33, 'percent': 0.848, 'status': 'SAFE'},
-      {'code': 'CS303', 'name': 'Database Management Systems', 'attended': 28, 'total': 32, 'percent': 0.875, 'status': 'SAFE'},
-      {'code': 'MA301', 'name': 'Discrete Mathematics & Logic', 'attended': 27, 'total': 30, 'percent': 0.900, 'status': 'SAFE'},
-      {'code': 'CS304', 'name': 'Web Technology Practical Lab', 'attended': 16, 'total': 17, 'percent': 0.941, 'status': 'EXCELLENT'},
-    ];
+    final ward = selectedWard;
+    final double attendancePercent = ward?.attendancePercent ?? 0.87;
+    final int presentCount = ward?.presentCount ?? 142;
+    final int absentCount = ward?.absentCount ?? 15;
+    final int totalCount = presentCount + absentCount;
+    final String wardName = ward?.name ?? 'Arun Kumar';
+    final String wardDept = ward?.department ?? 'Computer Science & Engineering';
+
+    final isCSE = wardDept.contains('Computer') || (ward?.regNo.contains('CSE') ?? true);
+
+    final List<Map<String, dynamic>> subjects = isCSE
+        ? [
+            {'code': 'CS601', 'name': 'Core Algorithms & Data Structures', 'attended': 32, 'total': 35, 'percent': 0.914, 'status': 'SAFE', 'buffer': '+6 classes buffer'},
+            {'code': 'CS602', 'name': 'Database Management Systems (DBMS)', 'attended': 28, 'total': 32, 'percent': 0.875, 'status': 'SAFE', 'buffer': '+4 classes buffer'},
+            {'code': 'CS603', 'name': 'Operating Systems & Architecture', 'attended': 28, 'total': 33, 'percent': 0.848, 'status': 'SAFE', 'buffer': '+3 classes buffer'},
+            {'code': 'CS604', 'name': 'Computer Networks & Security', 'attended': 27, 'total': 30, 'percent': 0.900, 'status': 'SAFE', 'buffer': '+4 classes buffer'},
+            {'code': 'CS605', 'name': 'Cloud Computing Lab & Projects', 'attended': 16, 'total': 17, 'percent': 0.941, 'status': 'EXCELLENT', 'buffer': '+3 classes buffer'},
+          ]
+        : [
+            {'code': 'EC401', 'name': 'Signals & Systems Analysis', 'attended': 34, 'total': 35, 'percent': 0.971, 'status': 'EXCELLENT', 'buffer': '+7 classes buffer'},
+            {'code': 'EC402', 'name': 'Analog Circuits & Semiconductor Devices', 'attended': 30, 'total': 32, 'percent': 0.938, 'status': 'EXCELLENT', 'buffer': '+6 classes buffer'},
+            {'code': 'EC403', 'name': 'Electromagnetic Fields & Waves', 'attended': 29, 'total': 31, 'percent': 0.935, 'status': 'EXCELLENT', 'buffer': '+5 classes buffer'},
+            {'code': 'MA401', 'name': 'Probability & Random Processes', 'attended': 28, 'total': 30, 'percent': 0.933, 'status': 'EXCELLENT', 'buffer': '+5 classes buffer'},
+            {'code': 'EC404', 'name': 'Integrated Circuits Laboratory', 'attended': 17, 'total': 17, 'percent': 1.000, 'status': 'EXCELLENT', 'buffer': '+4 classes buffer'},
+          ];
+
+    final double cutoffPercent = 0.75;
+    final double marginAboveCutoff = ((attendancePercent - cutoffPercent) * 100).clamp(0.0, 100.0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -2059,8 +2204,8 @@ class ParentAttendanceDetailTab extends StatelessWidget {
                 AppCircularGauge(
                   radius: 40.0,
                   lineWidth: 8.0,
-                  percent: 0.885,
-                  center: Text('88.5%', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
+                  percent: attendancePercent,
+                  center: Text('${(attendancePercent * 100).toStringAsFixed(1)}%', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
                   progressColor: Colors.white,
                   backgroundColor: Colors.white24,
                 ),
@@ -2070,9 +2215,79 @@ class ParentAttendanceDetailTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('OVERALL ATTENDANCE', style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-                      Text('Alex Johnson • B.Tech CSE', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('$wardName • $wardDept', style: GoogleFonts.manrope(fontSize: 15.5, fontWeight: FontWeight.bold, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
-                      Text('131 / 147 Total Classes Attended (8.5% above cutoff)', style: GoogleFonts.manrope(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                      Text('$presentCount / $totalCount Total Classes Attended (${marginAboveCutoff.toStringAsFixed(1)}% above cutoff)', style: GoogleFonts.manrope(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.9))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Shortage Alert & Regulations Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDCFCE7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Shortage Status: Zero Alerts',
+                            style: GoogleFonts.manrope(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: const Color(0xFF14532D),
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22C55E),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'SAFE',
+                              style: GoogleFonts.manrope(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Minimum 75% attendance is required for semester exams. All current subjects for $wardName exceed the cutoff with zero shortage warnings.',
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          color: const Color(0xFF166534),
+                          height: 1.35,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2081,7 +2296,7 @@ class ParentAttendanceDetailTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          Text('Subject-wise Attendance', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('Subject-wise Attendance Progress', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
 
           Column(
@@ -2094,6 +2309,13 @@ class ParentAttendanceDetailTab extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2117,7 +2339,7 @@ class ParentAttendanceDetailTab extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${s['attended']} attended out of ${s['total']} classes', style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary)),
+                        Text('${s['attended']} attended out of ${s['total']} classes • ${s['buffer']}', style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary)),
                         Text('${(p * 100).toStringAsFixed(1)}%', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
                       ],
                     ),
@@ -2144,11 +2366,22 @@ class ParentAttendanceDetailTab extends StatelessWidget {
 // FULL TAB VIEW FOR PERFORMANCE MARKS & CGPA (TAB 2)
 class ParentAcademicPerformanceTab extends StatelessWidget {
   final Function(int index)? onNavigateToTab;
+  final ParentStudentWard? selectedWard;
 
-  const ParentAcademicPerformanceTab({super.key, this.onNavigateToTab});
+  const ParentAcademicPerformanceTab({
+    super.key,
+    this.onNavigateToTab,
+    this.selectedWard,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final ward = selectedWard;
+    final String cgpa = ward?.cgpa ?? '8.92';
+    final String wardName = ward?.name ?? 'Arun Kumar';
+    final String wardDept = ward?.department ?? 'Computer Science & Engineering';
+    final isCSE = wardDept.contains('Computer') || (ward?.regNo.contains('CSE') ?? true);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2163,7 +2396,7 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
                 },
               ),
               Text(
-                'Academic Performance Marks',
+                'Academic Performance & Progress',
                 style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
             ],
@@ -2190,7 +2423,8 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('CUMULATIVE GRADE POINT AVERAGE', style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-                    Text('8.92', style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
+                    Text(cgpa, style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
+                    Text('$wardName • $wardDept', style: GoogleFonts.manrope(fontSize: 12, color: Colors.white70)),
                   ],
                 ),
                 const Spacer(),
@@ -2200,10 +2434,10 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(14)),
-                      child: Text('Rank: #12 in Dept', style: GoogleFonts.manrope(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text(isCSE ? 'Rank: #18 in Dept' : 'Rank: #03 in Dept', style: GoogleFonts.manrope(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 6),
-                    Text('48 / 160 Credits Earned', style: GoogleFonts.manrope(color: Colors.white70, fontSize: 11)),
+                    Text(isCSE ? '96 / 160 Credits Earned' : '64 / 160 Credits Earned', style: GoogleFonts.manrope(color: Colors.white70, fontSize: 11)),
                   ],
                 ),
               ],
@@ -2211,20 +2445,36 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          Text('Semester Grades & SGPA Summary', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('Subject-wise Progress & Marks', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
           const SizedBox(height: 12),
 
-          _buildSemesterCard('Semester 4 (Autumn 2025)', '9.12', 'O Grade', [
-            {'subject': 'Advanced Algorithms', 'marks': '94/100', 'grade': 'O'},
-            {'subject': 'Computer Networks', 'marks': '88/100', 'grade': 'A+'},
-            {'subject': 'Software Engineering', 'marks': '90/100', 'grade': 'O'},
-          ]),
-          const SizedBox(height: 14),
-          _buildSemesterCard('Semester 3 (Spring 2025)', '8.75', 'A+ Grade', [
-            {'subject': 'Object Oriented Prog.', 'marks': '85/100', 'grade': 'A+'},
-            {'subject': 'Digital Logic Design', 'marks': '86/100', 'grade': 'A+'},
-            {'subject': 'Linear Algebra', 'marks': '89/100', 'grade': 'A+'},
-          ]),
+          if (isCSE) ...[
+            _buildSemesterCard('Semester 6 (Current Sem - Autumn 2026)', '8.45', 'O Grade', [
+              {'subject': 'Core Algorithms & Data Structures (CS601)', 'marks': '94/100', 'grade': 'O (Outstanding)', 'progress': '0.94'},
+              {'subject': 'Database Management Systems (CS602)', 'marks': '88/100', 'grade': 'A+ (Excellent)', 'progress': '0.88'},
+              {'subject': 'Operating Systems & Architecture (CS603)', 'marks': '85/100', 'grade': 'A (Very Good)', 'progress': '0.85'},
+              {'subject': 'Computer Networks & Security (CS604)', 'marks': '90/100', 'grade': 'O (Outstanding)', 'progress': '0.90'},
+            ]),
+            const SizedBox(height: 14),
+            _buildSemesterCard('Semester 5 (Spring 2026)', '8.20', 'A+ Grade', [
+              {'subject': 'Theory of Computation (CS501)', 'marks': '82/100', 'grade': 'A (Very Good)', 'progress': '0.82'},
+              {'subject': 'Software Engineering & Agile (CS502)', 'marks': '86/100', 'grade': 'A+ (Excellent)', 'progress': '0.86'},
+              {'subject': 'Object Oriented Analysis (CS503)', 'marks': '84/100', 'grade': 'A (Very Good)', 'progress': '0.84'},
+            ]),
+          ] else ...[
+            _buildSemesterCard('Semester 4 (Current Sem - Autumn 2026)', '9.25', 'O Grade', [
+              {'subject': 'Signals & Systems Analysis (EC401)', 'marks': '96/100', 'grade': 'O (Outstanding)', 'progress': '0.96'},
+              {'subject': 'Analog Circuits & Devices (EC402)', 'marks': '91/100', 'grade': 'O (Outstanding)', 'progress': '0.91'},
+              {'subject': 'Electromagnetic Fields & Waves (EC403)', 'marks': '89/100', 'grade': 'A+ (Excellent)', 'progress': '0.89'},
+              {'subject': 'Probability & Random Processes (MA401)', 'marks': '93/100', 'grade': 'O (Outstanding)', 'progress': '0.93'},
+            ]),
+            const SizedBox(height: 14),
+            _buildSemesterCard('Semester 3 (Spring 2026)', '9.00', 'O Grade', [
+              {'subject': 'Digital Electronics (EC301)', 'marks': '92/100', 'grade': 'O (Outstanding)', 'progress': '0.92'},
+              {'subject': 'Network Theory & Analysis (EC302)', 'marks': '88/100', 'grade': 'A+ (Excellent)', 'progress': '0.88'},
+              {'subject': 'Linear Integrated Circuits (EC303)', 'marks': '90/100', 'grade': 'O (Outstanding)', 'progress': '0.90'},
+            ]),
+          ],
           const SizedBox(height: 90),
         ],
       ),
@@ -2246,17 +2496,39 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text('SGPA: $sgpa', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('SGPA: $sgpa', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+              ),
             ],
           ),
           const Divider(height: 20),
           ...subs.map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(s['subject']!, style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary)),
-                    Text('${s['marks']} (${s['grade']})', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(s['subject']!, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        ),
+                        Text('${s['marks']} (${s['grade']})', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF2563EB))),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    AppLinearProgressBar(
+                      lineHeight: 6.0,
+                      percent: double.tryParse(s['progress'] ?? '0.8') ?? 0.8,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      progressColor: const Color(0xFF2563EB),
+                      borderRadius: 3.0,
+                    ),
                   ],
                 ),
               )),

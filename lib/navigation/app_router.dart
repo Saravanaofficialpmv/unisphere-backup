@@ -132,6 +132,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/signup',
         pageBuilder: (context, state) {
           final queryParams = state.uri.queryParameters;
+          List<String>? childRegNumbers;
+          if (queryParams['childRegNumbers'] != null && queryParams['childRegNumbers']!.isNotEmpty) {
+            childRegNumbers = queryParams['childRegNumbers']!
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          } else if (queryParams['id'] != null && queryParams['id']!.isNotEmpty) {
+            childRegNumbers = [queryParams['id']!.trim()];
+          }
+
           return AppRouteTransitions.slideFade(
             context: context,
             state: state,
@@ -142,6 +153,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               initialRole: queryParams['role'],
               initialId: queryParams['id'],
               initialDepartment: queryParams['department'],
+              initialPhone: queryParams['phone'],
+              initialChildRegNumbers: childRegNumbers,
             ),
           );
         },

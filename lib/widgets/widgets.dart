@@ -29,6 +29,7 @@ export 'student/student_full_detail_modal.dart';
 // Parent Domain Widgets
 export 'parent/parent_floating_nav_bar.dart';
 export 'parent/parent_navigation_sheet.dart';
+export 'parent/parent_quick_navigation_bar.dart';
 
 // Examination Widgets
 export 'exams/exam_card.dart';

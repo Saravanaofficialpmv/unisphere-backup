@@ -25,6 +25,7 @@ class ParentStudentWard {
   final DateTime feeDueDate;
   final String feeStatus;
   final bool isFeeOverdue;
+  final String todayStatus; // 'Present', 'Absent', 'On Leave'
   final List<ParentSubjectGrade> subjectGrades;
 
   ParentStudentWard({
@@ -51,8 +52,65 @@ class ParentStudentWard {
     required this.feeDueDate,
     required this.feeStatus,
     this.isFeeOverdue = false,
+    this.todayStatus = 'Present',
     required this.subjectGrades,
   });
+
+  ParentStudentWard copyWith({
+    String? id,
+    String? name,
+    String? regNo,
+    String? department,
+    String? yearSection,
+    String? currentYear,
+    String? currentSemester,
+    String? photoUrl,
+    String? avatarInitials,
+    double? attendancePercent,
+    int? presentCount,
+    int? absentCount,
+    int? leaveOdCount,
+    String? cgpa,
+    String? academicTrend,
+    String? academicStatus,
+    Color? statusColor,
+    double? totalFees,
+    double? paidFees,
+    double? pendingFees,
+    DateTime? feeDueDate,
+    String? feeStatus,
+    bool? isFeeOverdue,
+    String? todayStatus,
+    List<ParentSubjectGrade>? subjectGrades,
+  }) {
+    return ParentStudentWard(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      regNo: regNo ?? this.regNo,
+      department: department ?? this.department,
+      yearSection: yearSection ?? this.yearSection,
+      currentYear: currentYear ?? this.currentYear,
+      currentSemester: currentSemester ?? this.currentSemester,
+      photoUrl: photoUrl ?? this.photoUrl,
+      avatarInitials: avatarInitials ?? this.avatarInitials,
+      attendancePercent: attendancePercent ?? this.attendancePercent,
+      presentCount: presentCount ?? this.presentCount,
+      absentCount: absentCount ?? this.absentCount,
+      leaveOdCount: leaveOdCount ?? this.leaveOdCount,
+      cgpa: cgpa ?? this.cgpa,
+      academicTrend: academicTrend ?? this.academicTrend,
+      academicStatus: academicStatus ?? this.academicStatus,
+      statusColor: statusColor ?? this.statusColor,
+      totalFees: totalFees ?? this.totalFees,
+      paidFees: paidFees ?? this.paidFees,
+      pendingFees: pendingFees ?? this.pendingFees,
+      feeDueDate: feeDueDate ?? this.feeDueDate,
+      feeStatus: feeStatus ?? this.feeStatus,
+      isFeeOverdue: isFeeOverdue ?? this.isFeeOverdue,
+      todayStatus: todayStatus ?? this.todayStatus,
+      subjectGrades: subjectGrades ?? this.subjectGrades,
+    );
+  }
 
   /// Attendance health threshold status badge string & color
   String get attendanceHealthStatus {

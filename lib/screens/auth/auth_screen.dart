@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/parent_service.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
@@ -13,6 +15,8 @@ class AuthScreen extends ConsumerStatefulWidget {
   final String? initialRole;
   final String? initialId;
   final String? initialDepartment;
+  final String? initialPhone;
+  final List<String>? initialChildRegNumbers;
   
   const AuthScreen({
     super.key, 
@@ -22,6 +26,8 @@ class AuthScreen extends ConsumerStatefulWidget {
     this.initialRole,
     this.initialId,
     this.initialDepartment,
+    this.initialPhone,
+    this.initialChildRegNumbers,
   });
 
   @override
@@ -42,8 +48,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   late final TextEditingController _deptController;
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _phoneController;
+  final List<TextEditingController> _childRegControllers = [];
   
-  final UserRole _selectedRole = UserRole.student;
+  late UserRole _selectedRole;
   late bool _isSignUp;
   late final PageController _pageController;
   bool _isLoading = false;
@@ -64,7 +71,30 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _regNoController = TextEditingController(text: widget.initialId);
     _deptController = TextEditingController(text: widget.initialDepartment ?? 'Computer Science');
     _confirmPasswordController = TextEditingController();
-    _phoneController = TextEditingController();
+    _phoneController = TextEditingController(text: widget.initialPhone ?? '');
+
+    // Initialize Role based on onboarding query param
+    final roleLower = widget.initialRole?.toLowerCase();
+    if (roleLower == 'parent') {
+      _selectedRole = UserRole.parent;
+    } else if (roleLower == 'faculty' || roleLower == 'staff') {
+      _selectedRole = UserRole.staff;
+    } else if (roleLower == 'department (hod)' || roleLower == 'hod') {
+      _selectedRole = UserRole.hod;
+    } else {
+      _selectedRole = UserRole.student;
+    }
+
+    // Initialize child registration controllers
+    if (widget.initialChildRegNumbers != null && widget.initialChildRegNumbers!.isNotEmpty) {
+      for (final reg in widget.initialChildRegNumbers!) {
+        _childRegControllers.add(TextEditingController(text: reg));
+      }
+    } else if (widget.initialId != null && widget.initialId!.isNotEmpty && _selectedRole == UserRole.parent) {
+      _childRegControllers.add(TextEditingController(text: widget.initialId));
+    } else {
+      _childRegControllers.add(TextEditingController());
+    }
   }
 
   @override
@@ -77,6 +107,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _deptController.dispose();
     _confirmPasswordController.dispose();
     _phoneController.dispose();
+    for (final c in _childRegControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -132,21 +165,61 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       if (_isSignUp) {
         final name = _nameController.text.trim();
-        await ref.read(authServiceProvider).registerWithEmail(
-          _emailController.text.trim(),
-          _passwordController.text,
-          name.isNotEmpty ? name : 'New Student',
-          _selectedRole,
-          phoneNumber: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
-          metadata: {
-            'fullName': name,
-            'registerNumber': _regNoController.text.trim(),
-            'department': _deptController.text.trim(),
-            'collegeEmail': _emailController.text.trim(),
-            'profileCompletionStatus': 'incomplete',
-            'profileCompletionPercentage': 10,
-          },
-        );
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
+        final phone = _phoneController.text.trim();
+
+        if (_selectedRole == UserRole.parent) {
+          final childRegs = _childRegControllers
+              .map((c) => c.text.trim().toUpperCase())
+              .where((t) => t.isNotEmpty)
+              .toSet()
+              .toList();
+
+          await ref.read(authServiceProvider).registerWithEmail(
+            email,
+            password,
+            name.isNotEmpty ? name : 'Parent / Guardian',
+            UserRole.parent,
+            phoneNumber: phone.isNotEmpty ? phone : null,
+            metadata: {
+              'fullName': name,
+              'phone': phone,
+              'wardRegisterNumbers': childRegs,
+              'studentIds': childRegs,
+              'role': 'parent',
+              'profileCompletionStatus': 'complete',
+            },
+          );
+
+          final currentUser = ref.read(authServiceProvider).currentUser;
+          if (currentUser != null) {
+            await ref.read(parentServiceProvider).linkParentWithChildren(
+              parentId: currentUser.uid,
+              userId: currentUser.uid,
+              parentName: name.isNotEmpty ? name : 'Parent / Guardian',
+              phone: phone,
+              email: email,
+              childRegisterNumbers: childRegs,
+            );
+          }
+        } else {
+          await ref.read(authServiceProvider).registerWithEmail(
+            email,
+            password,
+            name.isNotEmpty ? name : 'New Student',
+            _selectedRole,
+            phoneNumber: phone.isNotEmpty ? phone : null,
+            metadata: {
+              'fullName': name,
+              'registerNumber': _regNoController.text.trim(),
+              'department': _deptController.text.trim(),
+              'collegeEmail': email,
+              'profileCompletionStatus': 'incomplete',
+              'profileCompletionPercentage': 10,
+            },
+          );
+        }
       } else {
         await ref.read(authServiceProvider).signInWithEmail(
           _emailController.text.trim(),
@@ -521,63 +594,205 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Widget _buildSignupForm() {
+    final isParent = _selectedRole == UserRole.parent;
+
     return Column(
       key: const ValueKey('signup_form'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Student Full Name', style: _labelStyle),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _nameController,
-          hint: 'e.g. Saravana Perumal S',
-          icon: Icons.person_outline,
-          validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Please enter student full name' : null,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Register Number', style: _labelStyle),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _regNoController,
-                    hint: 'e.g. 922523243100',
-                    icon: Icons.badge_outlined,
-                    validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Reg No' : null,
+        if (isParent) ...[
+          // Role indicator badge for Parent
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.family_restroom_rounded, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Parent Account Registration with Multi-Child Linking',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
                   ),
+                ),
+              ],
+            ),
+          ),
+          const Text('Parent / Guardian Full Name', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _nameController,
+            hint: 'e.g. Ramesh Swamy',
+            icon: Icons.person_outline,
+            validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Please enter parent full name' : null,
+          ),
+          const SizedBox(height: 16),
+          const Text('Parent Contact Phone Number', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _phoneController,
+            hint: 'e.g. +91 94444 12345 (For campus SMS)',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Linked Children Register Numbers (${_childRegControllers.length})',
+                style: _labelStyle,
+              ),
+              if (_childRegControllers.length > 1)
+                Text(
+                  '${_childRegControllers.length} siblings',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(_childRegControllers.length, (index) {
+            final isPrimary = index == 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _childRegControllers[index],
+                      textCapitalization: TextCapitalization.characters,
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                      validator: (val) {
+                        if (!_isSignUp) return null;
+                        if (isPrimary && (val == null || val.trim().isEmpty)) {
+                          return 'Please enter at least 1 child register number';
+                        }
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: isPrimary ? 'Child 1 Reg No (e.g. 917721104012)' : 'Child ${index + 1} Reg No (Sibling)',
+                        hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+                        prefixIcon: Icon(
+                          isPrimary ? Icons.school_rounded : Icons.person_add_alt_1_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                  if (!isPrimary)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                      onPressed: () {
+                        setState(() {
+                          _childRegControllers[index].dispose();
+                          _childRegControllers.removeAt(index);
+                        });
+                      },
+                    ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Department', style: _labelStyle),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _deptController,
-                    hint: 'e.g. Computer Science',
-                    icon: Icons.school_outlined,
-                    validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
-                  ),
-                ],
+            );
+          }),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  _childRegControllers.add(TextEditingController());
+                });
+              },
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: AppColors.primary),
+              label: const Text(
+                '+ Add Another Child (Sibling)',
+                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Text('College Email Address', style: _labelStyle),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _emailController,
-          hint: 'student@vsbec.ac.in',
-          icon: Icons.email_outlined,
-          validator: (val) => _isSignUp && (val == null || !val.contains('@')) ? 'Valid college email required' : null,
-        ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Parent Email Address', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _emailController,
+            hint: 'parent@example.com',
+            icon: Icons.email_outlined,
+            validator: (val) => _isSignUp && (val == null || !val.contains('@')) ? 'Valid email required' : null,
+          ),
+        ] else ...[
+          const Text('Student Full Name', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _nameController,
+            hint: 'e.g. Saravana Perumal S',
+            icon: Icons.person_outline,
+            validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Please enter student full name' : null,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Register Number', style: _labelStyle),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _regNoController,
+                      hint: 'e.g. 922523243100',
+                      icon: Icons.badge_outlined,
+                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Reg No' : null,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Department', style: _labelStyle),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _deptController,
+                      hint: 'e.g. Computer Science',
+                      icon: Icons.school_outlined,
+                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('College Email Address', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _emailController,
+            hint: 'student@vsbec.ac.in',
+            icon: Icons.email_outlined,
+            validator: (val) => _isSignUp && (val == null || !val.contains('@')) ? 'Valid college email required' : null,
+          ),
+        ],
         const SizedBox(height: 16),
         const Text('Password', style: _labelStyle),
         const SizedBox(height: 8),
@@ -909,12 +1124,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     IconData? icon,
     bool isPassword = false,
     bool obscureText = false,
+    TextInputType? keyboardType,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
+      keyboardType: keyboardType,
       cursorColor: AppColors.primary,
       obscureText: obscureText,
       validator: validator,

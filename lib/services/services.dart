@@ -17,6 +17,7 @@ export 'staff_service.dart';
 export 'admin_service.dart';
 export 'parent_service.dart';
 export 'department_service.dart';
+export 'institution_service.dart';
 
 // Hackathon Engine & Loggers
 export 'hackathon_service.dart';

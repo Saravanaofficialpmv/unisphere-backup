@@ -271,7 +271,7 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                         onChanged: (val) => setState(() => _searchQuery = val.trim()),
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search attendance, marks, fees, alerts...',
+                          hintText: 'Search academics, attendance, exams, updates...',
                           hintStyle: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
                           prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
                           suffixIcon: _searchQuery.isNotEmpty
