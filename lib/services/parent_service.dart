@@ -350,7 +350,6 @@ class ParentService {
       },
       'RA2111003010001': {'fullName': 'Alex Johnson', 'name': 'Alex Johnson', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
       '917721104012': {'fullName': 'Aravind Swamy', 'name': 'Aravind Swamy', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-      '917722104022': {'fullName': 'Karthik Raja', 'name': 'Karthik Raja', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
       '917721104045': {'fullName': 'Priya Dharshini', 'name': 'Priya Dharshini', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
     };
 
