@@ -170,6 +170,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final phone = _phoneController.text.trim();
 
         if (_selectedRole == UserRole.parent) {
+          for (int i = 0; i < _childRegControllers.length; i++) {
+            final reg = _childRegControllers[i].text.trim();
+            if (reg.isEmpty) {
+              _showSnackBar(
+                i == 0
+                    ? 'Please enter student register number'
+                    : 'Please fill sibling ${i + 1} register number or delete the field',
+                AppColors.error,
+              );
+              return;
+            }
+            if (reg.length != 12) {
+              _showSnackBar(
+                i == 0
+                    ? 'Student register number must be exactly 12 digits'
+                    : 'Sibling ${i + 1} register number must be exactly 12 digits',
+                AppColors.error,
+              );
+              return;
+            }
+          }
+
           final childRegs = _childRegControllers
               .map((c) => c.text.trim().toUpperCase())
               .where((t) => t.isNotEmpty)
@@ -204,6 +226,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             );
           }
         } else {
+          final regNo = _regNoController.text.trim();
+          if (_selectedRole == UserRole.student && (regNo.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(regNo))) {
+            _showSnackBar('Register number must be exactly 12 digits', AppColors.error);
+            return;
+          }
+
           await ref.read(authServiceProvider).registerWithEmail(
             email,
             password,
@@ -212,7 +240,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             phoneNumber: phone.isNotEmpty ? phone : null,
             metadata: {
               'fullName': name,
-              'registerNumber': _regNoController.text.trim(),
+              'registerNumber': regNo,
               'department': _deptController.text.trim(),
               'collegeEmail': email,
               'profileCompletionStatus': 'incomplete',
@@ -432,6 +460,54 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  static final RegExp _emailRegExp = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
+
+  String? _validateEmail(String? val, {bool isCollege = false}) {
+    final clean = val?.trim() ?? '';
+    if (clean.isEmpty) {
+      return isCollege ? 'Please enter college email address' : 'Please enter your email address';
+    }
+    if (!_emailRegExp.hasMatch(clean)) {
+      return 'Enter a valid email address (e.g. name@domain.com)';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? val) {
+    if (!_isSignUp) return null;
+    final clean = val?.trim() ?? '';
+    if (clean.isEmpty) {
+      return 'Please enter 10-digit mobile number';
+    }
+    final digits = clean.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) {
+      return 'Phone number must be exactly 10 digits';
+    }
+    return null;
+  }
+
+  String? _validateName(String? val, {String entity = 'full'}) {
+    if (!_isSignUp) return null;
+    final clean = val?.trim() ?? '';
+    if (clean.isEmpty) return 'Please enter $entity name';
+    if (RegExp(r'[0-9]').hasMatch(clean) || !RegExp(r'^[a-zA-Z\s\.]+$').hasMatch(clean)) {
+      return 'Name must contain letters only';
+    }
+    return null;
+  }
+
+  String? _validateRegNo(String? val, {String label = 'register number'}) {
+    if (!_isSignUp) return null;
+    final clean = val?.trim() ?? '';
+    if (clean.isEmpty) return 'Please enter $label';
+    if (clean.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(clean)) {
+      return 'Must be exactly 12 digits';
+    }
+    return null;
+  }
+
   Widget _buildLoginForm() {
     return Column(
       key: const ValueKey('login_form'),
@@ -443,7 +519,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           controller: _emailController,
           hint: 'example@unisphere.edu',
           icon: Icons.email_outlined,
-          validator: (val) => val == null || !val.contains('@') ? 'Enter a valid email' : null,
+          keyboardType: TextInputType.emailAddress,
+          validator: (val) => _validateEmail(val),
         ),
         const SizedBox(height: 24),
         const Text('Password', style: _labelStyle),
@@ -601,48 +678,30 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isParent) ...[
-          // Role indicator badge for Parent
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.family_restroom_rounded, color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Parent Account Registration with Multi-Child Linking',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           const Text('Parent / Guardian Full Name', style: _labelStyle),
           const SizedBox(height: 8),
           _buildTextField(
             controller: _nameController,
-            hint: 'e.g. Ramesh Swamy',
+            hint: 'Enter parent / guardian full name',
             icon: Icons.person_outline,
-            validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Please enter parent full name' : null,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]')),
+            ],
+            validator: (val) => _validateName(val, entity: 'parent full'),
           ),
           const SizedBox(height: 16),
           const Text('Parent Contact Phone Number', style: _labelStyle),
           const SizedBox(height: 8),
           _buildTextField(
             controller: _phoneController,
-            hint: 'e.g. +91 94444 12345 (For campus SMS)',
+            hint: 'Enter 10-digit mobile number',
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+            validator: _validatePhone,
           ),
           const SizedBox(height: 20),
           Row(
@@ -675,18 +734,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _childRegControllers[index],
-                      textCapitalization: TextCapitalization.characters,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(12),
+                      ],
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-                      validator: (val) {
-                        if (!_isSignUp) return null;
-                        if (isPrimary && (val == null || val.trim().isEmpty)) {
-                          return 'Please enter at least 1 child register number';
-                        }
-                        return null;
-                      },
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      validator: (val) => _validateRegNo(
+                        val,
+                        label: isPrimary ? 'student register number' : 'sibling register number',
+                      ),
                       decoration: InputDecoration(
                         isDense: true,
-                        hintText: isPrimary ? 'Child 1 Reg No (e.g. 917721104012)' : 'Child ${index + 1} Reg No (Sibling)',
+                        hintText: isPrimary ? 'Enter 12-digit register number' : 'Enter 12-digit sibling register number',
                         hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
                         prefixIcon: Icon(
                           isPrimary ? Icons.school_rounded : Icons.person_add_alt_1_rounded,
@@ -736,16 +797,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             controller: _emailController,
             hint: 'parent@example.com',
             icon: Icons.email_outlined,
-            validator: (val) => _isSignUp && (val == null || !val.contains('@')) ? 'Valid email required' : null,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) => _validateEmail(val),
           ),
         ] else ...[
           const Text('Student Full Name', style: _labelStyle),
           const SizedBox(height: 8),
           _buildTextField(
             controller: _nameController,
-            hint: 'e.g. Saravana Perumal S',
+            hint: 'Enter full name',
             icon: Icons.person_outline,
-            validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Please enter student full name' : null,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]')),
+            ],
+            validator: (val) => _validateName(val, entity: 'student full'),
           ),
           const SizedBox(height: 16),
           Row(
@@ -758,9 +823,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _regNoController,
-                      hint: 'e.g. 922523243100',
+                      hint: 'Enter 12-digit register number',
                       icon: Icons.badge_outlined,
-                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Reg No' : null,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(12),
+                      ],
+                      validator: (val) => _validateRegNo(val),
                     ),
                   ],
                 ),
@@ -774,7 +844,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _deptController,
-                      hint: 'e.g. Computer Science',
+                      hint: 'Enter department name',
                       icon: Icons.school_outlined,
                       validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
                     ),
@@ -790,7 +860,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             controller: _emailController,
             hint: 'student@vsbec.ac.in',
             icon: Icons.email_outlined,
-            validator: (val) => _isSignUp && (val == null || !val.contains('@')) ? 'Valid college email required' : null,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) => _validateEmail(val, isCollege: true),
           ),
         ],
         const SizedBox(height: 16),
@@ -1125,6 +1196,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     bool isPassword = false,
     bool obscureText = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
@@ -1132,6 +1204,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       cursorColor: AppColors.primary,
       obscureText: obscureText,
       validator: validator,

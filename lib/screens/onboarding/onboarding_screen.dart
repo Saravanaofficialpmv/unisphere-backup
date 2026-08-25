@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/core/constants/app_departments.dart';
+import 'package:unisphere/screens/onboarding/widgets/campus_hero_art.dart';
 import 'package:unisphere/services/parent_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -14,8 +14,14 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  // Main Step Controller:
+  // Step 0: Single Main Onboarding Landing Page
+  // Step 1: Role Selection
+  // Step 2: Name Input
+  // Step 3: Academic / Multi-child Details
+  // Step 4: Final Welcome
+  final PageController _mainPageController = PageController();
+  int _currentMainStep = 0;
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _idController = TextEditingController();
@@ -29,6 +35,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Selection states
   String? _selectedRole;
   String? _selectedDept;
+
+  // Inline Validation Error States (Highlights boxes in red instead of popup snackbars)
+  bool _hasRoleError = false;
+  bool _hasNameError = false;
+  String _nameErrorMessage = 'Please enter your name';
+  bool _hasIdError = false;
+  String _idErrorMessage = 'Please enter your ID';
+  bool _hasDeptError = false;
+  final Set<int> _childErrors = {};
 
   final List<String> _roles = ['Student', 'Faculty', 'Department (HOD)', 'Parent'];
   final List<String> _departments = AppDepartments.list;
@@ -47,11 +62,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _childRegControllers[index].dispose();
       _childRegControllers.removeAt(index);
       _childMatches.remove(index);
+      _childErrors.remove(index);
     });
   }
 
   Future<void> _checkStudentMatch(int index, String regNo) async {
     final clean = regNo.trim();
+    if (_childErrors.contains(index) && clean.length == 12) {
+      setState(() => _childErrors.remove(index));
+    }
+
     if (clean.length < 3) {
       if (_childMatches.containsKey(index)) {
         setState(() => _childMatches.remove(index));
@@ -71,67 +91,109 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _onNext() {
-    if (_currentPage < 4) {
-      // Role Validation
-      if (_currentPage == 1 && _selectedRole == null) {
-        _showError('Please select a role to continue');
-        return;
-      }
-      // Name Validation
-      if (_currentPage == 2 && _nameController.text.trim().isEmpty) {
-        _showError('Please enter your name to continue');
-        return;
-      }
-      // Details Validation
-      if (_currentPage == 3) {
-        if (_selectedRole == 'Parent') {
-          final validRegs = _childRegControllers
-              .map((c) => c.text.trim())
-              .where((t) => t.isNotEmpty)
-              .toList();
+  void _goToStep(int step) {
+    HapticFeedback.lightImpact();
+    _mainPageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
-          if (validRegs.isEmpty) {
-            _showError('Please enter at least one child\'s register number');
+  void _onStepNext() {
+    HapticFeedback.lightImpact();
+    if (_currentMainStep == 0) {
+      _goToStep(1);
+      return;
+    }
+
+    if (_currentMainStep < 4) {
+      // Step 1: Role Validation
+      if (_currentMainStep == 1) {
+        if (_selectedRole == null) {
+          HapticFeedback.mediumImpact();
+          setState(() => _hasRoleError = true);
+          return;
+        }
+      }
+
+      // Step 2: Name Validation (Must be letters only)
+      if (_currentMainStep == 2) {
+        final nameText = _nameController.text.trim();
+        if (nameText.isEmpty) {
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _hasNameError = true;
+            _nameErrorMessage = 'Please enter your name';
+          });
+          return;
+        }
+        if (RegExp(r'[0-9]').hasMatch(nameText) || !RegExp(r'^[a-zA-Z\s\.]+$').hasMatch(nameText)) {
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _hasNameError = true;
+            _nameErrorMessage = 'Name must contain letters only';
+          });
+          return;
+        }
+      }
+
+      // Step 3: Details Validation (Register numbers must be 12 digits)
+      if (_currentMainStep == 3) {
+        if (_selectedRole == 'Parent') {
+          _childErrors.clear();
+          for (int i = 0; i < _childRegControllers.length; i++) {
+            final reg = _childRegControllers[i].text.trim();
+            if (reg.isEmpty || reg.length != 12) {
+              _childErrors.add(i);
+            }
+          }
+          if (_childErrors.isNotEmpty) {
+            HapticFeedback.mediumImpact();
+            setState(() {});
             return;
           }
         } else {
-          if (_idController.text.trim().isEmpty) {
-            _showError('Please enter your ID to continue');
-            return;
+          bool hasError = false;
+          final idText = _idController.text.trim();
+          if (idText.isEmpty) {
+            _hasIdError = true;
+            _idErrorMessage = 'Please enter your ID';
+            hasError = true;
+          } else if (_selectedRole == 'Student' && (idText.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(idText))) {
+            _hasIdError = true;
+            _idErrorMessage = 'Register number must be 12 digits';
+            hasError = true;
           }
           if (_selectedDept == null) {
-            _showError('Please select your department');
+            _hasDeptError = true;
+            hasError = true;
+          }
+          if (hasError) {
+            HapticFeedback.mediumImpact();
+            setState(() {});
             return;
           }
         }
       }
 
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOutCubic,
-      );
+      _goToStep(_currentMainStep + 1);
     } else {
       _completeOnboarding();
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+  void _onBack() {
+    HapticFeedback.lightImpact();
+    if (_currentMainStep > 0) {
+      _goToStep(_currentMainStep - 1);
+    }
   }
 
   void _completeOnboarding() {
     final name = _nameController.text.trim();
     final role = _selectedRole ?? 'Student';
-    
-    // Split name for signup prepopulation
+
     final nameParts = name.split(' ');
     final firstName = nameParts.first;
     final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
@@ -165,7 +227,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _mainPageController.dispose();
     _nameController.dispose();
     _idController.dispose();
     _parentPhoneController.dispose();
@@ -177,169 +239,866 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+    final size = MediaQuery.of(context).size;
+    final heroHeight = (size.height * 0.46).clamp(300.0, 440.0);
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 80;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
           children: [
-            _buildHeader(),
-            Expanded(
+            // ── MAIN PAGE CONTENT ──────────────────────────────────────────
+            Positioned.fill(
               child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) => setState(() => _currentPage = index),
+                controller: _mainPageController,
                 physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _currentMainStep = index),
                 children: [
-                   _buildIntroPage(),
-                  _buildRoleSelectionPage(),
-                  _buildNameInputPage(),
-                  _buildDetailsPage(),
-                  _buildFinalPage(),
+                  _buildMainIntroPage(heroHeight),
+                  _buildRoleSelectionStep(heroHeight),
+                  _buildNameInputStep(heroHeight),
+                  _buildDetailsStep(heroHeight),
+                  _buildFinalWelcomeStep(heroHeight),
                 ],
               ),
             ),
-            _buildFooter(),
+
+            // ── FLOATING TOP APP BAR & NAVIGATION ──────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: _buildTopOverlayHeader(),
+              ),
+            ),
+
+            // ── FLOATING BOTTOM CONTROLS BAR ───────────────────────────────
+            if (!isKeyboardOpen)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  child: _buildBottomControlsBar(),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.school, color: AppColors.primary, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'UNISPHERE',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-            ],
-          ),
-          if (_currentPage < 4)
-            TextButton(
-              onPressed: _completeOnboarding,
-              child: Text(
-                'Skip',
-                style: TextStyle(
-                  color: AppColors.textSecondary.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  // ── FLOATING TOP HEADER (BACK BUTTON ON SUBSEQUENT STEPS) ─────────────────
+  Widget _buildTopOverlayHeader() {
+    final showBackButton = _currentMainStep > 0;
+    if (!showBackButton) return const SizedBox.shrink();
 
-  Widget _buildFooter() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Indicators
-          Row(
-            children: List.generate(
-              5,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.only(right: 6),
-                height: 6,
-                width: _currentPage == index ? 20 : 6,
-                decoration: BoxDecoration(
-                  color: _currentPage == index
-                      ? AppColors.primary
-                      : AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(3),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          onTap: _onBack,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.88),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-              ),
+              ],
             ),
-          ),
-          // Next Button
-          GestureDetector(
-            onTap: _onNext,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: EdgeInsets.symmetric(
-                horizontal: _currentPage == 4 ? 32 : 16,
-                vertical: 16,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_currentPage == 4) ...[
-                    const Text(
-                      "Launch App",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
-                ],
-              ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 16,
+              color: Color(0xFF0F172A),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIntroPage() {
-    return Column(
-      children: [
-        Expanded(
-          child: _buildPageLayout(
-            title: 'Your Entire Campus,\nIn Your Pocket',
-            subtitle: 'Effortlessly manage attendance, grades, and communication in one premium platform.',
-            illustration: _buildIllustration(Icons.auto_awesome),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: TextButton(
-            onPressed: () => context.go('/login'),
-            child: Text.rich(
-              TextSpan(
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+      ),
+    );
+  }
+
+  // ── SINGLE MAIN INTRO LANDING PAGE (EXACT TARGET LAYOUT) ────────────────
+  Widget _buildMainIntroPage(double heroHeight) {
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Top Immersive Hero Visual
+          CampusHeroArt(height: heroHeight),
+
+          // 2. Content Card
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 22, 26, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Bold Headline
+                const Text(
+                  'Your Entire Campus,\nIn Your Pocket',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                    letterSpacing: -0.8,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Subtitle
+                const Text(
+                  'Effortlessly manage attendance, grades, notices, and smart campus workflows in one unified platform.',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 15,
+                    height: 1.45,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 75),
+
+                // Already have an account? Login
+                Center(
+                  child: GestureDetector(
+                    onTap: () => context.go('/login'),
+                    child: RichText(
+                      text: const TextSpan(
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        children: [
+                          TextSpan(text: 'Already have an account? '),
+                          TextSpan(
+                            text: 'Login',
+                            style: TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w800,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 120), // clearance for bottom floating bar
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── FLOATING FEATURE PILL BADGE ──────────────────────────────────────────
+  Widget _buildFeatureBadge({
+    String? icon,
+    String? imageAsset,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (imageAsset != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                imageAsset,
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.school, size: 16, color: AppColors.primary),
+              ),
+            )
+          else if (icon != null)
+            Text(icon, style: const TextStyle(fontSize: 15)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SEAMLESS FULL-BLEED SOFT BLUE GRADIENT WRAPPER (STEPS 1-4) ────────────
+  Widget _buildStepBackgroundWithSoftGradient({required Widget child}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Rich Sky Blue Linear Base Canopy
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFBFDBFE), // Vibrant Soft Sky Blue (Blue-200)
+                Color(0xFFDBEAFE), // Soft Blue Tint (Blue-100)
+                Color(0xFFEFF6FF), // Whispering Ice Blue (Blue-50)
+                Color(0xFFF8FAFC), // Ultra Light Mist
+                Colors.white,      // Pure White Seamless
+              ],
+              stops: [0.0, 0.18, 0.36, 0.54, 0.72],
+            ),
+          ),
+        ),
+
+        // 2. Soft Ambient Luminous Radial Glow (in top corners)
+        Positioned(
+          top: -60,
+          left: -40,
+          child: Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF60A5FA).withValues(alpha: 0.30),
+                  const Color(0xFF93C5FD).withValues(alpha: 0.10),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -70,
+          right: -40,
+          child: Container(
+            width: 280,
+            height: 280,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                  const Color(0xFF93C5FD).withValues(alpha: 0.08),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 3. Step Scrollable Content
+        child,
+      ],
+    );
+  }
+
+  // ── STEP 1: ROLE SELECTION ───────────────────────────────────────────────
+  Widget _buildRoleSelectionStep(double heroHeight) {
+    final topClearance = MediaQuery.of(context).padding.top + 58.0;
+
+    return _buildStepBackgroundWithSoftGradient(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: topClearance),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const TextSpan(text: 'Already have an account? '),
-                  TextSpan(
-                    text: 'Login',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                  _buildFeatureBadge(icon: '🎓', label: 'Personalize Your Hub'),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Tell Us Who\nYou Are',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          height: 1.15,
+                          letterSpacing: -0.8,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      if (_hasRoleError)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'Select your role',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'We will tailor your campus workspace and permissions for your role.',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                // 2x2 Roles Grid
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 1.08,
+                  ),
+                  itemCount: _roles.length,
+                  itemBuilder: (context, index) {
+                    final role = _roles[index];
+                    final isSelected = _selectedRole == role;
+                    return _buildRoleCard(role, isSelected);
+                  },
+                ),
+                const SizedBox(height: 130), // Ample clearance for floating bottom bar
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+  Widget _buildRoleCard(String role, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _selectedRole = role;
+          _hasRoleError = false;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF0F172A)
+                : (_hasRoleError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0)),
+            width: isSelected ? 2 : (_hasRoleError ? 1.8 : 1.2),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? const Color(0xFF0F172A).withValues(alpha: 0.22)
+                  : (_hasRoleError ? const Color(0xFFEF4444).withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.03)),
+              blurRadius: isSelected ? 16 : 8,
+              offset: Offset(0, isSelected ? 6 : 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Top-right checkmark when selected
+            if (isSelected)
+              const Positioned(
+                top: 0,
+                right: 0,
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+
+            // Centered Content
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : AppColors.primary.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _getRoleIcon(role),
+                      size: 26,
+                      color: isSelected ? Colors.white : AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    role,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                      height: 1.2,
+                    ),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── STEP 2: NAME INPUT ───────────────────────────────────────────────────
+  Widget _buildNameInputStep(double heroHeight) {
+    final isParent = _selectedRole == 'Parent';
+    final topClearance = MediaQuery.of(context).padding.top + 58.0;
+
+    return _buildStepBackgroundWithSoftGradient(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: topClearance),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFeatureBadge(icon: '👤', label: 'Profile Setup'),
+                  const SizedBox(height: 14),
+                  Text(
+                    isParent ? 'Parent / Guardian\nFull Name' : 'What\'s Your\nFull Name?',
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      height: 1.14,
+                      letterSpacing: -0.8,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    isParent
+                        ? 'This is how student advisors, faculty, and administration identify you.'
+                        : 'This is how you will appear across attendance rosters, assignments, and campus notices.',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 14.5,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Name Input Field (Highlighted with red border if empty / invalid)
+                  _buildStyledInputField(
+                    controller: _nameController,
+                    hint: isParent ? 'Enter parent / guardian full name' : 'Enter your full name',
+                    icon: isParent ? Icons.family_restroom_rounded : Icons.person_outline_rounded,
+                    label: 'Full Legal Name',
+                    hasError: _hasNameError,
+                    errorMessage: _nameErrorMessage,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]')),
+                    ],
+                    onChanged: (val) {
+                      if (_hasNameError && val.trim().isNotEmpty) {
+                        setState(() => _hasNameError = false);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 110),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── STEP 3: DETAILS (ACADEMIC / MULTI-CHILD) ─────────────────────────────
+  Widget _buildDetailsStep(double heroHeight) {
+    final isParent = _selectedRole == 'Parent';
+    final topClearance = MediaQuery.of(context).padding.top + 58.0;
+
+    return _buildStepBackgroundWithSoftGradient(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: topClearance),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: isParent
+                  ? _buildParentWardLinkingSection()
+                  : _buildStandardDetailsSection(),
+            ),
+            const SizedBox(height: 110),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openDepartmentPicker() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _departments
+                .where((d) => d.toLowerCase().contains(searchQuery.toLowerCase()))
+                .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.72,
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Drag handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Department',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${_departments.length} programs',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Search Field
+                    TextField(
+                      autofocus: false,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: 'Search department name...',
+                        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // List
+                    Expanded(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final dept = filtered[index];
+                          final isSelected = _selectedDept == dept;
+
+                          return InkWell(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _selectedDept = dept;
+                                _hasDeptError = false;
+                              });
+                              Navigator.pop(context);
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF0F172A)
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.school_outlined,
+                                    size: 20,
+                                    color: isSelected ? Colors.white : AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      dept,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildStandardDetailsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFeatureBadge(icon: '🏛️', label: 'Academic Linking'),
+        const SizedBox(height: 12),
+        const Text(
+          'Campus ID &\nDepartment',
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1.14,
+            letterSpacing: -0.8,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Provide your institution credentials to link your academic records.',
+          style: TextStyle(color: Color(0xFF64748B), fontSize: 14.5, height: 1.4),
+        ),
+        const SizedBox(height: 26),
+
+        // Campus ID Field (Highlighted with red border if empty / invalid)
+        _buildStyledInputField(
+          controller: _idController,
+          hint: _selectedRole == 'Student' ? 'Enter 12-digit register number' : 'Enter your campus ID / employee ID',
+          icon: Icons.badge_outlined,
+          label: _selectedRole == 'Student' ? 'Campus Register Number' : 'Campus Register / Employee ID',
+          keyboardType: _selectedRole == 'Student' ? TextInputType.number : null,
+          inputFormatters: _selectedRole == 'Student'
+              ? [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(12),
+                ]
+              : null,
+          hasError: _hasIdError,
+          errorMessage: _idErrorMessage,
+          onChanged: (val) {
+            if (_hasIdError && val.trim().isNotEmpty) {
+              setState(() => _hasIdError = false);
+            }
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // Department Picker Field (Highlighted with red border if empty)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Academic Department',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: _hasDeptError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+              ),
+            ),
+            if (_hasDeptError)
+              const Text(
+                'Please select department',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () {
+            setState(() => _hasDeptError = false);
+            _openDepartmentPicker();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: _hasDeptError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _hasDeptError
+                    ? const Color(0xFFEF4444)
+                    : (_selectedDept != null ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0)),
+                width: (_hasDeptError || _selectedDept != null) ? 1.8 : 1.0,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.account_balance_outlined,
+                  color: _hasDeptError ? const Color(0xFFEF4444) : const Color(0xFF475569),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _selectedDept ?? 'Select your department',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: _selectedDept != null ? FontWeight.w700 : FontWeight.w500,
+                      color: _hasDeptError
+                          ? const Color(0xFFEF4444)
+                          : (_selectedDept != null ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: _selectedDept != null ? const Color(0xFF0F172A).withValues(alpha: 0.08) : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _selectedDept != null ? Icons.check_circle_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: _hasDeptError
+                        ? const Color(0xFFEF4444)
+                        : (_selectedDept != null ? const Color(0xFF0F172A) : const Color(0xFF64748B)),
+                    size: 20,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -347,269 +1106,156 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildRoleSelectionPage() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tell us who you are',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'We will tailor your experience based on your role.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-          ),
-          const SizedBox(height: 40),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: _roles.length,
-              itemBuilder: (context, index) {
-                final role = _roles[index];
-                final isSelected = _selectedRole == role;
-                return _buildSelectionCard(
-                  title: role,
-                  icon: _getRoleIcon(role),
-                  isSelected: isSelected,
-                  onTap: () => setState(() => _selectedRole = role),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNameInputPage() {
-    final isParent = _selectedRole == 'Parent';
-    final roleText = isParent ? 'parent' : (_selectedRole?.toLowerCase() ?? 'user');
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isParent ? 'Parent / Guardian Name' : 'What\'s your name?',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isParent
-                ? 'This is how student advisors, faculty, and administration identify you.'
-                : 'This is how other ${roleText}s will see you on Unisphere.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-          ),
-          const SizedBox(height: 48),
-          _buildTextField(
-            controller: _nameController,
-            hint: isParent ? 'Enter parent / guardian full name' : 'Enter your full name',
-            icon: isParent ? Icons.family_restroom : Icons.person_outline,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsPage() {
-    final isParent = _selectedRole == 'Parent';
-
-    return Scrollbar(
-      thumbVisibility: true,
-      thickness: 6,
-      radius: const Radius.circular(8),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 80.0),
-        child: isParent ? _buildParentWardLinkingSection() : _buildStandardDetailsSection(),
-      ),
-    );
-  }
-
   Widget _buildParentWardLinkingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.family_restroom_rounded, color: AppColors.primary, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Link Your Children',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                  ),
-                  Text(
-                    'Multi-child linking enabled',
-                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        _buildFeatureBadge(icon: '👨‍👩‍👧', label: 'Multi-Child Family Portal'),
         const SizedBox(height: 12),
-        Text(
-          'Enter the register number of your child or multiple children (siblings) to monitor their academics, attendance, marks, and fees in one parent portal.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.45),
-        ),
-        const SizedBox(height: 24),
-
-        // Optional Parent Mobile Number
         const Text(
-          'Parent Contact Phone Number',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+          'Link Your\nChildren',
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1.14,
+            letterSpacing: -0.8,
+            color: Color(0xFF0F172A),
+          ),
         ),
         const SizedBox(height: 8),
-        _buildTextField(
-          controller: _parentPhoneController,
-          hint: 'e.g. +91 98765 43210 (For campus SMS & alerts)',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
+        const Text(
+          'Enter register numbers to monitor attendance, grades, and fees for your child or siblings in one portal.',
+          style: TextStyle(color: Color(0xFF64748B), fontSize: 14, height: 1.4),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
 
-        // Children Registration Fields List
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Enrolled Children (${_childRegControllers.length})',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
-            ),
-            if (_childRegControllers.length > 1)
-              Text(
-                'Siblings linked',
-                style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
-              ),
+        // Contact phone
+        _buildStyledInputField(
+          controller: _parentPhoneController,
+          hint: 'Enter 10-digit mobile number',
+          icon: Icons.phone_outlined,
+          label: 'Parent Contact Phone',
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
 
         ...List.generate(_childRegControllers.length, (index) {
           final isPrimary = index == 0;
           final match = _childMatches[index];
+          final hasChildError = _childErrors.contains(index);
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: match != null
-                    ? AppColors.success.withValues(alpha: 0.6)
-                    : AppColors.border,
-                width: match != null ? 1.5 : 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isPrimary ? Icons.school_rounded : Icons.person_add_alt_1_rounded,
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isPrimary ? 'Child 1 (Primary Ward)' : 'Child ${index + 1} (Sibling)',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      isPrimary ? 'Student Register Number' : 'Student Register Number (Child ${index + 1})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                        color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+                      ),
                     ),
                     if (!isPrimary)
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                        tooltip: 'Remove sibling',
-                        onPressed: () => _removeChildField(index),
+                      GestureDetector(
+                        onTap: () => _removeChildField(index),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Remove',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.error,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _childRegControllers[index],
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  textCapitalization: TextCapitalization.characters,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(12),
+                  ],
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
                   onChanged: (val) => _checkStudentMatch(index, val),
                   decoration: InputDecoration(
-                    hintText: 'e.g. 917721104012 or 23CSE1042',
-                    hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                    hintText: 'Enter 12-digit register number',
+                    hintStyle: TextStyle(
+                      color: hasChildError ? const Color(0xFFFCA5A5) : const Color(0xFF94A3B8),
+                      fontSize: 14,
+                    ),
                     filled: true,
-                    fillColor: AppColors.background,
-                    prefixIcon: const Icon(Icons.badge_outlined, color: AppColors.primary, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    fillColor: hasChildError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                    prefixIcon: Icon(
+                      Icons.badge_outlined,
+                      color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFF475569),
+                      size: 20,
+                    ),
+                    suffixIcon: match != null
+                        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
+                        width: hasChildError ? 1.8 : 1.0,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: hasChildError
+                            ? const Color(0xFFEF4444)
+                            : (match != null ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
+                        width: (hasChildError || match != null) ? 1.5 : 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+                        width: 1.8,
+                      ),
                     ),
                   ),
                 ),
                 if (match != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
+                        const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Verified: ${match['fullName']} • ${match['departmentName'] ?? match['semester'] ?? 'Student'}',
                             style: const TextStyle(
                               fontSize: 12.5,
-                              color: AppColors.success,
-                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF065F46),
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -628,301 +1274,268 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.06),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.35),
-                width: 1.5,
-                style: BorderStyle.solid,
-              ),
+              border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
             ),
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
+                Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0F172A), size: 18),
+                SizedBox(width: 8),
                 Text(
                   '+ Add Another Child (Sibling)',
                   style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 20),
-
-        // Information banner
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF2563EB), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Multi-child accounts allow you to switch seamlessly between your children\'s profiles directly from the Parent Portal top dock.',
-                  style: TextStyle(fontSize: 12.5, color: const Color(0xFF1E40AF), height: 1.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 30),
       ],
     );
   }
 
-  Widget _buildStandardDetailsSection() {
-    final idLabel = 'Campus / Employee ID';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'One last thing...',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Provide your academic details to link your account.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-        ),
-        const SizedBox(height: 32),
-        Text(
-          idLabel,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _idController,
-          hint: 'e.g. UN-2024-001',
-          icon: Icons.badge_outlined,
-        ),
-        const SizedBox(height: 28),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ── STEP 4: FINAL WELCOME ────────────────────────────────────────────────
+  Widget _buildFinalWelcomeStep(double heroHeight) {
+    final rawName = _nameController.text.trim().split(' ').first;
+    final displayName = rawName.isNotEmpty
+        ? (rawName.length == 1
+            ? rawName.toUpperCase()
+            : '${rawName[0].toUpperCase()}${rawName.substring(1)}')
+        : 'Scholar';
+    final isParent = _selectedRole == 'Parent';
+    final topClearance = MediaQuery.of(context).padding.top + 58.0;
+
+    return _buildStepBackgroundWithSoftGradient(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Select Department',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            Row(
-              children: [
-                Icon(Icons.swap_vert, size: 14, color: AppColors.primary),
-                const SizedBox(width: 4),
-                Text(
-                  'Scroll for more (${_departments.length})',
-                  style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
-                ),
-              ],
+            SizedBox(height: topClearance),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(26, 0, 26, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFeatureBadge(icon: '🎉', label: 'All Systems Ready'),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Welcome Aboard,\n$displayName! 🚀',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                      letterSpacing: -0.8,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    isParent
+                        ? 'Your parent portal and linked student wards have been configured. Tap below to launch Unisphere.'
+                        : 'Your personalized academic dashboard is set up. Tap below to start your smart campus journey.',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 15,
+                      height: 1.45,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 120),
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _departments.map((dept) {
-            final isSelected = _selectedDept == dept;
-            return ChoiceChip(
-              label: Text(dept),
-              selected: isSelected,
-              onSelected: (val) => setState(() => _selectedDept = val ? dept : null),
-              selectedColor: AppColors.primary,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              backgroundColor: Colors.white,
-              side: BorderSide(
-                color: isSelected ? AppColors.primary : AppColors.border,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 40),
-      ],
+      ),
     );
   }
 
-  Widget _buildFinalPage() {
-    final name = _nameController.text.trim().split(' ').first;
-    final isParent = _selectedRole == 'Parent';
-    return _buildPageLayout(
-      title: 'Welcome aboard, $name! 🚀',
-      subtitle: isParent
-          ? 'Your parent portal and linked student wards are being prepared. Get ready to experience UNISPHERE.'
-          : 'Your workspace is being prepared. Get ready to experience UNISPHERE.',
-      illustration: _buildIllustration(Icons.celebration, color: Colors.orange),
-    );
-  }
-
-  Widget _buildTextField({
+  Widget _buildStyledInputField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
+    required String label,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    bool hasError = false,
+    String? errorMessage,
+    ValueChanged<String>? onChanged,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: AppColors.textTertiary),
-        filled: true,
-        fillColor: AppColors.background,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        prefixIcon: Icon(icon, color: AppColors.primary),
-        contentPadding: const EdgeInsets.symmetric(vertical: 20),
-      ),
-    );
-  }
-
-  Widget _buildPageLayout({
-    required String title,
-    required String subtitle,
-    required Widget illustration,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              illustration,
-              const SizedBox(height: 24),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-);
-  }
-
-  Widget _buildIllustration(IconData icon, {Color? color}) {
-    return Container(
-      height: 220,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: (color ?? AppColors.primary).withValues(alpha: 0.08),
-        shape: BoxShape.circle,
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            right: 40,
-            top: 40,
-            child: Icon(Icons.circle, color: (color ?? AppColors.primary).withValues(alpha: 0.2), size: 24),
-          ),
-          Positioned(
-            left: 60,
-            bottom: 40,
-            child: Icon(Icons.circle, color: (color ?? AppColors.primary).withValues(alpha: 0.1), size: 16),
-          ),
-          Icon(
-            icon,
-            size: 100,
-            color: color ?? AppColors.primary,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectionCard({
-    required String title,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: 2,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  )
-                ]
-              : [],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.white.withValues(alpha: 0.2) : AppColors.primary.withValues(alpha: 0.05),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: isSelected ? Colors.white : AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
             Text(
-              title,
+              label,
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: hasError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
               ),
             ),
+            if (hasError && errorMessage != null)
+              Text(
+                errorMessage,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
           ],
         ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              color: hasError ? const Color(0xFFFCA5A5) : const Color(0xFF94A3B8),
+              fontSize: 14,
+            ),
+            filled: true,
+            fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? const Color(0xFFEF4444) : const Color(0xFF475569),
+              size: 20,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: hasError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
+                width: hasError ? 1.8 : 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: hasError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
+                width: hasError ? 1.8 : 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: hasError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+                width: 1.8,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── FLOATING BOTTOM CONTROLS BAR (INDICATORS + DARK CAPSULE BUTTON) ──────
+  Widget _buildBottomControlsBar() {
+    // Determine active index for dots
+    final totalDots = _currentMainStep == 0 ? 3 : 5;
+    final activeIndex = _currentMainStep;
+
+    // CTA Label
+    String buttonText;
+    if (_currentMainStep == 0) {
+      buttonText = 'Get Started 🚀';
+    } else if (_currentMainStep == 4) {
+      buttonText = 'Launch App 🚀';
+    } else {
+      buttonText = 'Continue ➔';
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.9),
+            blurRadius: 16,
+            offset: const Offset(0, -10),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // ── Page Indicators (Left) ──────────────────────────────
+          Row(
+            children: List.generate(
+              totalDots,
+              (index) {
+                final isActive = index == activeIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  margin: const EdgeInsets.only(right: 6),
+                  height: 7,
+                  width: isActive ? 28 : 7,
+                  decoration: BoxDecoration(
+                    color: isActive ? AppColors.primary : const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // ── Blue Pill CTA Button (Right) ─────────────────────────
+          GestureDetector(
+            onTap: _onStepNext,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF3B82F6),
+                    Color(0xFF1D4ED8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(32),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF1D4ED8).withValues(alpha: 0.20),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                buttonText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -936,7 +1549,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 'Parent':
         return Icons.family_restroom_outlined;
       default:
-        return Icons.person_outline;
+        return Icons.apartment_outlined;
     }
   }
 }
