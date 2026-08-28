@@ -48,6 +48,8 @@ class DatabaseSeeder {
             'hasMembership': true,
             'membershipOrg': 'ISTE',
             'membershipId': 'ISTE-2024-9842',
+            'fatherPhotoUrl': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+            'motherPhotoUrl': 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
           },
         ),
         UserModel(
@@ -82,7 +84,12 @@ class DatabaseSeeder {
           email: 'parent@unisphere.edu',
           fullName: 'Rajesh Johnson',
           role: UserRole.parent,
-          metadata: {'wardUid': 'DEMO-STU', 'wardName': 'Alex Johnson'},
+          metadata: {
+            'wardUid': 'DEMO-STU',
+            'wardName': 'Alex Johnson',
+            'wardRegisterNumbers': ['RA2111003010001', '917721104012'],
+            'relationship': 'Father',
+          },
         ),
         UserModel(
           uid: 'FAC-101',

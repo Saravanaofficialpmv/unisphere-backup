@@ -601,6 +601,27 @@ class ParentService {
               personal['photoUrl'] ??
               personal['passportPhotoUrl'])?.toString().trim();
 
+          final String? fatherPhoto = (studentRaw['fatherPhotoUrl'] ??
+              studentRaw['father_photo_url'] ??
+              studentRaw['parents']?['father']?['photoUrl'] ??
+              meta['fatherPhotoUrl'] ??
+              meta['father_photo_url'] ??
+              meta['parents']?['father']?['photoUrl'])?.toString().trim();
+
+          final String? motherPhoto = (studentRaw['motherPhotoUrl'] ??
+              studentRaw['mother_photo_url'] ??
+              studentRaw['parents']?['mother']?['photoUrl'] ??
+              meta['motherPhotoUrl'] ??
+              meta['mother_photo_url'] ??
+              meta['parents']?['mother']?['photoUrl'])?.toString().trim();
+
+          final String? guardianPhoto = (studentRaw['guardianPhotoUrl'] ??
+              studentRaw['guardian_photo_url'] ??
+              studentRaw['parents']?['guardian']?['photoUrl'] ??
+              meta['guardianPhotoUrl'] ??
+              meta['guardian_photo_url'] ??
+              meta['parents']?['guardian']?['photoUrl'])?.toString().trim();
+
           return {
             'fullName': name,
             'name': name,
@@ -612,6 +633,9 @@ class ParentService {
             'currentSemester': sem,
             'avatarInitials': initials.isNotEmpty ? initials : 'ST',
             if (photoUrl != null && photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'))) 'photoUrl': photoUrl,
+            if (fatherPhoto != null && fatherPhoto.isNotEmpty && (fatherPhoto.startsWith('http://') || fatherPhoto.startsWith('https://'))) 'fatherPhotoUrl': fatherPhoto,
+            if (motherPhoto != null && motherPhoto.isNotEmpty && (motherPhoto.startsWith('http://') || motherPhoto.startsWith('https://'))) 'motherPhotoUrl': motherPhoto,
+            if (guardianPhoto != null && guardianPhoto.isNotEmpty && (guardianPhoto.startsWith('http://') || guardianPhoto.startsWith('https://'))) 'guardianPhotoUrl': guardianPhoto,
             'attendancePercent': totalClasses > 0 ? '${(attPercent * 100).toStringAsFixed(1)}%' : (studentRaw['attendancePercent'] ?? meta['attendancePercent'] ?? '0%'),
             'presentCount': present,
             'absentCount': absent,
@@ -807,6 +831,9 @@ class ParentService {
           currentYear: curYear,
           currentSemester: sem,
           photoUrl: studentData?['photoUrl'],
+          fatherPhotoUrl: studentData?['fatherPhotoUrl'],
+          motherPhotoUrl: studentData?['motherPhotoUrl'],
+          guardianPhotoUrl: studentData?['guardianPhotoUrl'],
           avatarInitials: initials.isNotEmpty ? initials : 'ST',
           attendancePercent: attVal.clamp(0.0, 1.0),
           presentCount: (studentData?['presentCount'] as num?)?.toInt() ?? 0,
@@ -852,6 +879,8 @@ class ParentService {
         currentYear: 'III Year',
         currentSemester: 'VI Semester',
         photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200',
+        fatherPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+        motherPhotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
         avatarInitials: 'AK',
         attendancePercent: 0.87,
         presentCount: 142,
@@ -883,6 +912,8 @@ class ParentService {
         currentYear: 'II Year',
         currentSemester: 'IV Semester',
         photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200',
+        fatherPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+        motherPhotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
         avatarInitials: 'KK',
         attendancePercent: 0.94,
         presentCount: 156,
@@ -1052,5 +1083,47 @@ class ParentService {
     } catch (e) {
       debugPrint('Error updating student status: $e');
     }
+  }
+
+  /// Resolves the parent's avatar photo from their student ward's parent records
+  /// if the parent hasn't explicitly uploaded their own custom photo.
+  String? resolveParentPhotoFromWards({
+    required String? relationship,
+    required List<ParentStudentWard> wards,
+    String? currentParentPhoto,
+  }) {
+    if (currentParentPhoto != null &&
+        currentParentPhoto.trim().isNotEmpty &&
+        (currentParentPhoto.startsWith('http://') || currentParentPhoto.startsWith('https://'))) {
+      return currentParentPhoto.trim();
+    }
+
+    final rel = (relationship ?? 'Father').toLowerCase().trim();
+
+    for (final ward in wards) {
+      if (rel.contains('mother') || rel.contains('mom')) {
+        if (ward.motherPhotoUrl != null && ward.motherPhotoUrl!.isNotEmpty) {
+          return ward.motherPhotoUrl;
+        }
+      } else if (rel.contains('guardian')) {
+        if (ward.guardianPhotoUrl != null && ward.guardianPhotoUrl!.isNotEmpty) {
+          return ward.guardianPhotoUrl;
+        }
+      } else {
+        // Default to Father
+        if (ward.fatherPhotoUrl != null && ward.fatherPhotoUrl!.isNotEmpty) {
+          return ward.fatherPhotoUrl;
+        }
+      }
+    }
+
+    // Fallback: check if any parent photo is available across wards
+    for (final ward in wards) {
+      if (ward.fatherPhotoUrl != null && ward.fatherPhotoUrl!.isNotEmpty) return ward.fatherPhotoUrl;
+      if (ward.motherPhotoUrl != null && ward.motherPhotoUrl!.isNotEmpty) return ward.motherPhotoUrl;
+      if (ward.guardianPhotoUrl != null && ward.guardianPhotoUrl!.isNotEmpty) return ward.guardianPhotoUrl;
+    }
+
+    return null;
   }
 }

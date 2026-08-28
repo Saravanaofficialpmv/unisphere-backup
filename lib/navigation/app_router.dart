@@ -178,6 +178,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               initialId: queryParams['id'],
               initialDepartment: queryParams['department'],
               initialPhone: queryParams['phone'],
+              initialRelationship: queryParams['relationship'],
               initialChildRegNumbers: childRegNumbers,
             ),
           );

@@ -88,6 +88,7 @@ class _StudentProfileCompletionSheetState
   // ── Step 3: Parents & Guardian ──
   // Father
   String? _fatherPhotoUrl;
+  bool _isUploadingFatherPhoto = false;
   final _fatherNameController = TextEditingController();
   final _fatherPhoneController = TextEditingController();
   final _fatherEmailController = TextEditingController(); // OPTIONAL
@@ -97,6 +98,7 @@ class _StudentProfileCompletionSheetState
 
   // Mother
   String? _motherPhotoUrl;
+  bool _isUploadingMotherPhoto = false;
   final _motherNameController = TextEditingController();
   final _motherPhoneController = TextEditingController();
   final _motherEmailController = TextEditingController(); // OPTIONAL
@@ -788,9 +790,21 @@ class _StudentProfileCompletionSheetState
         updatedMeta['passportPhotoUrl'] = _studentPhotoUrl;
         updatedMeta['photoUrl'] = _studentPhotoUrl;
       }
+      if (_fatherPhotoUrl != null && _fatherPhotoUrl!.isNotEmpty) {
+        updatedMeta['fatherPhotoUrl'] = _fatherPhotoUrl;
+      }
+      if (_motherPhotoUrl != null && _motherPhotoUrl!.isNotEmpty) {
+        updatedMeta['motherPhotoUrl'] = _motherPhotoUrl;
+      }
       final parentsMap = Map<String, dynamic>.from(updatedMeta['parents'] as Map? ?? {});
       parentsMap['parentAnnualIncome'] = _parentAnnualIncome ?? '₹3,00,000 - ₹5,00,000';
       parentsMap['annualIncome'] = _parentAnnualIncome ?? '₹3,00,000 - ₹5,00,000';
+      if (_fatherPhotoUrl != null && _fatherPhotoUrl!.isNotEmpty) {
+        parentsMap['fatherPhotoUrl'] = _fatherPhotoUrl;
+      }
+      if (_motherPhotoUrl != null && _motherPhotoUrl!.isNotEmpty) {
+        parentsMap['motherPhotoUrl'] = _motherPhotoUrl;
+      }
       updatedMeta['parents'] = parentsMap;
 
       final updatedUser = currentUser.copyWith(
@@ -1237,6 +1251,192 @@ class _StudentProfileCompletionSheetState
     );
   }
 
+  Future<void> _pickFatherPhoto(ImageSource source) async {
+    if (_isUploadingFatherPhoto) return;
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+      if (picked == null) return;
+
+      final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+      if (user == null) return;
+
+      setState(() => _isUploadingFatherPhoto = true);
+      final storageService = ref.read(storageServiceProvider);
+      final uploadedUrl = await storageService.uploadProfilePhoto(
+        userId: '${user.uid}_father',
+        file: File(picked.path),
+      );
+
+      if (mounted) {
+        setState(() {
+          _fatherPhotoUrl = uploadedUrl;
+          _isUploadingFatherPhoto = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text("Father's photo attached!"),
+              ],
+            ),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingFatherPhoto = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showFatherPhotoPickerModal() {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Father's Photograph", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('Upload clear photograph for parent identity and campus records.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.camera_alt_rounded, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('Take a Photo (Camera)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFatherPhoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.photo_library_rounded, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('Choose from Gallery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFatherPhoto(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickMotherPhoto(ImageSource source) async {
+    if (_isUploadingMotherPhoto) return;
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+      if (picked == null) return;
+
+      final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+      if (user == null) return;
+
+      setState(() => _isUploadingMotherPhoto = true);
+      final storageService = ref.read(storageServiceProvider);
+      final uploadedUrl = await storageService.uploadProfilePhoto(
+        userId: '${user.uid}_mother',
+        file: File(picked.path),
+      );
+
+      if (mounted) {
+        setState(() {
+          _motherPhotoUrl = uploadedUrl;
+          _isUploadingMotherPhoto = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text("Mother's photo attached!"),
+              ],
+            ),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingMotherPhoto = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showMotherPhotoPickerModal() {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Mother's Photograph", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('Upload clear photograph for parent identity and campus records.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.camera_alt_rounded, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('Take a Photo (Camera)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickMotherPhoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(Icons.photo_library_rounded, color: Color(0xFF2563EB)),
+                ),
+                title: const Text('Choose from Gallery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickMotherPhoto(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── STEP 1: PERSONAL ──
   Widget _buildStep1Personal() {
     return Column(
@@ -1660,6 +1860,9 @@ class _StudentProfileCompletionSheetState
           occupationCtrl: _fatherOccupationController,
           qualValue: _fatherQual ?? 'Bachelor Degree',
           incomeValue: _fatherIncome ?? '₹1,00,000 - ₹3,00,000',
+          photoUrl: _fatherPhotoUrl,
+          isUploadingPhoto: _isUploadingFatherPhoto,
+          onPickPhoto: _showFatherPhotoPickerModal,
           nameError: _fatherNameError,
           onNameChanged: (val) {
             if (val.trim().isNotEmpty && _fatherNameError) {
@@ -1680,6 +1883,9 @@ class _StudentProfileCompletionSheetState
           occupationCtrl: _motherOccupationController,
           qualValue: _motherQual ?? 'School',
           incomeValue: _motherIncome ?? '₹1,00,000 - ₹3,00,000',
+          photoUrl: _motherPhotoUrl,
+          isUploadingPhoto: _isUploadingMotherPhoto,
+          onPickPhoto: _showMotherPhotoPickerModal,
           nameError: _motherNameError,
           onNameChanged: (val) {
             if (val.trim().isNotEmpty && _motherNameError) {
@@ -1769,11 +1975,17 @@ class _StudentProfileCompletionSheetState
     required TextEditingController occupationCtrl,
     required String qualValue,
     required String incomeValue,
+    String? photoUrl,
+    bool isUploadingPhoto = false,
+    VoidCallback? onPickPhoto,
     bool nameError = false,
     ValueChanged<String>? onNameChanged,
     required ValueChanged<String?> onQualChanged,
     required ValueChanged<String?> onIncomeChanged,
   }) {
+    final cleanPhoto = photoUrl?.trim() ?? '';
+    final hasPhoto = cleanPhoto.isNotEmpty && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://'));
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1784,8 +1996,107 @@ class _StudentProfileCompletionSheetState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A))),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A))),
+              if (onPickPhoto != null)
+                GestureDetector(
+                  onTap: onPickPhoto,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: hasPhoto ? const Color(0xFFDCFCE7) : const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: hasPhoto ? const Color(0xFF86EFAC) : const Color(0xFFC7D2FE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          hasPhoto ? Icons.check_circle_rounded : Icons.camera_alt_rounded,
+                          size: 13,
+                          color: hasPhoto ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          hasPhoto ? 'Photo Added ✓' : 'Upload Photo',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: hasPhoto ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
+          if (onPickPhoto != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: onPickPhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: const Color(0xFFEEF2FF),
+                          backgroundImage: hasPhoto ? NetworkImage(cleanPhoto) : null,
+                          child: isUploadingPhoto
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)),
+                                )
+                              : (!hasPhoto
+                                  ? Icon(
+                                      title.toLowerCase().contains('mother') ? Icons.face_3_rounded : Icons.face_6_rounded,
+                                      size: 30,
+                                      color: const Color(0xFF2563EB),
+                                    )
+                                  : null),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 10, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${title.replaceAll(" Details", "")} Photograph',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Used for parent portal avatar, guardian identification & campus pass.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _buildTextField(
             nameCtrl,
             'Full Name *',

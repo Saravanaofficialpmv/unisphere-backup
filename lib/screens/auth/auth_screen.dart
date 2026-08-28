@@ -18,6 +18,7 @@ class AuthScreen extends ConsumerStatefulWidget {
   final String? initialId;
   final String? initialDepartment;
   final String? initialPhone;
+  final String? initialRelationship;
   final List<String>? initialChildRegNumbers;
   
   const AuthScreen({
@@ -29,6 +30,7 @@ class AuthScreen extends ConsumerStatefulWidget {
     this.initialId,
     this.initialDepartment,
     this.initialPhone,
+    this.initialRelationship,
     this.initialChildRegNumbers,
   });
 
@@ -50,6 +52,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   late final TextEditingController _deptController;
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _phoneController;
+  late String _parentRelationship;
   final List<TextEditingController> _childRegControllers = [];
   
   // Student registration lookup states for Parent linking
@@ -232,6 +235,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     _deptController = TextEditingController(text: widget.initialDepartment ?? 'Computer Science');
     _confirmPasswordController = TextEditingController();
     _phoneController = TextEditingController(text: widget.initialPhone ?? '');
+    _parentRelationship = widget.initialRelationship ?? 'Father';
 
     // Initialize Role based on onboarding query param
     final roleLower = widget.initialRole?.toLowerCase();
@@ -393,6 +397,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             metadata: {
               'fullName': name,
               'phone': phone,
+              'relationship': _parentRelationship,
               'wardRegisterNumbers': childRegs,
               'studentIds': childRegs,
               'role': 'parent',
@@ -850,7 +855,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ],
             validator: _validatePhone,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          Text(
+            'Relationship to Student',
+            style: _labelStyle,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildAuthRelationshipChip('Father', Icons.face_6_rounded),
+              const SizedBox(width: 8),
+              _buildAuthRelationshipChip('Mother', Icons.face_3_rounded),
+              const SizedBox(width: 8),
+              _buildAuthRelationshipChip('Guardian', Icons.shield_outlined),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1534,6 +1554,58 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         errorMaxLines: 2,
         contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _buildAuthRelationshipChip(String label, IconData icon) {
+    final isSelected = _parentRelationship == label;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _parentRelationship = label);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.border,
+              width: isSelected ? 1.8 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

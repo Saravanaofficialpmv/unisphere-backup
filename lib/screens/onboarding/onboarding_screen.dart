@@ -37,6 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Selection states
   String? _selectedRole;
   String? _selectedDept;
+  String _parentRelationship = 'Father';
 
   // Inline Validation Error States (Highlights boxes in red instead of popup snackbars)
   bool _hasRoleError = false;
@@ -405,6 +406,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       queryParams['id'] = validRegs.isNotEmpty ? validRegs.first : '';
       queryParams['childRegNumbers'] = validRegs.join(',');
       queryParams['phone'] = _parentPhoneController.text.trim();
+      queryParams['relationship'] = _parentRelationship;
     } else {
       queryParams['id'] = _idController.text.trim();
     }
@@ -1387,7 +1389,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'Enter register numbers to monitor attendance, grades, and fees for your child or siblings in one portal.',
           style: TextStyle(color: Color(0xFF64748B), fontSize: 14, height: 1.4),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 18),
+
+        // Relationship Selector
+        const Text(
+          'Your Relationship to Student *',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildRelationshipChip('Father', Icons.face_6_rounded),
+            const SizedBox(width: 8),
+            _buildRelationshipChip('Mother', Icons.face_3_rounded),
+            const SizedBox(width: 8),
+            _buildRelationshipChip('Guardian', Icons.shield_outlined),
+          ],
+        ),
+        const SizedBox(height: 18),
 
         // Contact phone
         _buildStyledInputField(
@@ -1610,6 +1633,58 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRelationshipChip(String label, IconData icon) {
+    final isSelected = _parentRelationship == label;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _parentRelationship = label);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.8 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

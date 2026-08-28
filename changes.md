@@ -101,27 +101,59 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
 
 ---
 
+### 7. 📸 Parent Photo Inheritance from Student Profile & Relationship Onboarding
+- **Student Profile Parent Photos Upload (`StudentProfileCompletionSheet`)**:
+  - Enhanced Step 3 (Parent & Guardian Details) in [`lib/widgets/student/student_profile_completion_sheet.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/student/student_profile_completion_sheet.dart):
+    - Added instant camera/gallery photo pickers for both **Father** and **Mother**.
+    - Direct Firebase Storage upload via `storageService.uploadProfilePhoto` storing high-resolution HTTPS download URLs.
+    - Added photo status badge (`Photo Added ✓`) and interactive circular preview avatars.
+    - Synchronized `fatherPhotoUrl` and `motherPhotoUrl` across `student_profiles`, `students`, and `users` Firestore collections via `FirebaseFirestoreService.submitFullStudentProfile`.
+- **Parent Onboarding & Registration Relationship Selector**:
+  - In [`lib/screens/onboarding/onboarding_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/onboarding/onboarding_screen.dart):
+    - Added interactive Relationship Selector chips (**Father**, **Mother**, **Guardian**) with custom icons and haptic feedback in Step 3 for Parents.
+    - Forwarded `relationship` in query parameters to `/signup`.
+  - In [`lib/screens/auth/auth_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/auth/auth_screen.dart):
+    - Added `initialRelationship` parameter and interactive relationship selector in the Parent signup form.
+    - Persisted `relationship` in `UserModel`, `metadata['relationship']`, and Firestore `parents` & `users` collections during registration.
+  - In [`lib/navigation/app_router.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/navigation/app_router.dart):
+    - Passed `initialRelationship: queryParams['relationship']` from `/signup` route to `AuthScreen`.
+- **Dynamic Parent Avatar Resolution (`ParentService.resolveParentPhotoFromWards`)**:
+  - Added helper in [`lib/services/parent_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/parent_service.dart) to dynamically resolve the parent's avatar photo:
+    - If the parent user hasn't explicitly uploaded their own custom photo, it automatically resolves and uses the corresponding photo uploaded by their student ward based on relationship (*Father -> `fatherPhotoUrl`, Mother -> `motherPhotoUrl`, Guardian -> `guardianPhotoUrl`*).
+    - Seamlessly displayed across `ParentProfileScreen`, `ParentDashboard` top banner, `MainSidebar`, and floating navigation sheet.
+- **Model Enhancements (`ParentStudentWard`)**:
+  - Updated [`lib/models/parent_portal_types.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/models/parent_portal_types.dart) to include `fatherPhotoUrl`, `motherPhotoUrl`, and `guardianPhotoUrl`.
+
+---
+
 ## 📂 Key Modified & Added Files
 
 | File Path | Description |
 |---|---|
+| [`lib/models/parent_portal_types.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/models/parent_portal_types.dart) | Added `fatherPhotoUrl`, `motherPhotoUrl`, `guardianPhotoUrl` to `ParentStudentWard`. |
+| [`lib/services/parent_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/parent_service.dart) | Added `resolveParentPhotoFromWards` and student parent photo extraction. |
+| [`lib/widgets/student/student_profile_completion_sheet.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/student/student_profile_completion_sheet.dart) | Added photo uploaders for Father & Mother with Firebase Storage upload and safe UI previews. |
+| [`lib/services/firebase_firestore_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/firebase_firestore_service.dart) | Synchronized parent photos across `student_profiles`, `students`, and `users`. |
+| [`lib/screens/onboarding/onboarding_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/onboarding/onboarding_screen.dart) | Added parent relationship selector chips (Father / Mother / Guardian) in onboarding. |
+| [`lib/screens/auth/auth_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/auth/auth_screen.dart) | Added relationship selection and metadata persistence in parent registration. |
+| [`lib/navigation/app_router.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/navigation/app_router.dart) | Forwarded relationship query parameter to `AuthScreen`. |
+| [`lib/screens/parent/parent_profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_profile_screen.dart) | Auto-resolves parent photo from ward's father/mother photo. |
+| [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart) | Passes resolved ward parent photo to `MainSidebar` and navigation sheet. |
+| [`lib/services/database_seeder.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/database_seeder.dart) | Seeded demo student parent photos and parent relationship. |
+| [`test/parent_photo_linkage_test.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/test/parent_photo_linkage_test.dart) | Comprehensive test suite for parent photo linkage & relationship resolution. |
 | [`lib/services/storage_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/storage_service.dart) | Added `uploadProfilePhoto` and enhanced `deleteFile` to handle Firebase Storage URLs safely. |
 | [`lib/services/firebase_auth_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/firebase_auth_service.dart) | Sanitized `saveUserData` to strictly persist valid remote HTTP/HTTPS photo URLs. |
 | [`lib/screens/profile/profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/profile/profile_screen.dart) | Production-ready photo upload flow with Firebase Storage and safe avatar rendering. |
-| [`lib/screens/parent/parent_profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_profile_screen.dart) | Dedicated Parent Profile screen with Storage photo upload and dynamic directory sheets. |
-| [`lib/widgets/student/student_profile_completion_sheet.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/student/student_profile_completion_sheet.dart) | Passport photo upload using Firebase Storage download URLs. |
 | [`storage.rules`](file:///Users/saravana/Downloads/unisphere-main-v2/storage.rules) | Added security rules for `profile_photos` path. |
 | [`test/profile_photo_upload_test.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/test/profile_photo_upload_test.dart) | Unit test suite for photo upload pathing, URL sanitization, and storage safety. |
-| [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart) | Connected tab 4 navigation to `ParentProfileScreen` with safe ward avatar rendering. |
 | [`lib/models/user_model.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/models/user_model.dart) | Enhanced role parser with multi-source metadata & ward detection. |
-| [`lib/navigation/app_router.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/navigation/app_router.dart) | Strict cross-role redirect guards for `/parent` and `/student`. |
 | [`lib/screens/student/student_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/student/student_dashboard.dart) | Role guard rendering `ParentDashboard` for parent users. |
 
 ---
 
 ## 🧪 Testing & Verification Status
 
-- **Test Suite Pass Rate**: **100% (60/60 tests passing, 0 failures)**
+- **Test Suite Pass Rate**: **100% (66/66 tests passing, 0 failures)**
 - **Static Analysis**: **0 issues found (`flutter analyze` clean)**
 - **Commands Executed**:
   ```bash
@@ -129,6 +161,7 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
   flutter analyze
   ```
 - **Key Test Areas Covered**:
+  - `parent_photo_linkage_test.dart`: Parent photo inheritance, relationship resolution (Father/Mother/Guardian) & priority fallbacks.
   - `profile_photo_upload_test.dart`: Profile photo storage safety, URL sanitization & UserModel copy.
   - `widget_test.dart`: App smoke tests & router flow.
   - `parent_notification_system_test.dart`: Parent notification stream isolation & rule engine.
@@ -136,4 +169,5 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
   - `user_session_greeting_test.dart`: Fresh signup vs returning login state isolation.
   - `parent_multi_child_test.dart`: Sibling link, ward resolution & multi-child parsing.
   - `onboarding_screen_test.dart`: Role selection, validation & navigation.
+
 

@@ -64,6 +64,16 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       if (mounted) {
         setState(() {
           _wards = wards;
+          if (_customPhotoPath == null && (user.profileImageUrl == null || user.profileImageUrl!.isEmpty)) {
+            final resolvedPhoto = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+              relationship: user.metadata?['relationship'] ?? _relationship,
+              wards: wards,
+              currentParentPhoto: user.profileImageUrl,
+            );
+            if (resolvedPhoto != null) {
+              _customPhotoPath = resolvedPhoto;
+            }
+          }
         });
       }
     }
@@ -390,7 +400,12 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
     final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
     final parentName = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty) ? currentUser.name : 'Parent / Guardian';
     final parentEmail = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty) ? currentUser.email : 'parent@example.com';
-    final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
+    final resolvedWardPhoto = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+      relationship: currentUser?.metadata?['relationship'] ?? _relationship,
+      wards: _wards,
+      currentParentPhoto: currentUser?.profileImageUrl,
+    );
+    final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['photoUrl'] ?? resolvedWardPhoto ?? '').toString().trim();
     final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'));
 
     final wards = _wards;

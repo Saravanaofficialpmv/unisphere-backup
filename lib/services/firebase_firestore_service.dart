@@ -547,11 +547,16 @@ class FirebaseFirestoreService implements SupabaseService {
       }
 
       // 3. Store details under regNo in students collection
+      final fatherPhoto = profileMap['fatherPhotoUrl'] ?? profileMap['parents']?['father']?['photoUrl'];
+      final motherPhoto = profileMap['motherPhotoUrl'] ?? profileMap['parents']?['mother']?['photoUrl'];
+
       if (regNo.isNotEmpty) {
         await _firestore.collection('students').doc(regNo).set({
           'register_number': regNo,
           'user_id': uid,
           'details': profileMap,
+          if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+          if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
           'updated_at': nowStr,
         }, SetOptions(merge: true));
       }
@@ -560,9 +565,13 @@ class FirebaseFirestoreService implements SupabaseService {
       if (uid.isNotEmpty) {
         await _firestore.collection('users').doc(uid).set({
           'profileCompletionStatus': 'submitted',
+          if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+          if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
           'metadata': {
             'registerNumber': regNo.isNotEmpty ? regNo : null,
             'profileCompletionPercentage': 100,
+            if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+            if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
             'submittedAt': nowStr,
           }
         }, SetOptions(merge: true));
@@ -571,9 +580,13 @@ class FirebaseFirestoreService implements SupabaseService {
       if (regNo.isNotEmpty) {
         await _firestore.collection('users').doc(regNo).set({
           'profileCompletionStatus': 'submitted',
+          if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+          if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
           'metadata': {
             'registerNumber': regNo,
             'profileCompletionPercentage': 100,
+            if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+            if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
             'submittedAt': nowStr,
           }
         }, SetOptions(merge: true));

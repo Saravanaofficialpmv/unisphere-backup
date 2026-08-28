@@ -10,6 +10,9 @@ class ParentStudentWard {
   final String currentYear;
   final String currentSemester;
   final String? photoUrl;
+  final String? fatherPhotoUrl;
+  final String? motherPhotoUrl;
+  final String? guardianPhotoUrl;
   final String avatarInitials;
   final double attendancePercent;
   final int presentCount;
@@ -37,6 +40,9 @@ class ParentStudentWard {
     required this.currentYear,
     required this.currentSemester,
     this.photoUrl,
+    this.fatherPhotoUrl,
+    this.motherPhotoUrl,
+    this.guardianPhotoUrl,
     required this.avatarInitials,
     required this.attendancePercent,
     required this.presentCount,
@@ -65,6 +71,9 @@ class ParentStudentWard {
     String? currentYear,
     String? currentSemester,
     String? photoUrl,
+    String? fatherPhotoUrl,
+    String? motherPhotoUrl,
+    String? guardianPhotoUrl,
     String? avatarInitials,
     double? attendancePercent,
     int? presentCount,
@@ -92,6 +101,9 @@ class ParentStudentWard {
       currentYear: currentYear ?? this.currentYear,
       currentSemester: currentSemester ?? this.currentSemester,
       photoUrl: photoUrl ?? this.photoUrl,
+      fatherPhotoUrl: fatherPhotoUrl ?? this.fatherPhotoUrl,
+      motherPhotoUrl: motherPhotoUrl ?? this.motherPhotoUrl,
+      guardianPhotoUrl: guardianPhotoUrl ?? this.guardianPhotoUrl,
       avatarInitials: avatarInitials ?? this.avatarInitials,
       attendancePercent: attendancePercent ?? this.attendancePercent,
       presentCount: presentCount ?? this.presentCount,

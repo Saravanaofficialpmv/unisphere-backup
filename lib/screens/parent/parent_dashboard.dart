@@ -70,11 +70,30 @@ class ParentDashboard extends ConsumerStatefulWidget {
 
 class _ParentDashboardState extends ConsumerState<ParentDashboard> {
   int _currentIndex = 0;
+  ParentStudentWard? _activeWard;
+  List<ParentStudentWard> _dashboardWards = [];
   bool _isNavigationSheetOpen = false;
   bool _isDockVisible = true;
-  ParentStudentWard? _activeWard;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
+
+  String get _parentDisplayName {
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final name = currentUser?.name;
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
+    }
+    return 'Parent / Guardian';
+  }
+
+  String get _parentDisplayEmail {
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final email = currentUser?.email;
+    if (email != null && email.trim().isNotEmpty) {
+      return email.trim();
+    }
+    return 'parent@unisphere.edu';
+  }
 
   @override
   void initState() {
@@ -95,7 +114,10 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
           ? wards.firstWhere((w) => w.regNo.toUpperCase() == activeReg.toUpperCase(), orElse: () => wards.first)
           : wards.first;
 
-      setState(() => _activeWard = selected);
+      setState(() {
+        _dashboardWards = wards;
+        _activeWard = selected;
+      });
       ref.read(activeParentWardProvider.notifier).state = selected;
     }
   }
@@ -269,11 +291,20 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
                     isVisible: _isDockVisible && !_isNavigationSheetOpen,
                     onSidebarTap: () async {
                       setState(() => _isNavigationSheetOpen = true);
+                      final currentUser = ref.read(authServiceProvider).currentUser;
+                      final profileUrl = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+                        relationship: currentUser?.metadata?['relationship'],
+                        wards: _dashboardWards,
+                        currentParentPhoto: currentUser?.profileImageUrl,
+                      );
                       await showParentNavigationSheet(
                         context: context,
                         selectedIndex: _currentIndex,
                         onDestinationSelected: _handleNavigation,
                         items: _sidebarItems,
+                        userName: _parentDisplayName,
+                        userEmail: _parentDisplayEmail,
+                        profileUrl: profileUrl,
                       );
                       if (mounted) {
                         setState(() => _isNavigationSheetOpen = false);
@@ -300,6 +331,12 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
     final userEmail = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty)
         ? currentUser.email
         : 'parent@unisphere.edu';
+    final parentService = ref.watch(parentServiceProvider);
+    final profileUrl = parentService.resolveParentPhotoFromWards(
+      relationship: currentUser?.metadata?['relationship'],
+      wards: _dashboardWards,
+      currentParentPhoto: currentUser?.profileImageUrl,
+    );
 
     return MainSidebar(
       selectedIndex: _currentIndex,
@@ -307,6 +344,7 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
       items: _sidebarItems,
       userName: userName,
       userEmail: userEmail,
+      profileUrl: profileUrl,
     );
   }
 }
@@ -797,6 +835,12 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () {
+                    final currentUser = ref.read(authServiceProvider).currentUser;
+                    final profileUrl = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+                      relationship: currentUser?.metadata?['relationship'],
+                      wards: _wards,
+                      currentParentPhoto: currentUser?.profileImageUrl,
+                    );
                     showParentNavigationSheet(
                       context: context,
                       selectedIndex: 0,
@@ -804,6 +848,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
                       items: _ParentDashboardState.parentSidebarItems,
                       userName: _parentDisplayName,
                       userEmail: _parentDisplayEmail,
+                      profileUrl: profileUrl,
                     );
                   },
                   borderRadius: BorderRadius.circular(19),
@@ -1725,6 +1770,12 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
           onUpdatesTap: () => showNotificationSheet(context),
           updatesBadgeCount: unreadCount,
           onMoreTap: () {
+            final currentUser = ref.read(authServiceProvider).currentUser;
+            final profileUrl = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+              relationship: currentUser?.metadata?['relationship'],
+              wards: _wards,
+              currentParentPhoto: currentUser?.profileImageUrl,
+            );
             showParentNavigationSheet(
               context: context,
               selectedIndex: 0,
@@ -1732,6 +1783,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
               items: _ParentDashboardState.parentSidebarItems,
               userName: _parentDisplayName,
               userEmail: _parentDisplayEmail,
+              profileUrl: profileUrl,
             );
           },
         );
@@ -2322,9 +2374,11 @@ class ParentAttendanceDetailTab extends StatelessWidget {
                   if (onNavigateToTab != null) onNavigateToTab!(0);
                 },
               ),
-              Text(
-                'Complete Attendance Log',
-                style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              Expanded(
+                child: Text(
+                  'Complete Attendance Log',
+                  style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
               ),
             ],
           ),
@@ -2556,9 +2610,11 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
                   if (onNavigateToTab != null) onNavigateToTab!(0);
                 },
               ),
-              Text(
-                'Academic Performance & Progress',
-                style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              Expanded(
+                child: Text(
+                  'Academic Performance & Progress',
+                  style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
               ),
             ],
           ),
@@ -2580,15 +2636,17 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CUMULATIVE GRADE POINT AVERAGE', style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-                    Text(cgpa, style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
-                    Text('$wardName • $wardDept', style: GoogleFonts.manrope(fontSize: 12, color: Colors.white70)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('CUMULATIVE GRADE POINT AVERAGE', style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
+                      Text(cgpa, style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
+                      Text('$wardName • $wardDept', style: GoogleFonts.manrope(fontSize: 12, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -2630,7 +2688,10 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14)),
+              Expanded(
+                child: Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -2653,6 +2714,7 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
                         Expanded(
                           child: Text(s['subject']!, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                         ),
+                        const SizedBox(width: 8),
                         Text('${s['marks']} (${s['grade']})', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF2563EB))),
                       ],
                     ),
