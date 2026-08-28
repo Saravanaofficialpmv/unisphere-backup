@@ -1,13 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
-import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/models/parent_portal_types.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/parent_service.dart';
@@ -34,17 +33,14 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   late TextEditingController _addressController;
   String _relationship = 'Father';
   bool _isEditingDetails = false;
-  bool _isSavingDetails = false;
 
   // Notification preferences
   bool _attendanceAlerts = true;
   bool _feeReminders = true;
   bool _gradeAlerts = true;
   bool _circularAlerts = true;
-  bool _smsWhatsAppAlerts = true;
 
   List<ParentStudentWard> _wards = [];
-  bool _isLoadingWards = false;
   int _activeWardSlideIndex = 0;
   late final PageController _wardPageController;
 
@@ -64,12 +60,10 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   Future<void> _loadWards() async {
     final user = ref.read(authServiceProvider).currentUser;
     if (user != null) {
-      setState(() => _isLoadingWards = true);
       final wards = await ref.read(parentServiceProvider).getStudentWardsForParent(user.uid, currentUser: user);
       if (mounted) {
         setState(() {
           _wards = wards;
-          _isLoadingWards = false;
         });
       }
     }
@@ -91,6 +85,8 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   }
 
   Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    if (_isUploadingPhoto) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -101,61 +97,78 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       );
       if (picked == null) return;
 
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      if (currentUser == null) {
+        throw Exception('User session not found. Please log in again.');
+      }
+
       setState(() {
         _isUploadingPhoto = true;
-        _customPhotoPath = picked.path;
       });
 
-      final currentUser = ref.read(authServiceProvider).currentUser;
-      String finalPhotoUrl = picked.path;
+      final storageService = ref.read(storageServiceProvider);
+      final existingPhotoUrl = _customPhotoPath ?? (currentUser.profileImageUrl ?? currentUser.metadata?['photoUrl'] ?? '').toString().trim();
 
-      if (currentUser != null) {
-        final storageService = ref.read(storageServiceProvider);
-        final uploadedUrl = await storageService.uploadFile(
-          storagePath: 'parent-photos/${currentUser.uid}/profile',
-          file: File(picked.path),
-        );
-        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-          finalPhotoUrl = uploadedUrl;
-        }
+      // 1. Upload new image to Firebase Storage and obtain valid HTTPS download URL
+      final uploadedUrl = await storageService.uploadProfilePhoto(
+        userId: currentUser.uid,
+        file: File(picked.path),
+      );
 
+      // 2. Persist download URL in Firestore
+      try {
         final updatedMeta = Map<String, dynamic>.from(currentUser.metadata ?? {});
-        updatedMeta['photoUrl'] = finalPhotoUrl;
+        updatedMeta['photoUrl'] = uploadedUrl;
+        updatedMeta['profileImageUrl'] = uploadedUrl;
         final updatedUser = currentUser.copyWith(
-          profileImageUrl: finalPhotoUrl,
+          profileImageUrl: uploadedUrl,
           metadata: updatedMeta,
         );
 
         await ref.read(authServiceProvider).updateUserProfile(updatedUser);
 
-        try {
-          final firestore = FirebaseFirestore.instance;
-          await firestore.collection('users').doc(currentUser.uid).set({
-            'profileImageUrl': finalPhotoUrl,
-            'photoUrl': finalPhotoUrl,
-            'metadata.photoUrl': finalPhotoUrl,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-          await firestore.collection('parents').doc(currentUser.uid).set({
-            'profileImageUrl': finalPhotoUrl,
-            'photoUrl': finalPhotoUrl,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        } catch (_) {}
+        final firestore = FirebaseFirestore.instance;
+        final updateMap = {
+          'profileImageUrl': uploadedUrl,
+          'photoUrl': uploadedUrl,
+          'metadata.photoUrl': uploadedUrl,
+          'metadata.profileImageUrl': uploadedUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        await firestore.collection('users').doc(currentUser.uid).set(updateMap, SetOptions(merge: true));
+        await firestore.collection('parents').doc(currentUser.uid).set(updateMap, SetOptions(merge: true));
+      } catch (firestoreErr) {
+        // Rollback uploaded storage file on Firestore failure
+        unawaited(storageService.deleteFile(uploadedUrl));
+        rethrow;
+      }
+
+      // 3. Clean up older remote photo from Storage after Firestore success
+      if (existingPhotoUrl.isNotEmpty &&
+          existingPhotoUrl != uploadedUrl &&
+          (existingPhotoUrl.contains('firebasestorage.googleapis.com') || existingPhotoUrl.contains('appspot.com'))) {
+        unawaited(storageService.deleteFile(existingPhotoUrl));
       }
 
       if (mounted) {
         setState(() {
-          _customPhotoPath = finalPhotoUrl;
+          _customPhotoPath = uploadedUrl;
           _isUploadingPhoto = false;
         });
         ref.invalidate(currentUserProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated successfully!')),
+        );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating photo: $e')),
+          SnackBar(
+            content: Text('Error updating photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -275,7 +288,6 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   }
 
   Future<void> _saveGuardianDetails() async {
-    setState(() => _isSavingDetails = true);
     final user = ref.read(authServiceProvider).currentUser;
     if (user != null) {
       final updatedMeta = Map<String, dynamic>.from(user.metadata ?? {});
@@ -310,7 +322,6 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
 
     if (mounted) {
       setState(() {
-        _isSavingDetails = false;
         _isEditingDetails = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -380,7 +391,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
     final parentName = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty) ? currentUser.name : 'Parent / Guardian';
     final parentEmail = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty) ? currentUser.email : 'parent@example.com';
     final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
-    final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || File(photoUrl).existsSync());
+    final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'));
 
     final wards = _wards;
 
@@ -691,15 +702,8 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
 
   Widget _buildParentAvatar(String photoUrl, String name) {
     ImageProvider? imageProvider;
-    if (photoUrl.isNotEmpty) {
-      if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-        imageProvider = NetworkImage(photoUrl);
-      } else {
-        final file = File(photoUrl);
-        if (file.existsSync()) {
-          imageProvider = FileImage(file);
-        }
-      }
+    if (photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'))) {
+      imageProvider = NetworkImage(photoUrl);
     }
 
     final initials = name.split(' ').where((s) => s.isNotEmpty).map((s) => s[0].toUpperCase()).take(2).join();
@@ -1235,7 +1239,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
     return SwitchListTile(
       value: value,
       onChanged: onChanged,
-      activeColor: const Color(0xFF2563EB),
+      activeTrackColor: const Color(0xFF2563EB),
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       title: Text(
         title,
@@ -1290,7 +1294,6 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   Map<String, Map<String, dynamic>> _getDirectoryContactsForWard(ParentStudentWard? ward) {
     final dept = (ward?.department ?? 'Computer Science and Engineering').trim();
     final year = (ward?.currentYear ?? 'III Year').trim();
-    final sem = (ward?.currentSemester ?? 'Semester 6').trim();
     final deptLower = dept.toLowerCase();
 
     // 1. Resolve HOD

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -31,7 +30,6 @@ import 'package:unisphere/providers/semester_attendance_provider.dart';
 import 'package:unisphere/widgets/common/unisphere_header_card.dart';
 import 'package:unisphere/screens/features/leetcode_detail_screen.dart';
 import 'package:unisphere/screens/features/github_detail_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/notification_bell_button.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
@@ -2861,44 +2859,28 @@ class _StudentIDCardFlipModalState extends ConsumerState<StudentIDCardFlipModal>
   }
 
   Widget _buildPassportPhotoAvatar(String photoUrl) {
+    Widget defaultFallback = Container(
+      color: Colors.white,
+      child: const Icon(
+        Icons.person_rounded,
+        size: 50,
+        color: Color(0xFF024CAA),
+      ),
+    );
+
     if (photoUrl.isEmpty) {
-      return Container(
-        color: Colors.white,
-        child: const Icon(
-          Icons.person_rounded,
-          size: 50,
-          color: Color(0xFF024CAA),
-        ),
-      );
+      return defaultFallback;
     }
 
     if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
       return Image.network(
         photoUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          color: Colors.white,
-          child: const Icon(
-            Icons.person_rounded,
-            size: 50,
-            color: Color(0xFF024CAA),
-          ),
-        ),
+        errorBuilder: (_, __, ___) => defaultFallback,
       );
     }
 
-    return Image.file(
-      File(photoUrl),
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Container(
-        color: Colors.white,
-        child: const Icon(
-          Icons.person_rounded,
-          size: 50,
-          color: Color(0xFF024CAA),
-        ),
-      ),
-    );
+    return defaultFallback;
   }
 
   // ── FRONT SIDE CARD (CR80 Aspect Ratio 1:1.587) ──

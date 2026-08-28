@@ -58,6 +58,46 @@ class StorageService {
     }
   }
 
+  /// Upload a user profile photo to Firebase Storage and return the HTTPS download URL.
+  /// Stores in `profile_photos/{userId}/profile_{timestamp}.jpg`,
+  /// with versioning/cache-busting and proper contentType metadata.
+  Future<String> uploadProfilePhoto({
+    required String userId,
+    required File file,
+  }) async {
+    final storage = _storage;
+    if (storage == null) {
+      throw Exception('Firebase Storage is currently unavailable. Please check your connection.');
+    }
+    if (!file.existsSync()) {
+      throw Exception('Selected image file does not exist on device.');
+    }
+
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final storagePath = 'profile_photos/$userId/profile_$timestamp.jpg';
+      final ref = storage.ref().child(storagePath);
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'userId': userId,
+          'uploadedAt': DateTime.now().toIso8601String(),
+        },
+      );
+
+      final uploadTask = await ref.putFile(file, metadata);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      if (downloadUrl.isEmpty || !downloadUrl.startsWith('http')) {
+        throw Exception('Failed to retrieve valid download URL from Firebase Storage.');
+      }
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('StorageService uploadProfilePhoto error: $e');
+      rethrow;
+    }
+  }
+
   /// Standard Path Generator: Student Profile Photo
   String studentPhotoPath(String uid) => 'student-photos/$uid/profile';
 
@@ -93,15 +133,29 @@ class StorageService {
   Future<bool> deleteFile(String path) async {
     final storage = _storage;
     if (storage == null || path.isEmpty) return false;
+    // Guard against local file paths
+    if (path.startsWith('/Users/') ||
+        path.startsWith('/tmp/') ||
+        path.startsWith('/data/') ||
+        path.startsWith('/private/') ||
+        path.startsWith('file://')) {
+      return false;
+    }
+
     try {
       if (path.startsWith('http://') || path.startsWith('https://')) {
-        final ref = storage.refFromURL(path);
-        await ref.delete();
+        // Only attempt delete if it belongs to Firebase Storage
+        if (path.contains('firebasestorage.googleapis.com') || path.contains('appspot.com')) {
+          final ref = storage.refFromURL(path);
+          await ref.delete();
+          return true;
+        }
+        return false;
       } else {
         final ref = storage.ref().child(path);
         await ref.delete();
+        return true;
       }
-      return true;
     } catch (e) {
       debugPrint('StorageService deleteFile error: $e');
       return false;

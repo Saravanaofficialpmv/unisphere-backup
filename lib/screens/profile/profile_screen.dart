@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -131,7 +132,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ? currentUser!.metadata!['year'].toString() 
         : (isDemo ? '3rd Year (Semester VI)' : '3rd Year (Semester VI)');
     final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['passportPhotoUrl'] ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
-    final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || File(photoUrl).existsSync());
+    final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -656,15 +657,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildProfileHeaderAvatar(String photoUrl) {
     ImageProvider? imageProvider;
-    if (photoUrl.isNotEmpty) {
-      if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-        imageProvider = NetworkImage(photoUrl);
-      } else {
-        final file = File(photoUrl);
-        if (file.existsSync()) {
-          imageProvider = FileImage(file);
-        }
-      }
+    if (photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'))) {
+      imageProvider = NetworkImage(photoUrl);
     }
 
     return Stack(
@@ -2180,6 +2174,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    if (_isUploadingPhoto) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -2190,58 +2186,112 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
       if (picked == null) return;
 
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      if (currentUser == null) {
+        throw Exception('User session not found. Please log in again.');
+      }
+
       setState(() {
         _isUploadingPhoto = true;
-        _customPhotoPath = picked.path;
       });
 
-      final currentUser = ref.read(authServiceProvider).currentUser;
-      String finalPhotoUrl = picked.path;
+      final storageService = ref.read(storageServiceProvider);
+      final existingPhotoUrl = _customPhotoPath ?? (currentUser.profileImageUrl ?? currentUser.metadata?['passportPhotoUrl'] ?? currentUser.metadata?['photoUrl'] ?? '').toString().trim();
 
-      if (currentUser != null) {
-        final storageService = ref.read(storageServiceProvider);
-        final uploadedUrl = await storageService.uploadFile(
-          storagePath: storageService.studentPhotoPath(currentUser.uid),
-          file: File(picked.path),
-        );
-        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
-          finalPhotoUrl = uploadedUrl;
-        }
+      // 1. Upload new image to Firebase Storage and obtain valid HTTPS download URL
+      final uploadedUrl = await storageService.uploadProfilePhoto(
+        userId: currentUser.uid,
+        file: File(picked.path),
+      );
 
+      // 2. Persist download URL in Firestore
+      try {
         final updatedMeta = Map<String, dynamic>.from(currentUser.metadata ?? {});
-        updatedMeta['passportPhotoUrl'] = finalPhotoUrl;
-        updatedMeta['photoUrl'] = finalPhotoUrl;
+        updatedMeta['passportPhotoUrl'] = uploadedUrl;
+        updatedMeta['photoUrl'] = uploadedUrl;
+        updatedMeta['profileImageUrl'] = uploadedUrl;
         final updatedUser = currentUser.copyWith(
-          profileImageUrl: finalPhotoUrl,
+          profileImageUrl: uploadedUrl,
           metadata: updatedMeta,
         );
 
         await ref.read(authServiceProvider).updateUserProfile(updatedUser);
 
+        final firestore = FirebaseFirestore.instance;
+        final updateMap = {
+          'profileImageUrl': uploadedUrl,
+          'photoUrl': uploadedUrl,
+          'passportPhotoUrl': uploadedUrl,
+          'metadata.photoUrl': uploadedUrl,
+          'metadata.passportPhotoUrl': uploadedUrl,
+          'metadata.profileImageUrl': uploadedUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        await firestore.collection('users').doc(currentUser.uid).set(updateMap, SetOptions(merge: true));
+        await firestore.collection('students').doc(currentUser.uid).set(updateMap, SetOptions(merge: true));
+        await firestore.collection('student_profiles').doc(currentUser.uid).set({
+          'photoUrl': uploadedUrl,
+          'profileImageUrl': uploadedUrl,
+          'personal.photoUrl': uploadedUrl,
+          'personal.passportPhotoUrl': uploadedUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
         final regNo = (updatedMeta['registerNumber'] ?? updatedMeta['regNo'])?.toString().trim();
         if (regNo != null && regNo.isNotEmpty) {
+          await firestore.collection('students').doc(regNo).set(updateMap, SetOptions(merge: true));
+          await firestore.collection('students').doc(regNo.toUpperCase()).set(updateMap, SetOptions(merge: true));
+          await firestore.collection('users').doc(regNo).set(updateMap, SetOptions(merge: true));
+          await firestore.collection('users').doc(regNo.toUpperCase()).set(updateMap, SetOptions(merge: true));
+          await firestore.collection('student_profiles').doc(regNo).set({
+            'photoUrl': uploadedUrl,
+            'profileImageUrl': uploadedUrl,
+            'personal.photoUrl': uploadedUrl,
+            'personal.passportPhotoUrl': uploadedUrl,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
           ref.read(parentServiceProvider).cacheStudentProfile(regNo, {
             'fullName': updatedUser.fullName,
             'name': updatedUser.fullName,
-            'photoUrl': finalPhotoUrl,
-            'profileImageUrl': finalPhotoUrl,
-            'passportPhotoUrl': finalPhotoUrl,
+            'photoUrl': uploadedUrl,
+            'profileImageUrl': uploadedUrl,
+            'passportPhotoUrl': uploadedUrl,
             ...updatedMeta,
           });
         }
+      } catch (firestoreErr) {
+        // Rollback uploaded storage file on Firestore failure to prevent orphan files
+        unawaited(storageService.deleteFile(uploadedUrl));
+        rethrow;
+      }
+
+      // 3. Clean up older remote photo from Storage after Firestore success
+      if (existingPhotoUrl.isNotEmpty &&
+          existingPhotoUrl != uploadedUrl &&
+          (existingPhotoUrl.contains('firebasestorage.googleapis.com') || existingPhotoUrl.contains('appspot.com'))) {
+        unawaited(storageService.deleteFile(existingPhotoUrl));
       }
 
       if (mounted) {
         setState(() {
-          _customPhotoPath = finalPhotoUrl;
+          _customPhotoPath = uploadedUrl;
           _isUploadingPhoto = false;
         });
+        ref.invalidate(currentUserProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated successfully!')),
+        );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating photo: $e')),
+          SnackBar(
+            content: Text('Error updating photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }

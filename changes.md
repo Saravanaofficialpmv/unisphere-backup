@@ -78,17 +78,42 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
 
 ---
 
+### 7. 📸 Production-Ready Profile Photo Upload Pipeline (Firebase Storage + Firestore)
+- **Direct Firebase Storage Upload**:
+  - Added `StorageService.uploadProfilePhoto({required String userId, required File file})` in [`lib/services/storage_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/storage_service.dart).
+  - Organizes photos under versioned paths: `profile_photos/{userId}/profile_{timestamp}.jpg`.
+  - Attaches `image/jpeg` contentType metadata and uploads directly via `FirebaseStorage.instance.ref().putFile()`.
+  - Automatically fetches and returns the verified HTTPS download URL.
+- **Strict Firestore Sanitization**:
+  - Guarded `FirebaseAuthService.saveUserData` in [`lib/services/firebase_auth_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/firebase_auth_service.dart) to only accept and persist remote URLs starting with `http://` or `https://`.
+  - Strips local simulator/device paths (`/Users/...`, `/tmp/...`, `file://...`, `/data/...`) ensuring local paths are **never** persisted to Firestore across `users`, `students`, `parents`, and `student_profiles` collections.
+- **End-to-End UI Photo Flow**:
+  - Refactored `_pickAndUploadPhoto` in [`ProfileScreen`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/profile/profile_screen.dart) and [`ParentProfileScreen`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_profile_screen.dart):
+    - Picks image locally -> uploads to Firebase Storage -> persists HTTPS download URL to Firestore -> deletes old storage photo upon successful replacement.
+    - Automatic rollback: deletes newly uploaded Storage file if subsequent Firestore write fails.
+    - Prevents double-taps with `_isUploadingPhoto` busy lock.
+  - Refactored passport photo upload in [`StudentProfileCompletionSheet`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/student/student_profile_completion_sheet.dart).
+- **Safe Avatar Rendering & Backward Compatibility**:
+  - Safeguarded `_buildProfileHeaderAvatar`, `_buildParentAvatar`, `_buildPassportPhotoAvatar`, and `_buildWardPhotoAvatar` across screens.
+  - Only triggers network image loads for valid remote URLs (`http://` or `https://`), gracefully displaying default initials/placeholder icons for legacy local paths or empty values without crashing or throwing HTTP exceptions.
+- **Storage Security Rules**:
+  - Updated [`storage.rules`](file:///Users/saravana/Downloads/unisphere-main-v2/storage.rules) to permit authenticated reads and owner writes for `profile_photos/{userId}/{fileName}` and `profile-photos/{userId}/{fileName}`.
+
+---
+
 ## 📂 Key Modified & Added Files
 
 | File Path | Description |
 |---|---|
-| [`lib/screens/parent/parent_profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_profile_screen.dart) | Dedicated Parent Profile screen with fixed header, slidable wards carousel, and popup sheets. |
-| [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart) | Connected tab 4 navigation to `ParentProfileScreen`. |
-| [`lib/screens/profile/profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/profile/profile_screen.dart) | Parent delegation check and profile picture removal with database & storage sync. |
+| [`lib/services/storage_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/storage_service.dart) | Added `uploadProfilePhoto` and enhanced `deleteFile` to handle Firebase Storage URLs safely. |
+| [`lib/services/firebase_auth_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/firebase_auth_service.dart) | Sanitized `saveUserData` to strictly persist valid remote HTTP/HTTPS photo URLs. |
+| [`lib/screens/profile/profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/profile/profile_screen.dart) | Production-ready photo upload flow with Firebase Storage and safe avatar rendering. |
+| [`lib/screens/parent/parent_profile_screen.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_profile_screen.dart) | Dedicated Parent Profile screen with Storage photo upload and dynamic directory sheets. |
+| [`lib/widgets/student/student_profile_completion_sheet.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/student/student_profile_completion_sheet.dart) | Passport photo upload using Firebase Storage download URLs. |
+| [`storage.rules`](file:///Users/saravana/Downloads/unisphere-main-v2/storage.rules) | Added security rules for `profile_photos` path. |
+| [`test/profile_photo_upload_test.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/test/profile_photo_upload_test.dart) | Unit test suite for photo upload pathing, URL sanitization, and storage safety. |
+| [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart) | Connected tab 4 navigation to `ParentProfileScreen` with safe ward avatar rendering. |
 | [`lib/models/user_model.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/models/user_model.dart) | Enhanced role parser with multi-source metadata & ward detection. |
-| [`lib/services/firebase_auth_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/firebase_auth_service.dart) | Parent collection verification and Firestore synchronization. |
-| [`lib/services/storage_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/storage_service.dart) | Added `deleteFile(String path)` for Firebase Storage cleanup. |
-| [`lib/services/user_session_service.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/services/user_session_service.dart) | Fresh signup vs returning user session tracking. |
 | [`lib/navigation/app_router.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/navigation/app_router.dart) | Strict cross-role redirect guards for `/parent` and `/student`. |
 | [`lib/screens/student/student_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/student/student_dashboard.dart) | Role guard rendering `ParentDashboard` for parent users. |
 
@@ -96,14 +121,19 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
 
 ## 🧪 Testing & Verification Status
 
-- **Test Suite Pass Rate**: **100% (55/55 test suites passing)**
+- **Test Suite Pass Rate**: **100% (60/60 tests passing, 0 failures)**
+- **Static Analysis**: **0 issues found (`flutter analyze` clean)**
 - **Commands Executed**:
   ```bash
   flutter test
+  flutter analyze
   ```
 - **Key Test Areas Covered**:
+  - `profile_photo_upload_test.dart`: Profile photo storage safety, URL sanitization & UserModel copy.
   - `widget_test.dart`: App smoke tests & router flow.
   - `parent_notification_system_test.dart`: Parent notification stream isolation & rule engine.
   - `automated_notification_system_test.dart`: Deduplication key generation & cooldown verification.
   - `user_session_greeting_test.dart`: Fresh signup vs returning login state isolation.
+  - `parent_multi_child_test.dart`: Sibling link, ward resolution & multi-child parsing.
   - `onboarding_screen_test.dart`: Role selection, validation & navigation.
+

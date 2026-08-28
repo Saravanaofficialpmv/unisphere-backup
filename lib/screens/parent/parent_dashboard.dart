@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +19,6 @@ import 'package:unisphere/widgets/parent/parent_navigation_sheet.dart';
 import 'package:unisphere/widgets/parent/parent_quick_navigation_bar.dart';
 import 'package:unisphere/widgets/parent/parent_summary_carousel.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
-import 'package:unisphere/screens/profile/profile_screen.dart';
 import 'package:unisphere/screens/parent/parent_profile_screen.dart';
 import 'package:unisphere/widgets/common/recent_photos_section.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
@@ -1208,22 +1206,6 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
     );
   }
 
-  Widget _buildAvatarFallback() {
-    return Container(
-      color: const Color(0xFF2563EB),
-      child: Center(
-        child: Text(
-          _selectedWard.avatarInitials,
-          style: GoogleFonts.manrope(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildWardPhotoAvatar(String? photoUrl, String initials, {double size = 48, bool isSelected = false}) {
     final cleanUrl = photoUrl?.trim() ?? '';
     Widget fallback = Container(
@@ -1256,17 +1238,6 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
           return fallback;
         },
       );
-    } else {
-      final file = File(cleanUrl);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => fallback,
-        );
-      }
     }
     return fallback;
   }

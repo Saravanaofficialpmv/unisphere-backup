@@ -51,7 +51,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isCheckingStudentId = false;
   bool _studentIdAlreadyExists = false;
   bool _studentIdAvailable = false;
-  String? _studentIdStatusMessage;
 
   final List<String> _roles = ['Student', 'Faculty', 'Department (HOD)', 'Parent'];
   final List<String> _departments = AppDepartments.list;
@@ -137,7 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _childMatches.remove(index);
           _childLookupErrors[index] = duplicateCheck == 0
               ? 'Already added as primary child'
-              : 'Already added as Child ${duplicateCheck! + 1}';
+              : 'Already added as Child ${duplicateCheck + 1}';
         } else if (match != null) {
           _childMatches[index] = match;
           _childLookupErrors.remove(index);
@@ -161,12 +160,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _checkStudentIdExistence(String id) async {
     final clean = id.trim();
-    if (_selectedRole != 'Student') {
+    if (_selectedRole != 'Student' || clean.isEmpty) {
       setState(() {
         _isCheckingStudentId = false;
         _studentIdAlreadyExists = false;
         _studentIdAvailable = false;
-        _studentIdStatusMessage = null;
       });
       return;
     }
@@ -177,7 +175,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _isCheckingStudentId = false;
           _studentIdAlreadyExists = false;
           _studentIdAvailable = false;
-          _studentIdStatusMessage = null;
           _hasIdError = false;
         });
       }
@@ -235,12 +232,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _studentIdAvailable = false;
           _hasIdError = true;
           _idErrorMessage = 'Already registered';
-          _studentIdStatusMessage = 'User already exists with this register number. Please sign in directly.';
         } else {
           _studentIdAlreadyExists = false;
           _studentIdAvailable = true;
           _hasIdError = false;
-          _studentIdStatusMessage = 'Register Number available for signup ✓';
         }
       });
     }

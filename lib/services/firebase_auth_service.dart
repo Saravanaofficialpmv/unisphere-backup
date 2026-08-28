@@ -514,9 +514,52 @@ class FirebaseAuthService implements AuthService {
         userMap['currentSemester'] = sem;
       }
 
-      if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
-        userMap['profileImageUrl'] = user.profileImageUrl;
-        userMap['photoUrl'] = user.profileImageUrl;
+      // Sanitize profile photo URL: strictly accept remote URLs (http:// or https://)
+      String? cleanPhoto;
+      final rawPhoto = (user.profileImageUrl ?? meta['passportPhotoUrl'] ?? meta['photoUrl'])?.toString().trim();
+      if (rawPhoto != null && rawPhoto.isNotEmpty) {
+        if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
+          cleanPhoto = rawPhoto;
+        } else {
+          // Reject any local paths (/Users/..., /tmp/..., file://...)
+          debugPrint('FirebaseAuthService: Filtered out invalid local photo path "$rawPhoto" from Firestore save.');
+          cleanPhoto = null;
+        }
+      } else if (user.profileImageUrl == '') {
+        // Explicitly removed photo
+        cleanPhoto = '';
+      }
+
+      if (cleanPhoto != null) {
+        userMap['profileImageUrl'] = cleanPhoto;
+        userMap['photoUrl'] = cleanPhoto;
+      } else {
+        userMap.remove('profileImageUrl');
+        userMap.remove('photoUrl');
+      }
+
+      // Also sanitize metadata
+      if (userMap['metadata'] is Map) {
+        final metaCopy = Map<String, dynamic>.from(userMap['metadata']);
+        if (cleanPhoto != null && cleanPhoto.isNotEmpty) {
+          metaCopy['photoUrl'] = cleanPhoto;
+          metaCopy['passportPhotoUrl'] = cleanPhoto;
+          metaCopy['profileImageUrl'] = cleanPhoto;
+        } else if (cleanPhoto == '') {
+          metaCopy['photoUrl'] = '';
+          metaCopy['passportPhotoUrl'] = '';
+          metaCopy['profileImageUrl'] = '';
+        } else {
+          final metaPhoto = metaCopy['photoUrl']?.toString() ?? '';
+          if (!metaPhoto.startsWith('http://') && !metaPhoto.startsWith('https://')) {
+            metaCopy.remove('photoUrl');
+          }
+          final metaPassport = metaCopy['passportPhotoUrl']?.toString() ?? '';
+          if (!metaPassport.startsWith('http://') && !metaPassport.startsWith('https://')) {
+            metaCopy.remove('passportPhotoUrl');
+          }
+        }
+        userMap['metadata'] = metaCopy;
       }
 
       await firestore.collection('users').doc(user.uid).set(userMap, SetOptions(merge: true));
@@ -532,6 +575,8 @@ class FirebaseAuthService implements AuthService {
           'phone': user.phone,
           'role': 'parent',
           'userRole': 'parent',
+          'profileImageUrl': cleanPhoto ?? '',
+          'photoUrl': cleanPhoto ?? '',
           if (meta['wardRegisterNumbers'] != null) 'wardRegisterNumbers': meta['wardRegisterNumbers'],
           if (meta['childRegisterNumbers'] != null) 'childRegisterNumbers': meta['childRegisterNumbers'],
           if (meta['studentIds'] != null) 'studentIds': meta['studentIds'],
@@ -542,7 +587,7 @@ class FirebaseAuthService implements AuthService {
       }
 
       if (user.role == UserRole.student && regNo != null && regNo.isNotEmpty) {
-        final photo = user.profileImageUrl ?? meta['passportPhotoUrl'] ?? meta['photoUrl'] ?? '';
+        final photo = cleanPhoto ?? '';
         final studentDoc = {
           'userId': user.uid,
           'uid': user.uid,
@@ -559,9 +604,9 @@ class FirebaseAuthService implements AuthService {
           'currentYear': year ?? '',
           'semester': sem ?? '',
           'currentSemester': sem ?? '',
-          if (photo.isNotEmpty) 'profileImageUrl': photo,
-          if (photo.isNotEmpty) 'photoUrl': photo,
-          if (photo.isNotEmpty) 'passportPhotoUrl': photo,
+          'profileImageUrl': photo,
+          'photoUrl': photo,
+          'passportPhotoUrl': photo,
           'updatedAt': FieldValue.serverTimestamp(),
           ...meta,
         };
@@ -574,14 +619,14 @@ class FirebaseAuthService implements AuthService {
         final profileDoc = {
           'studentUid': user.uid,
           'registerNumber': regNo,
-          if (photo.isNotEmpty) 'photoUrl': photo,
-          if (photo.isNotEmpty) 'profileImageUrl': photo,
+          'photoUrl': photo,
+          'profileImageUrl': photo,
           'personal': {
             'fullName': user.fullName,
             'email': user.email,
             'phone': user.phone,
-            if (photo.isNotEmpty) 'photoUrl': photo,
-            if (photo.isNotEmpty) 'passportPhotoUrl': photo,
+            'photoUrl': photo,
+            'passportPhotoUrl': photo,
           },
           'updatedAt': FieldValue.serverTimestamp(),
         };

@@ -120,7 +120,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           _authChildMatches.remove(index);
           _childLookupErrors[index] = duplicateCheck == 0
               ? 'Already added as primary student'
-              : 'Already added as Child ${duplicateCheck! + 1}';
+              : 'Already added as Child ${duplicateCheck + 1}';
         } else if (match != null) {
           _authChildMatches[index] = match;
           _childLookupErrors.remove(index);

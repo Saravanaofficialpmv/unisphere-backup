@@ -3,7 +3,6 @@ import 'package:unisphere/models/notification_model.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/providers/notification_provider.dart';
 import 'package:unisphere/repositories/notification_repository.dart';
-import 'package:unisphere/services/notification_automation_rules_service.dart';
 import 'package:unisphere/services/notification_duplicate_preventer.dart';
 import 'package:unisphere/services/notification_engine.dart';
 

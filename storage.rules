@@ -10,6 +10,17 @@ service firebase.storage {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    // Unified Profile Photos: profile_photos/{userId}/{fileName}
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAuthenticated();
+    }
+
+    match /profile-photos/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAuthenticated();
+    }
+
     // Student Photos: student-photos/{uid}/profile
     match /student-photos/{uid}/{fileName} {
       allow read: if isAuthenticated();

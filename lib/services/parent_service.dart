@@ -611,7 +611,7 @@ class ParentService {
             'currentYear': year,
             'currentSemester': sem,
             'avatarInitials': initials.isNotEmpty ? initials : 'ST',
-            if (photoUrl != null && photoUrl.isNotEmpty) 'photoUrl': photoUrl,
+            if (photoUrl != null && photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'))) 'photoUrl': photoUrl,
             'attendancePercent': totalClasses > 0 ? '${(attPercent * 100).toStringAsFixed(1)}%' : (studentRaw['attendancePercent'] ?? meta['attendancePercent'] ?? '0%'),
             'presentCount': present,
             'absentCount': absent,

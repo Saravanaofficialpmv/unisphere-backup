@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -1091,6 +1092,8 @@ class _StudentProfileCompletionSheetState
   }
 
   Future<void> _pickStudentPhoto(ImageSource source) async {
+    if (_isUploadingPhoto) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -1101,37 +1104,50 @@ class _StudentProfileCompletionSheetState
       );
       if (picked == null) return;
 
+      final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+      if (user == null) {
+        throw Exception('User session not found.');
+      }
+
       setState(() {
         _isUploadingPhoto = true;
-        _studentPhotoUrl = picked.path;
       });
 
-      final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
-      String finalUrl = picked.path;
+      final storageService = ref.read(storageServiceProvider);
+      final existingUrl = _studentPhotoUrl ?? (user.profileImageUrl ?? user.metadata?['passportPhotoUrl'] ?? '').toString().trim();
 
-      if (user != null) {
-        final storageService = ref.read(storageServiceProvider);
-        final uploaded = await storageService.uploadFile(
-          storagePath: storageService.studentPhotoPath(user.uid),
-          file: File(picked.path),
-        );
-        if (uploaded != null && uploaded.isNotEmpty) {
-          finalUrl = uploaded;
-        }
+      // 1. Upload to Firebase Storage and get download URL
+      final uploadedUrl = await storageService.uploadProfilePhoto(
+        userId: user.uid,
+        file: File(picked.path),
+      );
 
+      // 2. Persist in Firestore
+      try {
         final updatedMeta = Map<String, dynamic>.from(user.metadata ?? {});
-        updatedMeta['passportPhotoUrl'] = finalUrl;
-        updatedMeta['photoUrl'] = finalUrl;
+        updatedMeta['passportPhotoUrl'] = uploadedUrl;
+        updatedMeta['photoUrl'] = uploadedUrl;
+        updatedMeta['profileImageUrl'] = uploadedUrl;
         final updatedUser = user.copyWith(
-          profileImageUrl: finalUrl,
+          profileImageUrl: uploadedUrl,
           metadata: updatedMeta,
         );
         await ref.read(authServiceProvider).updateUserProfile(updatedUser);
+      } catch (e) {
+        unawaited(storageService.deleteFile(uploadedUrl));
+        rethrow;
+      }
+
+      // 3. Clean up old remote photo if different
+      if (existingUrl.isNotEmpty &&
+          existingUrl != uploadedUrl &&
+          (existingUrl.contains('firebasestorage.googleapis.com') || existingUrl.contains('appspot.com'))) {
+        unawaited(storageService.deleteFile(existingUrl));
       }
 
       if (mounted) {
         setState(() {
-          _studentPhotoUrl = finalUrl;
+          _studentPhotoUrl = uploadedUrl;
           _isUploadingPhoto = false;
           final index = _uploadedDocuments.indexWhere((d) => d.id == 'doc_photo');
           final newDoc = StudentDocument(
@@ -1139,7 +1155,7 @@ class _StudentProfileCompletionSheetState
             name: 'Student Passport Photo',
             isRequired: true,
             fileName: picked.name,
-            fileUrl: finalUrl,
+            fileUrl: uploadedUrl,
             status: 'uploaded',
           );
           if (index != -1) {
@@ -1158,7 +1174,6 @@ class _StudentProfileCompletionSheetState
               ],
             ),
             backgroundColor: Color(0xFF16A34A),
-            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -1166,7 +1181,10 @@ class _StudentProfileCompletionSheetState
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking photo: $e')),
+          SnackBar(
+            content: Text('Error updating photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
         );
       }
     }
@@ -1258,12 +1276,14 @@ class _StudentProfileCompletionSheetState
                                   child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF2563EB)),
                                 ),
                               )
-                            : (_studentPhotoUrl != null && _studentPhotoUrl!.isNotEmpty
-                                ? (_studentPhotoUrl!.startsWith('http://') || _studentPhotoUrl!.startsWith('https://')
-                                    ? Image.network(_studentPhotoUrl!, fit: BoxFit.cover, width: 72, height: 72)
-                                    : (File(_studentPhotoUrl!).existsSync()
-                                        ? Image.file(File(_studentPhotoUrl!), fit: BoxFit.cover, width: 72, height: 72)
-                                        : const Icon(Icons.person, size: 40, color: Color(0xFF2563EB))))
+                            : (_studentPhotoUrl != null && _studentPhotoUrl!.isNotEmpty && (_studentPhotoUrl!.startsWith('http://') || _studentPhotoUrl!.startsWith('https://'))
+                                ? Image.network(
+                                    _studentPhotoUrl!,
+                                    fit: BoxFit.cover,
+                                    width: 72,
+                                    height: 72,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 40, color: Color(0xFF2563EB)),
+                                  )
                                 : const Icon(Icons.person_add_alt_1_rounded, size: 36, color: Color(0xFF2563EB))),
                       ),
                     ),
