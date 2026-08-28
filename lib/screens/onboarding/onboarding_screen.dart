@@ -30,6 +30,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Multi-child registration controllers for parents
   final List<TextEditingController> _childRegControllers = [TextEditingController()];
   final Map<int, Map<String, dynamic>?> _childMatches = {};
+  final Map<int, bool> _isCheckingChild = {};
+  final Map<int, String?> _childLookupErrors = {};
   final ParentService _parentService = ParentService();
 
   // Selection states
@@ -44,6 +46,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _idErrorMessage = 'Please enter your ID';
   bool _hasDeptError = false;
   final Set<int> _childErrors = {};
+
+  // Student register number existence checking states
+  bool _isCheckingStudentId = false;
+  bool _studentIdAlreadyExists = false;
+  bool _studentIdAvailable = false;
+  String? _studentIdStatusMessage;
 
   final List<String> _roles = ['Student', 'Faculty', 'Department (HOD)', 'Parent'];
   final List<String> _departments = AppDepartments.list;
@@ -62,30 +70,177 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _childRegControllers[index].dispose();
       _childRegControllers.removeAt(index);
       _childMatches.remove(index);
+      _isCheckingChild.remove(index);
+      _childLookupErrors.remove(index);
       _childErrors.remove(index);
     });
   }
 
   Future<void> _checkStudentMatch(int index, String regNo) async {
-    final clean = regNo.trim();
+    final clean = regNo.trim().toUpperCase();
     if (_childErrors.contains(index) && clean.length == 12) {
       setState(() => _childErrors.remove(index));
     }
 
     if (clean.length < 3) {
-      if (_childMatches.containsKey(index)) {
-        setState(() => _childMatches.remove(index));
+      if (_childMatches.containsKey(index) || _childLookupErrors.containsKey(index)) {
+        setState(() {
+          _childMatches.remove(index);
+          _isCheckingChild.remove(index);
+          _childLookupErrors.remove(index);
+        });
       }
       return;
     }
 
+    // Sibling duplicate check
+    int? duplicateOf;
+    for (int i = 0; i < _childRegControllers.length; i++) {
+      if (i != index && _childRegControllers[i].text.trim().toUpperCase() == clean) {
+        duplicateOf = i;
+        break;
+      }
+    }
+
+    if (duplicateOf != null) {
+      setState(() {
+        _childMatches.remove(index);
+        _isCheckingChild.remove(index);
+        _childLookupErrors[index] = duplicateOf == 0
+            ? 'Already added as primary child'
+            : 'Already added as Child ${duplicateOf! + 1}';
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingChild[index] = true;
+      _childLookupErrors.remove(index);
+    });
+
     final match = await _parentService.lookupStudentByRegNo(clean);
     if (mounted) {
+      if (index >= _childRegControllers.length || _childRegControllers[index].text.trim().toUpperCase() != clean) {
+        return;
+      }
+      int? duplicateCheck;
+      for (int i = 0; i < _childRegControllers.length; i++) {
+        if (i != index && _childRegControllers[i].text.trim().toUpperCase() == clean) {
+          duplicateCheck = i;
+          break;
+        }
+      }
+
       setState(() {
-        if (match != null) {
+        _isCheckingChild[index] = false;
+        if (duplicateCheck != null) {
+          _childMatches.remove(index);
+          _childLookupErrors[index] = duplicateCheck == 0
+              ? 'Already added as primary child'
+              : 'Already added as Child ${duplicateCheck! + 1}';
+        } else if (match != null) {
           _childMatches[index] = match;
+          _childLookupErrors.remove(index);
         } else {
           _childMatches.remove(index);
+          if (clean.length == 12 || clean.length >= 8) {
+            _childLookupErrors[index] = 'Student not found';
+          } else {
+            _childLookupErrors.remove(index);
+          }
+        }
+      });
+    }
+  }
+
+  void _revalidateAllChildMatches() {
+    for (int i = 0; i < _childRegControllers.length; i++) {
+      _checkStudentMatch(i, _childRegControllers[i].text);
+    }
+  }
+
+  Future<void> _checkStudentIdExistence(String id) async {
+    final clean = id.trim();
+    if (_selectedRole != 'Student') {
+      setState(() {
+        _isCheckingStudentId = false;
+        _studentIdAlreadyExists = false;
+        _studentIdAvailable = false;
+        _studentIdStatusMessage = null;
+      });
+      return;
+    }
+
+    if (clean.length < 12) {
+      if (_isCheckingStudentId || _studentIdAlreadyExists || _studentIdAvailable) {
+        setState(() {
+          _isCheckingStudentId = false;
+          _studentIdAlreadyExists = false;
+          _studentIdAvailable = false;
+          _studentIdStatusMessage = null;
+          _hasIdError = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isCheckingStudentId = true;
+      _studentIdAlreadyExists = false;
+      _studentIdAvailable = false;
+      _hasIdError = false;
+    });
+
+    final firestore = _parentService.firestore;
+    bool alreadyExists = false;
+
+    if (firestore != null) {
+      try {
+        final uq = await firestore
+            .collection('users')
+            .where('metadata.registerNumber', isEqualTo: clean)
+            .limit(1)
+            .get();
+        if (uq.docs.isNotEmpty) {
+          alreadyExists = true;
+        }
+
+        if (!alreadyExists) {
+          final uDoc = await firestore.collection('users').doc(clean).get();
+          if (uDoc.exists) alreadyExists = true;
+        }
+      } catch (e) {
+        debugPrint('Onboarding reg no existence check notice: $e');
+      }
+    }
+
+    if (!alreadyExists) {
+      const existingDemoRegs = [
+        'RA2111003010001',
+        '917721104012',
+        '917722104022',
+        '917721104045',
+        '922523243100',
+      ];
+      if (existingDemoRegs.contains(clean) || existingDemoRegs.contains(clean.toUpperCase())) {
+        alreadyExists = true;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isCheckingStudentId = false;
+        if (alreadyExists) {
+          _studentIdAlreadyExists = true;
+          _studentIdAvailable = false;
+          _hasIdError = true;
+          _idErrorMessage = 'Already registered';
+          _studentIdStatusMessage = 'User already exists with this register number. Please sign in directly.';
+        } else {
+          _studentIdAlreadyExists = false;
+          _studentIdAvailable = true;
+          _hasIdError = false;
+          _studentIdStatusMessage = 'Register Number available for signup ✓';
         }
       });
     }
@@ -142,15 +297,46 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (_currentMainStep == 3) {
         if (_selectedRole == 'Parent') {
           _childErrors.clear();
+          final seenRegs = <String>{};
+          bool hasDuplicate = false;
+          bool hasUnregistered = false;
           for (int i = 0; i < _childRegControllers.length; i++) {
-            final reg = _childRegControllers[i].text.trim();
+            final reg = _childRegControllers[i].text.trim().toUpperCase();
             if (reg.isEmpty || reg.length != 12) {
               _childErrors.add(i);
+            } else if (seenRegs.contains(reg)) {
+              _childErrors.add(i);
+              hasDuplicate = true;
+            } else {
+              seenRegs.add(reg);
+            }
+
+            final match = _childMatches[i];
+            if (match == null && reg.length == 12) {
+              _childErrors.add(i);
+              hasUnregistered = true;
             }
           }
           if (_childErrors.isNotEmpty) {
             HapticFeedback.mediumImpact();
             setState(() {});
+            if (hasDuplicate) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot use the same register number twice as a sibling.'),
+                  backgroundColor: Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            } else if (hasUnregistered) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter valid registered student register numbers.'),
+                  backgroundColor: Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
             return;
           }
         } else {
@@ -164,6 +350,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             _hasIdError = true;
             _idErrorMessage = 'Register number must be 12 digits';
             hasError = true;
+          } else if (_selectedRole == 'Student' && _studentIdAlreadyExists) {
+            _hasIdError = true;
+            _idErrorMessage = 'Already registered';
+            hasError = true;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('An account already exists with this register number. Please sign in directly.'),
+                backgroundColor: Color(0xFFEF4444),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           }
           if (_selectedDept == null) {
             _hasDeptError = true;
@@ -997,7 +1194,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 26),
 
-        // Campus ID Field (Highlighted with red border if empty / invalid)
+        // Campus ID Field (Highlighted with red border if empty / invalid / already exists)
         _buildStyledInputField(
           controller: _idController,
           hint: _selectedRole == 'Student' ? 'Enter 12-digit register number' : 'Enter your campus ID / employee ID',
@@ -1010,11 +1207,79 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   LengthLimitingTextInputFormatter(12),
                 ]
               : null,
-          hasError: _hasIdError,
+          hasError: _hasIdError || _studentIdAlreadyExists,
+          isSuccess: _selectedRole == 'Student' && _studentIdAvailable,
           errorMessage: _idErrorMessage,
+          suffixIcon: _selectedRole == 'Student'
+              ? (_isCheckingStudentId
+                  ? const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : (_studentIdAlreadyExists
+                      ? const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20)
+                      : (_studentIdAvailable
+                          ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
+                          : null)))
+              : null,
+          bottomWidget: _selectedRole == 'Student' && _studentIdAlreadyExists
+              ? Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 15),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'Already exists',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF991B1B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => context.go('/auth?mode=login'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Sign In ➔',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFB91C1C),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : null,
           onChanged: (val) {
             if (_hasIdError && val.trim().isNotEmpty) {
               setState(() => _hasIdError = false);
+            }
+            if (_selectedRole == 'Student') {
+              _checkStudentIdExistence(val);
             }
           },
         ),
@@ -1146,7 +1411,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ...List.generate(_childRegControllers.length, (index) {
           final isPrimary = index == 0;
           final match = _childMatches[index];
-          final hasChildError = _childErrors.contains(index);
+          final isChecking = _isCheckingChild[index] == true;
+          final text = _childRegControllers[index].text.trim().toUpperCase();
+          final isDuplicate = _childRegControllers.asMap().entries.any(
+            (e) => e.key != index && e.value.text.trim().toUpperCase() == text && text.isNotEmpty,
+          );
+          final lookupError = _childLookupErrors[index];
+          final hasError = (text.length == 12 || text.length >= 8) && (match == null || isDuplicate) && !isChecking;
+          final hasChildError = _childErrors.contains(index) || hasError;
+          final errorText = isDuplicate
+              ? 'Already added'
+              : (lookupError ?? (hasError ? 'Student not found' : null));
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 18),
@@ -1166,7 +1441,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     if (!isPrimary)
                       GestureDetector(
-                        onTap: () => _removeChildField(index),
+                        onTap: () {
+                          _removeChildField(index);
+                          _revalidateAllChildMatches();
+                        },
                         child: const Row(
                           children: [
                             Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 16),
@@ -1193,7 +1471,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     LengthLimitingTextInputFormatter(12),
                   ],
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                  onChanged: (val) => _checkStudentMatch(index, val),
+                  onChanged: (val) {
+                    _revalidateAllChildMatches();
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter 12-digit register number',
                     hintStyle: TextStyle(
@@ -1207,15 +1487,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFF475569),
                       size: 20,
                     ),
-                    suffixIcon: match != null
-                        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
-                        : null,
+                    suffixIcon: isChecking
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                            ),
+                          )
+                        : (match != null && !isDuplicate
+                            ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
+                            : (hasError
+                                ? const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20)
+                                : null)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
                         color: hasChildError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
-                        width: hasChildError ? 1.8 : 1.0,
+                        width: (hasChildError || (match != null && !isDuplicate)) ? 1.8 : 1.0,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
@@ -1223,8 +1514,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       borderSide: BorderSide(
                         color: hasChildError
                             ? const Color(0xFFEF4444)
-                            : (match != null ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
-                        width: (hasChildError || match != null) ? 1.5 : 1.0,
+                            : (match != null && !isDuplicate ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
+                        width: (hasChildError || (match != null && !isDuplicate)) ? 1.5 : 1.0,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
@@ -1236,7 +1527,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
-                if (match != null) ...[
+                if (match != null && !isDuplicate) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1256,6 +1547,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               fontSize: 12.5,
                               color: Color(0xFF065F46),
                               fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (hasError && errorText != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorText,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF991B1B),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -1366,9 +1683,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     bool hasError = false,
+    bool isSuccess = false,
     String? errorMessage,
+    Widget? suffixIcon,
+    Widget? bottomWidget,
     ValueChanged<String>? onChanged,
   }) {
+    final effectiveBorderColor = hasError
+        ? const Color(0xFFEF4444)
+        : (isSuccess ? const Color(0xFF10B981) : const Color(0xFFE2E8F0));
+    final effectiveBorderWidth = (hasError || isSuccess) ? 1.8 : 1.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1411,33 +1736,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
             prefixIcon: Icon(
               icon,
-              color: hasError ? const Color(0xFFEF4444) : const Color(0xFF475569),
+              color: hasError
+                  ? const Color(0xFFEF4444)
+                  : (isSuccess ? const Color(0xFF10B981) : const Color(0xFF475569)),
               size: 20,
             ),
+            suffixIcon: suffixIcon,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: hasError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
-                width: hasError ? 1.8 : 1.0,
+                color: effectiveBorderColor,
+                width: effectiveBorderWidth,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: hasError ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
-                width: hasError ? 1.8 : 1.0,
+                color: effectiveBorderColor,
+                width: effectiveBorderWidth,
               ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: hasError ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+                color: hasError
+                    ? const Color(0xFFEF4444)
+                    : (isSuccess ? const Color(0xFF10B981) : const Color(0xFF0F172A)),
                 width: 1.8,
               ),
             ),
           ),
         ),
+        if (bottomWidget != null) bottomWidget,
       ],
     );
   }

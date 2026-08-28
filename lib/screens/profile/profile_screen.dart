@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/storage_service.dart';
+import 'package:unisphere/services/parent_service.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 import 'package:unisphere/models/user_model.dart';
@@ -14,6 +16,7 @@ import 'package:unisphere/screens/features/leetcode_detail_screen.dart';
 import 'package:unisphere/screens/features/github_detail_screen.dart';
 import 'package:unisphere/widgets/student/student_profile_edit_request_modal.dart';
 import 'package:unisphere/screens/student/modules/student_resume_screen.dart';
+import 'package:unisphere/screens/parent/parent_profile_screen.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -112,6 +115,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    if (currentUser?.role == UserRole.parent) {
+      return ParentProfileScreen(onBack: widget.onBack);
+    }
     final name = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty) ? currentUser.name : 'Alex Johnson';
     final email = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty) ? currentUser.email : 'saravanapmvofficial@gmail.com';
     final isDemo = email.toLowerCase().trim() == 'saravanapmvofficial@gmail.com';
@@ -125,6 +131,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ? currentUser!.metadata!['year'].toString() 
         : (isDemo ? '3rd Year (Semester VI)' : '3rd Year (Semester VI)');
     final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['passportPhotoUrl'] ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
+    final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || File(photoUrl).existsSync());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -198,7 +205,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                     const SizedBox(height: 10),
 
-                    // Center Avatar with White Ring & Camera Shortcut
+                    // Center Avatar with Gradient Ring (when photo uploaded) & Camera Shortcut
                     GestureDetector(
                       onTap: () => _showUploadPassportPhotoModal(context),
                       child: Stack(
@@ -206,18 +213,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(3.5),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color(0x33000000),
-                                  blurRadius: 14,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
+                              gradient: hasUploadedPhoto
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF38BDF8), // Vivid Cyan
+                                        Color(0xFF818CF8), // Soft Indigo
+                                        Color(0xFFA855F7), // Purple
+                                        Color(0xFFEC4899), // Rose Pink
+                                        Color(0xFF38BDF8), // Continuous Loop
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              color: hasUploadedPhoto ? null : Colors.white,
+                              boxShadow: hasUploadedPhoto
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xFF818CF8).withValues(alpha: 0.65),
+                                        blurRadius: 18,
+                                        spreadRadius: 2.5,
+                                      ),
+                                      BoxShadow(
+                                        color: const Color(0xFFEC4899).withValues(alpha: 0.45),
+                                        blurRadius: 26,
+                                        spreadRadius: 1.5,
+                                      ),
+                                    ]
+                                  : const [
+                                      BoxShadow(
+                                        color: Color(0x33000000),
+                                        blurRadius: 14,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
                             ),
-                            child: _buildProfileHeaderAvatar(photoUrl),
+                            child: Container(
+                              padding: EdgeInsets.all(hasUploadedPhoto ? 2.5 : 0),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: _buildProfileHeaderAvatar(photoUrl),
+                            ),
                           ),
                           Positioned(
                             bottom: 2,
@@ -259,6 +299,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                       ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // Account Creation Date
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 11.5,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Created: ${currentUser?.formattedCreatedAt ?? "15 Jan 2024"}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.90),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -397,6 +461,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                     _buildGroupedCard([
                       _buildGroupedTile(
+                        icon: Icons.calendar_month_rounded,
+                        title: 'Account Creation Date',
+                        subtitle: 'Member since ${currentUser?.formattedCreatedAt ?? "15 Jan 2024"}',
+                        iconColor: const Color(0xFF4F46E5),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFC7D2FE)),
+                          ),
+                          child: Text(
+                            currentUser?.formattedCreatedAt ?? '15 Jan 2024',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4338CA),
+                            ),
+                          ),
+                        ),
+                        onTap: () => _showAccountInfoModal(context, currentUser),
+                      ),
+                      _buildGroupedTile(
                         icon: Icons.notifications_none_rounded,
                         title: 'Notification Settings',
                         onTap: () => _showNotificationSettingsModal(context),
@@ -404,7 +491,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       _buildGroupedTile(
                         icon: Icons.lock_outline_rounded,
                         title: 'Security & Authentication',
-                        onTap: () => _showSecuritySettingsModal(context),
+                        onTap: () => _showSecuritySettingsModal(context, currentUser),
                       ),
                       _buildGroupedTile(
                         icon: Icons.verified_user_outlined,
@@ -497,6 +584,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget _buildGroupedTile({
     required IconData icon,
     required String title,
+    String? subtitle,
+    Widget? trailing,
     bool showDivider = true,
     Color? iconColor,
     Color? textColor,
@@ -514,15 +603,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Icon(icon, color: iconColor ?? const Color(0xFF475569), size: 22),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: textColor ?? const Color(0xFF1E293B),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: textColor ?? const Color(0xFF1E293B),
+                        ),
+                      ),
+                      if (subtitle != null && subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                if (trailing != null) ...[
+                  trailing,
+                  const SizedBox(width: 6),
+                ],
                 Icon(
                   Icons.chevron_right_rounded,
                   color: iconColor != null ? iconColor.withValues(alpha: 0.6) : const Color(0xFF94A3B8),
@@ -1414,7 +1524,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // 6. SECURITY SETTINGS MODAL
-  void _showSecuritySettingsModal(BuildContext context) {
+  void _showSecuritySettingsModal(BuildContext context, UserModel? currentUser) {
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -1429,6 +1539,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: 'Password protection & Biometric login credentials',
               child: Column(
                 children: [
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Account Created On', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text(
+                                currentUser?.formattedCreatedAt ?? '15 Jan 2024',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: const Text('Active', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                        ),
+                      ],
+                    ),
+                  ),
                   _buildModalActionTile(
                     icon: Icons.lock_outline_rounded,
                     title: 'Change Account Password',
@@ -1468,6 +1622,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           },
         );
       },
+    );
+  }
+
+  // 6b. ACCOUNT INFO & REGISTRATION DETAILS MODAL
+  void _showAccountInfoModal(BuildContext context, UserModel? currentUser) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return _buildBottomSheetContainer(
+          context: context,
+          title: 'Account & Registration Details',
+          subtitle: 'Official UniSphere campus identity registration records',
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    _buildAccountMetaRow('Full Name', currentUser?.name ?? 'User'),
+                    const Divider(height: 16),
+                    _buildAccountMetaRow('Email Address', currentUser?.email ?? 'user@unisphere.edu'),
+                    const Divider(height: 16),
+                    _buildAccountMetaRow('Account Role', currentUser?.roleName ?? 'Student'),
+                    const Divider(height: 16),
+                    _buildAccountMetaRow('Account Creation Date', currentUser?.formattedCreatedAt ?? '15 Jan 2024', isHighlight: true),
+                    const Divider(height: 16),
+                    _buildAccountMetaRow('Account Status', 'Active & Verified 🟢'),
+                    const Divider(height: 16),
+                    _buildAccountMetaRow('Account UID', currentUser?.uid ?? 'N/A'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                label: const Text('Done'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAccountMetaRow(String label, String value, {bool isHighlight = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.bold,
+              color: isHighlight ? AppColors.primary : const Color(0xFF0F172A),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1984,6 +2217,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
 
         await ref.read(authServiceProvider).updateUserProfile(updatedUser);
+
+        final regNo = (updatedMeta['registerNumber'] ?? updatedMeta['regNo'])?.toString().trim();
+        if (regNo != null && regNo.isNotEmpty) {
+          ref.read(parentServiceProvider).cacheStudentProfile(regNo, {
+            'fullName': updatedUser.fullName,
+            'name': updatedUser.fullName,
+            'photoUrl': finalPhotoUrl,
+            'profileImageUrl': finalPhotoUrl,
+            'passportPhotoUrl': finalPhotoUrl,
+            ...updatedMeta,
+          });
+        }
       }
 
       if (mounted) {
@@ -1991,18 +2236,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _customPhotoPath = finalPhotoUrl;
           _isUploadingPhoto = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Student profile photo updated successfully!'),
-              ],
-            ),
-            backgroundColor: Color(0xFF16A34A),
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -2014,7 +2247,103 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _removeProfilePhoto() async {
+    try {
+      setState(() {
+        _isUploadingPhoto = true;
+      });
+
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final existingPhotoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['passportPhotoUrl'] ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
+
+      if (currentUser != null) {
+        final storageService = ref.read(storageServiceProvider);
+        if (existingPhotoUrl.isNotEmpty) {
+          await storageService.deleteFile(existingPhotoUrl);
+        }
+        await storageService.deleteFile(storageService.studentPhotoPath(currentUser.uid));
+
+        final updatedMeta = Map<String, dynamic>.from(currentUser.metadata ?? {});
+        updatedMeta.remove('passportPhotoUrl');
+        updatedMeta.remove('photoUrl');
+        updatedMeta['passportPhotoUrl'] = '';
+        updatedMeta['photoUrl'] = '';
+
+        final updatedUser = currentUser.copyWith(
+          profileImageUrl: '',
+          metadata: updatedMeta,
+        );
+
+        await ref.read(authServiceProvider).updateUserProfile(updatedUser);
+
+        final firestore = FirebaseFirestore.instance;
+        final regNo = (updatedMeta['registerNumber'] ?? updatedMeta['regNo'])?.toString().trim();
+
+        final deleteMap = {
+          'profileImageUrl': '',
+          'photoUrl': '',
+          'passportPhotoUrl': '',
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        try {
+          await firestore.collection('users').doc(currentUser.uid).set(deleteMap, SetOptions(merge: true));
+          await firestore.collection('students').doc(currentUser.uid).set(deleteMap, SetOptions(merge: true));
+          await firestore.collection('student_profiles').doc(currentUser.uid).set({
+            'photoUrl': '',
+            'profileImageUrl': '',
+            'personal.photoUrl': '',
+            'personal.passportPhotoUrl': '',
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          if (regNo != null && regNo.isNotEmpty) {
+            await firestore.collection('students').doc(regNo).set(deleteMap, SetOptions(merge: true));
+            await firestore.collection('students').doc(regNo.toUpperCase()).set(deleteMap, SetOptions(merge: true));
+            await firestore.collection('users').doc(regNo).set(deleteMap, SetOptions(merge: true));
+            await firestore.collection('users').doc(regNo.toUpperCase()).set(deleteMap, SetOptions(merge: true));
+            await firestore.collection('student_profiles').doc(regNo).set({
+              'photoUrl': '',
+              'profileImageUrl': '',
+              'personal.photoUrl': '',
+              'personal.passportPhotoUrl': '',
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+
+            ref.read(parentServiceProvider).cacheStudentProfile(regNo, {
+              'fullName': updatedUser.fullName,
+              'name': updatedUser.fullName,
+              'photoUrl': '',
+              'profileImageUrl': '',
+              'passportPhotoUrl': '',
+              ...updatedMeta,
+            });
+          }
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _customPhotoPath = '';
+          _isUploadingPhoto = false;
+        });
+        ref.invalidate(currentUserProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error removing photo: $e')),
+        );
+      }
+    }
+  }
+
   void _showUploadPassportPhotoModal(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+    final currentPhoto = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['passportPhotoUrl'] ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
+    final hasPhoto = currentPhoto.isNotEmpty;
+
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -2046,6 +2375,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _pickAndUploadPhoto(ImageSource.gallery);
                 },
               ),
+              if (hasPhoto) ...[
+                const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFEE2E2),
+                    child: Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+                  ),
+                  title: const Text(
+                    'Remove Profile Picture',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfilePhoto();
+                  },
+                ),
+              ],
             ],
           ),
         ),

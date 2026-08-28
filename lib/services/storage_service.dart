@@ -88,4 +88,23 @@ class StorageService {
       return null;
     }
   }
+
+  /// Delete a file from Firebase Storage
+  Future<bool> deleteFile(String path) async {
+    final storage = _storage;
+    if (storage == null || path.isEmpty) return false;
+    try {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        final ref = storage.refFromURL(path);
+        await ref.delete();
+      } else {
+        final ref = storage.ref().child(path);
+        await ref.delete();
+      }
+      return true;
+    } catch (e) {
+      debugPrint('StorageService deleteFile error: $e');
+      return false;
+    }
+  }
 }

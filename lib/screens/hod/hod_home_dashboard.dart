@@ -1,13 +1,48 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/widgets/common/apple_glass_card.dart';
 import 'package:unisphere/widgets/common/app_progress_indicators.dart';
 
-class HodHomeDashboard extends StatelessWidget {
+class HodHomeDashboard extends ConsumerStatefulWidget {
   final Function(int)? onNavigate;
 
   const HodHomeDashboard({super.key, this.onNavigate});
+
+  @override
+  ConsumerState<HodHomeDashboard> createState() => _HodHomeDashboardState();
+}
+
+class _HodHomeDashboardState extends ConsumerState<HodHomeDashboard> {
+  bool _isReturningUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserSession();
+  }
+
+  Future<void> _checkUserSession() async {
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final uid = currentUser?.uid ?? '';
+      final sessionService = ref.read(userSessionServiceProvider);
+      final isReturning = await sessionService.isReturningUser(uid);
+      if (mounted) {
+        setState(() {
+          _isReturningUser = isReturning;
+        });
+      }
+      if (!isReturning && uid.isNotEmpty) {
+        await sessionService.markUserSessionSeen(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking HOD user session: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +82,9 @@ class HodHomeDashboard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Good Morning, 👋',
-                  style: TextStyle(
+                Text(
+                  _isReturningUser ? 'Good Morning, Welcome Back! 👋' : 'Good Morning, Welcome! 👋',
+                  style: const TextStyle(
                     fontSize: 14,
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
@@ -402,7 +437,7 @@ class HodHomeDashboard extends StatelessWidget {
             final act = actions[index];
             return ElevatedButton(
               onPressed: () {
-                if (onNavigate != null) onNavigate!(act['index'] as int);
+                if (widget.onNavigate != null) widget.onNavigate!(act['index'] as int);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,

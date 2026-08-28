@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/parent_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
@@ -50,6 +52,164 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   late final TextEditingController _phoneController;
   final List<TextEditingController> _childRegControllers = [];
   
+  // Student registration lookup states for Parent linking
+  final ParentService _parentService = ParentService();
+  final Map<int, Map<String, dynamic>?> _authChildMatches = {};
+  final Map<int, bool> _isCheckingChild = {};
+  final Map<int, String?> _childLookupErrors = {};
+
+  // Student registration availability states for Student signup
+  bool _isCheckingStudentRegNo = false;
+  bool _studentRegNoAlreadyExists = false;
+  bool _studentRegNoAvailable = false;
+
+  Future<void> _checkAuthChildMatch(int index, String regNo) async {
+    final clean = regNo.trim().toUpperCase();
+    if (clean.length < 3) {
+      if (_authChildMatches.containsKey(index) || _childLookupErrors.containsKey(index)) {
+        setState(() {
+          _authChildMatches.remove(index);
+          _isCheckingChild.remove(index);
+          _childLookupErrors.remove(index);
+        });
+      }
+      return;
+    }
+
+    // Sibling duplicate check
+    int? duplicateOf;
+    for (int i = 0; i < _childRegControllers.length; i++) {
+      if (i != index && _childRegControllers[i].text.trim().toUpperCase() == clean) {
+        duplicateOf = i;
+        break;
+      }
+    }
+
+    if (duplicateOf != null) {
+      setState(() {
+        _authChildMatches.remove(index);
+        _isCheckingChild.remove(index);
+        _childLookupErrors[index] = duplicateOf == 0
+            ? 'Already added as primary student'
+            : 'Already added as Child ${duplicateOf! + 1}';
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingChild[index] = true;
+      _childLookupErrors.remove(index);
+    });
+
+    final match = await _parentService.lookupStudentByRegNo(clean);
+    if (mounted) {
+      if (index >= _childRegControllers.length || _childRegControllers[index].text.trim().toUpperCase() != clean) {
+        return;
+      }
+      int? duplicateCheck;
+      for (int i = 0; i < _childRegControllers.length; i++) {
+        if (i != index && _childRegControllers[i].text.trim().toUpperCase() == clean) {
+          duplicateCheck = i;
+          break;
+        }
+      }
+
+      setState(() {
+        _isCheckingChild[index] = false;
+        if (duplicateCheck != null) {
+          _authChildMatches.remove(index);
+          _childLookupErrors[index] = duplicateCheck == 0
+              ? 'Already added as primary student'
+              : 'Already added as Child ${duplicateCheck! + 1}';
+        } else if (match != null) {
+          _authChildMatches[index] = match;
+          _childLookupErrors.remove(index);
+        } else {
+          _authChildMatches.remove(index);
+          if (clean.length == 12 || clean.length >= 8) {
+            _childLookupErrors[index] = 'Student not found';
+          } else {
+            _childLookupErrors.remove(index);
+          }
+        }
+      });
+    }
+  }
+
+  void _revalidateAllAuthChildMatches() {
+    for (int i = 0; i < _childRegControllers.length; i++) {
+      _checkAuthChildMatch(i, _childRegControllers[i].text);
+    }
+  }
+
+  Future<void> _checkStudentRegNoAvailability(String regNo) async {
+    final clean = regNo.trim();
+    if (clean.length < 12) {
+      if (_isCheckingStudentRegNo || _studentRegNoAlreadyExists || _studentRegNoAvailable) {
+        setState(() {
+          _isCheckingStudentRegNo = false;
+          _studentRegNoAlreadyExists = false;
+          _studentRegNoAvailable = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isCheckingStudentRegNo = true;
+      _studentRegNoAlreadyExists = false;
+      _studentRegNoAvailable = false;
+    });
+
+    final firestore = _parentService.firestore;
+    bool alreadyExists = false;
+
+    if (firestore != null) {
+      try {
+        final uq = await firestore
+            .collection('users')
+            .where('metadata.registerNumber', isEqualTo: clean)
+            .limit(1)
+            .get();
+        if (uq.docs.isNotEmpty) {
+          alreadyExists = true;
+        }
+
+        if (!alreadyExists) {
+          final uDoc = await firestore.collection('users').doc(clean).get();
+          if (uDoc.exists) alreadyExists = true;
+        }
+      } catch (e) {
+        debugPrint('Student reg no existence check notice: $e');
+      }
+    }
+
+    if (!alreadyExists) {
+      const existingDemoRegs = [
+        'RA2111003010001',
+        '917721104012',
+        '917722104022',
+        '917721104045',
+      ];
+      if (existingDemoRegs.contains(clean) || existingDemoRegs.contains(clean.toUpperCase())) {
+        alreadyExists = true;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isCheckingStudentRegNo = false;
+        if (alreadyExists) {
+          _studentRegNoAlreadyExists = true;
+          _studentRegNoAvailable = false;
+        } else {
+          _studentRegNoAlreadyExists = false;
+          _studentRegNoAvailable = true;
+        }
+      });
+    }
+  }
+
   late UserRole _selectedRole;
   late bool _isSignUp;
   late final PageController _pageController;
@@ -87,13 +247,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     // Initialize child registration controllers
     if (widget.initialChildRegNumbers != null && widget.initialChildRegNumbers!.isNotEmpty) {
-      for (final reg in widget.initialChildRegNumbers!) {
+      for (int i = 0; i < widget.initialChildRegNumbers!.length; i++) {
+        final reg = widget.initialChildRegNumbers![i];
         _childRegControllers.add(TextEditingController(text: reg));
+        _checkAuthChildMatch(i, reg);
       }
     } else if (widget.initialId != null && widget.initialId!.isNotEmpty && _selectedRole == UserRole.parent) {
       _childRegControllers.add(TextEditingController(text: widget.initialId));
+      _checkAuthChildMatch(0, widget.initialId!);
     } else {
       _childRegControllers.add(TextEditingController());
+    }
+
+    if (widget.initialId != null && widget.initialId!.isNotEmpty && _selectedRole == UserRole.student) {
+      _checkStudentRegNoAvailability(widget.initialId!);
     }
   }
 
@@ -170,8 +337,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final phone = _phoneController.text.trim();
 
         if (_selectedRole == UserRole.parent) {
+          final seenRegs = <String>{};
           for (int i = 0; i < _childRegControllers.length; i++) {
-            final reg = _childRegControllers[i].text.trim();
+            final reg = _childRegControllers[i].text.trim().toUpperCase();
             if (reg.isEmpty) {
               _showSnackBar(
                 i == 0
@@ -186,6 +354,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 i == 0
                     ? 'Student register number must be exactly 12 digits'
                     : 'Sibling ${i + 1} register number must be exactly 12 digits',
+                AppColors.error,
+              );
+              return;
+            }
+
+            if (seenRegs.contains(reg)) {
+              _showSnackBar(
+                'Cannot use the same register number ($reg) twice as a sibling',
+                AppColors.error,
+              );
+              return;
+            }
+            seenRegs.add(reg);
+
+            final match = _authChildMatches[i] ?? await _parentService.lookupStudentByRegNo(reg);
+            if (match == null) {
+              _showSnackBar(
+                'Student with register number "$reg" is not registered in institutional database',
                 AppColors.error,
               );
               return;
@@ -227,11 +413,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           }
         } else {
           final regNo = _regNoController.text.trim();
-          if (_selectedRole == UserRole.student && (regNo.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(regNo))) {
-            _showSnackBar('Register number must be exactly 12 digits', AppColors.error);
-            return;
+          if (_selectedRole == UserRole.student) {
+            if (regNo.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(regNo)) {
+              _showSnackBar('Register number must be exactly 12 digits', AppColors.error);
+              return;
+            }
+            if (_studentRegNoAlreadyExists) {
+              _showSnackBar(
+                'An account with register number "$regNo" already exists. Please log in.',
+                AppColors.error,
+              );
+              return;
+            }
           }
 
+          final deptVal = _deptController.text.trim();
           await ref.read(authServiceProvider).registerWithEmail(
             email,
             password,
@@ -240,13 +436,41 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             phoneNumber: phone.isNotEmpty ? phone : null,
             metadata: {
               'fullName': name,
+              'name': name,
               'registerNumber': regNo,
-              'department': _deptController.text.trim(),
+              'regNo': regNo,
+              'department': deptVal,
+              'departmentName': deptVal,
               'collegeEmail': email,
               'profileCompletionStatus': 'incomplete',
               'profileCompletionPercentage': 10,
             },
           );
+
+          final studentMap = {
+            'studentId': regNo,
+            'registerNumber': regNo,
+            'regNo': regNo,
+            'fullName': name,
+            'name': name,
+            'displayName': name,
+            'department': deptVal,
+            'departmentName': deptVal,
+            'department_name': deptVal,
+            'email': email,
+            'phone': phone,
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
+
+          try {
+            final firestore = FirebaseFirestore.instance;
+            await firestore.collection('students').doc(regNo).set(studentMap, SetOptions(merge: true));
+            await firestore.collection('students').doc(regNo.toUpperCase()).set(studentMap, SetOptions(merge: true));
+            await firestore.collection('users').doc(regNo).set(studentMap, SetOptions(merge: true));
+            await firestore.collection('users').doc(regNo.toUpperCase()).set(studentMap, SetOptions(merge: true));
+          } catch (_) {}
+
+          ref.read(parentServiceProvider).cacheStudentProfile(regNo, studentMap);
         }
       } else {
         await ref.read(authServiceProvider).signInWithEmail(
@@ -257,6 +481,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
       final currentUser = ref.read(authServiceProvider).currentUser;
       if (currentUser != null && mounted) {
+        if (_isSignUp) {
+          await ref.read(userSessionServiceProvider).recordFreshSignup(currentUser.uid);
+        } else {
+          await ref.read(userSessionServiceProvider).recordLogin(currentUser.uid);
+        }
         _navigateToUserDashboard(currentUser);
       }
     } catch (e) {
@@ -639,55 +868,156 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           const SizedBox(height: 8),
           ...List.generate(_childRegControllers.length, (index) {
             final isPrimary = index == 0;
+            final match = _authChildMatches[index];
+            final isChecking = _isCheckingChild[index] == true;
+            final text = _childRegControllers[index].text.trim().toUpperCase();
+            final isDuplicate = _childRegControllers.asMap().entries.any(
+              (e) => e.key != index && e.value.text.trim().toUpperCase() == text && text.isNotEmpty,
+            );
+            final lookupError = _childLookupErrors[index];
+            final hasError = (text.length == 12 || text.length >= 8) && (match == null || isDuplicate) && !isChecking;
+            final errorText = isDuplicate
+                ? 'Already added'
+                : (lookupError ?? (hasError ? 'Student not found' : null));
+
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: hasError
+                      ? AppColors.error
+                      : (match != null && !isDuplicate ? const Color(0xFF10B981) : AppColors.border),
+                  width: (match != null || hasError) ? 1.5 : 1.0,
+                ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _childRegControllers[index],
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(12),
-                      ],
-                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      validator: (val) => _validateRegNo(
-                        val,
-                        label: isPrimary ? 'student register number' : 'sibling register number',
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: isPrimary ? 'Enter 12-digit register number' : 'Enter 12-digit sibling register number',
-                        hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
-                        prefixIcon: Icon(
-                          isPrimary ? Icons.school_rounded : Icons.person_add_alt_1_rounded,
-                          color: AppColors.primary,
-                          size: 18,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _childRegControllers[index],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(12),
+                          ],
+                          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          onChanged: (val) {
+                            _revalidateAllAuthChildMatches();
+                          },
+                          validator: (val) {
+                            final baseErr = _validateRegNo(
+                              val,
+                              label: isPrimary ? 'student register number' : 'sibling register number',
+                            );
+                            if (baseErr != null) return baseErr;
+                            if (isDuplicate) return 'Already added';
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: isPrimary ? 'Enter 12-digit register number' : 'Enter 12-digit sibling register number',
+                            hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+                            prefixIcon: Icon(
+                              isPrimary ? Icons.school_rounded : Icons.person_add_alt_1_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                            suffixIcon: isChecking
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                    ),
+                                  )
+                                : (match != null && !isDuplicate
+                                    ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18)
+                                    : (hasError
+                                        ? const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18)
+                                        : null)),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      if (!isPrimary)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              _childRegControllers[index].dispose();
+                              _childRegControllers.removeAt(index);
+                              _authChildMatches.remove(index);
+                              _isCheckingChild.remove(index);
+                              _childLookupErrors.remove(index);
+                            });
+                            _revalidateAllAuthChildMatches();
+                          },
+                        ),
+                    ],
+                  ),
+                  if (match != null && !isDuplicate) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 15),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '✓ Verified: ${match['fullName'] ?? match['name']} • ${match['departmentName'] ?? match['department'] ?? 'CSE'}${match['semester'] != null ? ' (${match['semester']})' : ''}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF065F46),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  if (!isPrimary)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                      onPressed: () {
-                        setState(() {
-                          _childRegControllers[index].dispose();
-                          _childRegControllers.removeAt(index);
-                        });
-                      },
+                  ] else if (hasError && errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 15),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              errorText,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF991B1B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
                 ],
               ),
             );
@@ -744,11 +1074,39 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       hint: 'Enter 12-digit register number',
                       icon: Icons.badge_outlined,
                       keyboardType: TextInputType.number,
+                      customBorderColor: _studentRegNoAlreadyExists
+                          ? AppColors.error
+                          : (_studentRegNoAvailable ? const Color(0xFF10B981) : null),
+                      customSuffixIcon: _isCheckingStudentRegNo
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            )
+                          : (_studentRegNoAlreadyExists
+                              ? const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20)
+                              : (_studentRegNoAvailable
+                                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
+                                  : null)),
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(12),
                       ],
-                      validator: (val) => _validateRegNo(val),
+                      onChanged: (val) => _checkStudentRegNoAvailability(val),
+                      validator: (val) {
+                        final baseErr = _validateRegNo(val);
+                        if (baseErr != null) return baseErr;
+                        if (_studentRegNoAlreadyExists) {
+                          return 'Already exists';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
@@ -1113,12 +1471,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     IconData? icon,
     bool isPassword = false,
     bool obscureText = false,
+    Widget? customSuffixIcon,
+    Color? customBorderColor,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
   }) {
+    final effectiveBorderSide = customBorderColor != null
+        ? BorderSide(color: customBorderColor, width: 1.5)
+        : const BorderSide(color: AppColors.border);
+
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -1133,29 +1497,32 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
         prefixIcon: icon != null ? Icon(icon, color: AppColors.primary, size: 20) : null,
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  size: 20,
-                  color: AppColors.textSecondary,
-                ),
-                onPressed: onToggleVisibility,
-              )
-            : null,
+        suffixIcon: customSuffixIcon ??
+            (isPassword
+                ? IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: effectiveBorderSide,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: effectiveBorderSide,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: customBorderColor != null
+              ? BorderSide(color: customBorderColor, width: 2.0)
+              : const BorderSide(color: AppColors.primary, width: 2.0),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

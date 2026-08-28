@@ -36,6 +36,7 @@ import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/notification_bell_button.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/widgets/student/student_membership_modal.dart';
 
@@ -59,6 +60,7 @@ import 'package:unisphere/screens/student/modules/student_pyq_screen.dart';
 import 'package:unisphere/widgets/student/student_floating_nav_bar.dart';
 import 'package:unisphere/widgets/student/student_navigation_sheet.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
+import 'package:unisphere/screens/parent/parent_dashboard.dart' show ParentDashboard;
 
 class StudentDashboard extends ConsumerStatefulWidget {
   const StudentDashboard({super.key});
@@ -211,6 +213,11 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    if (currentUser?.role == UserRole.parent) {
+      return const ParentDashboard();
+    }
+
     final isDesktop = MediaQuery.of(context).size.width >= 800;
 
     return PopScope(
@@ -370,15 +377,21 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   }
 
   Future<void> _checkFirstTimeLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasLoggedInBefore = prefs.getBool('has_logged_in_before') ?? false;
-    if (mounted) {
-      setState(() {
-        _isReturningUser = hasLoggedInBefore;
-      });
-    }
-    if (!hasLoggedInBefore) {
-      await prefs.setBool('has_logged_in_before', true);
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final uid = currentUser?.uid ?? '';
+      final sessionService = ref.read(userSessionServiceProvider);
+      final isReturning = await sessionService.isReturningUser(uid);
+      if (mounted) {
+        setState(() {
+          _isReturningUser = isReturning;
+        });
+      }
+      if (!isReturning && uid.isNotEmpty) {
+        await sessionService.markUserSessionSeen(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking student user session: $e');
     }
   }
 

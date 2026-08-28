@@ -78,20 +78,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/onboarding';
       }
 
-      if (isAuth && (isLogin || isSignup || isOnboarding || isForgotPassword)) {
-        switch (user.role) {
-          case UserRole.admin:
-            return '/admin';
-          case UserRole.hod:
-            return '/hod';
-          case UserRole.student:
-            return '/student';
-          case UserRole.staff:
-            return '/staff';
-          case UserRole.parent:
-            return '/parent';
-          default:
-            return '/login';
+      if (isAuth) {
+        if (isLogin || isSignup || isOnboarding || isForgotPassword) {
+          switch (user.role) {
+            case UserRole.admin:
+              return '/admin';
+            case UserRole.hod:
+              return '/hod';
+            case UserRole.student:
+              return '/student';
+            case UserRole.staff:
+            case UserRole.advisor:
+              return '/staff';
+            case UserRole.parent:
+              return '/parent';
+            default:
+              return '/login';
+          }
+        }
+
+        // Prevent cross-role mismatched dashboard paths
+        if (state.matchedLocation == '/student' && user.role == UserRole.parent) {
+          return '/parent';
+        }
+        if (state.matchedLocation == '/parent' && user.role == UserRole.student) {
+          return '/student';
         }
       }
 

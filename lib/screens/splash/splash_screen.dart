@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
 
 /// App Startup & Initialization Screen (Section 1)
@@ -36,17 +37,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       });
 
       // Stage 2: Verify user auth & role data
-      _schedule(const Duration(milliseconds: 600), () {
+      _schedule(const Duration(milliseconds: 600), () async {
         if (!mounted) return;
         final authService = ref.read(authServiceProvider);
         final user = authService.currentUser;
 
         if (user != null) {
+          final isReturning = await ref.read(userSessionServiceProvider).isReturningUser(user.uid);
           final firstName = user.fullName.trim().split(' ').first;
-          setState(() {
-            _statusLabel = 'Welcome back${firstName.isNotEmpty ? ', $firstName' : ''}';
-            _statusSubtitle = 'Loading your ${_getRoleTitle(user.role)} portal...';
-          });
+          final prefix = isReturning ? 'Welcome back' : 'Welcome';
+          if (mounted) {
+            setState(() {
+              _statusLabel = '$prefix${firstName.isNotEmpty ? ', $firstName' : ''}';
+              _statusSubtitle = 'Loading your ${_getRoleTitle(user.role)} portal...';
+            });
+          }
         }
 
         // Stage 3: Smooth routing to correct dashboard

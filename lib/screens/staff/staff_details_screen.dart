@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/staff_details_model.dart';
 import 'package:unisphere/models/staff_task_model.dart';
+import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 
 class StaffDetailsScreen extends ConsumerStatefulWidget {
   final StaffDetailsModel? staffMember;
@@ -73,10 +75,32 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     },
   ];
 
+  bool _isReturningUser = true;
+
   @override
   void initState() {
     super.initState();
     _staff = widget.staffMember ?? StaffDetailsModel.defaultTharaniKumar;
+    _checkUserSession();
+  }
+
+  Future<void> _checkUserSession() async {
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final uid = currentUser?.uid ?? '';
+      final sessionService = ref.read(userSessionServiceProvider);
+      final isReturning = await sessionService.isReturningUser(uid);
+      if (mounted) {
+        setState(() {
+          _isReturningUser = isReturning;
+        });
+      }
+      if (!isReturning && uid.isNotEmpty) {
+        await sessionService.markUserSessionSeen(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking staff details user session: $e');
+    }
   }
 
   @override
@@ -249,9 +273,11 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Welcome back! Have a\nproductive and successful day.',
-                  style: TextStyle(
+                Text(
+                  _isReturningUser
+                      ? 'Welcome back! Have a\nproductive and successful day.'
+                      : 'Welcome! Have a\nproductive and successful day.',
+                  style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFFE0E7FF),

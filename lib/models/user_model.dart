@@ -25,7 +25,7 @@ class UserModel {
     this.isActive = true,
     this.profileCompleted = true,
     this.profileImageUrl,
-    this.createdAt,
+    DateTime? createdAt,
     this.updatedAt,
     this.lastLoginAt,
     this.metadata,
@@ -36,35 +36,90 @@ class UserModel {
                 : (email.contains('@') ? email.split('@').first : 'User')),
         phone = (phone != null && phone.isNotEmpty)
             ? phone
-            : (phoneNumber ?? '');
+            : (phoneNumber ?? ''),
+        createdAt = createdAt ?? _resolveDefaultCreatedAt(uid, metadata);
 
   String get name => fullName;
   String? get phoneNumber => phone;
 
+  String get formattedCreatedAt {
+    final date = createdAt ?? DateTime(2023, 8, 15);
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final day = date.day.toString().padLeft(2, '0');
+    final month = months[date.month - 1];
+    final year = date.year;
+    return '$day $month $year';
+  }
+
+  static DateTime _resolveDefaultCreatedAt(String uid, Map<String, dynamic>? metadata) {
+    if (metadata != null) {
+      final raw = metadata['createdAt'] ?? metadata['created_at'];
+      if (raw is DateTime) return raw;
+      if (raw != null) {
+        try {
+          final dynamic dyn = raw;
+          if (dyn.toDate is Function) return dyn.toDate() as DateTime;
+        } catch (_) {}
+        final parsed = DateTime.tryParse(raw.toString());
+        if (parsed != null) return parsed;
+      }
+    }
+    if (uid == 'DEMO-HOD') return DateTime(2021, 6, 15);
+    if (uid == 'DEMO-ADM') return DateTime(2020, 1, 10);
+    if (uid == 'DEMO-STF') return DateTime(2022, 7, 20);
+    if (uid == 'DEMO-PRT') return DateTime(2023, 9, 5);
+    if (uid == 'DEMO-STU') return DateTime(2023, 8, 22);
+    return DateTime.now();
+  }
 
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
     DateTime? parseDate(dynamic val) {
       if (val == null) return null;
       if (val is DateTime) return val;
+      try {
+        final dynamic dyn = val;
+        if (dyn.toDate is Function) return dyn.toDate() as DateTime;
+      } catch (_) {}
       return DateTime.tryParse(val.toString());
     }
 
     final nameVal = map['fullName'] ?? map['name'] ?? map['full_name'] ?? '';
     final phoneVal = map['phone'] ?? map['phone_number'] ?? map['phoneNumber'] ?? '';
 
+    final metaMap = map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata']) : null;
+    final creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap?['createdAt'] ?? metaMap?['created_at']);
+
+    final rawRole = map['role'] ?? map['userRole'] ?? map['user_role'] ?? metaMap?['role'] ?? metaMap?['userRole'];
+    UserRole parsedRole = _parseRole(rawRole?.toString());
+
+    if (parsedRole == UserRole.student || parsedRole == UserRole.unknown) {
+      final hasWards = map['wardRegisterNumbers'] != null ||
+          map['childRegisterNumbers'] != null ||
+          map['wards'] != null ||
+          metaMap?['wardRegisterNumbers'] != null ||
+          metaMap?['childRegisterNumbers'] != null ||
+          metaMap?['studentIds'] != null;
+      if (hasWards) {
+        parsedRole = UserRole.parent;
+      }
+    }
+
     return UserModel(
       uid: id,
       email: map['email'] ?? '',
       fullName: nameVal.toString(),
-      role: _parseRole(map['role']?.toString()),
+      role: parsedRole,
       phone: phoneVal.toString(),
       isActive: map['isActive'] ?? map['is_active'] ?? true,
       profileCompleted: map['profileCompleted'] ?? map['profile_completed'] ?? true,
       profileImageUrl: map['profileImageUrl'] ?? map['profile_image_url'],
-      createdAt: parseDate(map['createdAt'] ?? map['created_at']),
+      createdAt: creationDate,
       updatedAt: parseDate(map['updatedAt'] ?? map['updated_at']),
       lastLoginAt: parseDate(map['lastLoginAt'] ?? map['last_login_at']),
-      metadata: map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata']) : null,
+      metadata: metaMap,
     );
   }
 
@@ -80,7 +135,7 @@ class UserModel {
       'profileCompleted': profileCompleted,
       'profile_image_url': profileImageUrl,
       'profileImageUrl': profileImageUrl,
-      'createdAt': createdAt?.toIso8601String(),
+      'createdAt': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),
       'metadata': metadata,
@@ -107,6 +162,7 @@ class UserModel {
   }
 
   UserModel copyWith({
+    String? uid,
     String? fullName,
     String? name,
     String? email,
@@ -122,7 +178,7 @@ class UserModel {
     Map<String, dynamic>? metadata,
   }) {
     return UserModel(
-      uid: uid,
+      uid: uid ?? this.uid,
       email: email ?? this.email,
       fullName: fullName ?? name ?? this.fullName,
       role: role ?? this.role,

@@ -1,12 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 
-class AdminDashboard extends ConsumerWidget {
+class AdminDashboard extends ConsumerStatefulWidget {
   const AdminDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends ConsumerState<AdminDashboard> {
+  bool _isReturningUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserSession();
+  }
+
+  Future<void> _checkUserSession() async {
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final uid = currentUser?.uid ?? '';
+      final sessionService = ref.read(userSessionServiceProvider);
+      final isReturning = await sessionService.isReturningUser(uid);
+      if (mounted) {
+        setState(() {
+          _isReturningUser = isReturning;
+        });
+      }
+      if (!isReturning && uid.isNotEmpty) {
+        await sessionService.markUserSessionSeen(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking admin user session: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -36,7 +70,7 @@ class AdminDashboard extends ConsumerWidget {
         const SizedBox(height: 4),
         Row(
           children: [
-            const Text('Welcome back, Admin 👋 ', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            Text(_isReturningUser ? 'Welcome back, Admin 👋 ' : 'Welcome, Admin 👋 ', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),

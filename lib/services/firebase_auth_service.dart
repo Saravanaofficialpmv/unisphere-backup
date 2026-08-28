@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 
 /// Real-time Firebase Authentication Service
 /// Listens to Firebase Auth state changes and streams real-time Firestore user document updates.
@@ -60,7 +61,9 @@ class FirebaseAuthService implements AuthService {
     }
   }
 
-  void _handleFirebaseUserChange(User? fbUser) {
+  UserModel? _pendingRegistrationUser;
+
+  void _handleFirebaseUserChange(User? fbUser, {UserRole? intendedRole, UserModel? explicitUser}) {
     if (_mockUser != null) return;
 
     // Cancel previous Firestore user document subscription
@@ -69,11 +72,23 @@ class FirebaseAuthService implements AuthService {
 
     if (fbUser == null) {
       _currentUser = null;
+      _pendingRegistrationUser = null;
       _stateController.add(null);
     } else {
-      // Set initial user model from Firebase User metadata immediately
-      if (_currentUser == null || _currentUser!.uid != fbUser.uid) {
-        _currentUser = _mapFirebaseUserToDefaultModel(fbUser);
+      final pending = _pendingRegistrationUser;
+      final isPendingMatch = pending != null &&
+          (pending.uid.isEmpty ||
+              pending.uid == fbUser.uid ||
+              pending.email.toLowerCase() == (fbUser.email ?? '').toLowerCase());
+
+      if (explicitUser != null) {
+        _currentUser = explicitUser;
+        _stateController.add(_currentUser);
+      } else if (isPendingMatch) {
+        _currentUser = pending.copyWith(uid: fbUser.uid);
+        _stateController.add(_currentUser);
+      } else if (_currentUser == null || _currentUser!.uid != fbUser.uid) {
+        _currentUser = _mapFirebaseUserToDefaultModel(fbUser, intendedRole);
         _stateController.add(_currentUser);
       }
 
@@ -87,11 +102,33 @@ class FirebaseAuthService implements AuthService {
               .snapshots()
               .listen((snapshot) {
             if (snapshot.exists && snapshot.data() != null) {
-              _currentUser = UserModel.fromMap(snapshot.data()!, fbUser.uid);
+              var userModel = UserModel.fromMap(snapshot.data()!, fbUser.uid);
+              if (userModel.role == UserRole.student) {
+                try {
+                  firestore.collection('parents').doc(fbUser.uid).get().then((parentDoc) {
+                    if (parentDoc.exists && parentDoc.data() != null) {
+                      final pData = parentDoc.data()!;
+                      _currentUser = userModel.copyWith(
+                        role: UserRole.parent,
+                        metadata: {
+                          ...?userModel.metadata,
+                          ...pData,
+                          'role': 'parent',
+                        },
+                      );
+                      _stateController.add(_currentUser);
+                    }
+                  });
+                } catch (_) {}
+              }
+              _currentUser = userModel;
               _stateController.add(_currentUser);
             } else {
-              // If user document doesn't exist yet, save default and emit
-              final defaultUser = _mapFirebaseUserToDefaultModel(fbUser);
+              // If user document doesn't exist yet in Firestore, save the registered/intended model and emit
+              final currentRole = _currentUser?.role ?? intendedRole ?? (isPendingMatch ? pending.role : null);
+              final defaultUser = _currentUser != null && _currentUser!.uid == fbUser.uid
+                  ? _currentUser!
+                  : _mapFirebaseUserToDefaultModel(fbUser, currentRole);
               saveUserData(defaultUser);
               _currentUser = defaultUser;
               _stateController.add(_currentUser);
@@ -106,12 +143,25 @@ class FirebaseAuthService implements AuthService {
     }
   }
 
-  UserModel _mapFirebaseUserToDefaultModel(User user) {
+  UserModel _mapFirebaseUserToDefaultModel(User user, [UserRole? fallbackRole]) {
+    UserRole inferredRole = fallbackRole ?? UserRole.student;
+    if (fallbackRole == null && user.email != null) {
+      final emailLower = user.email!.toLowerCase();
+      if (emailLower.contains('parent')) {
+        inferredRole = UserRole.parent;
+      } else if (emailLower.contains('hod')) {
+        inferredRole = UserRole.hod;
+      } else if (emailLower.contains('staff') || emailLower.contains('faculty')) {
+        inferredRole = UserRole.staff;
+      }
+    }
     return UserModel(
       uid: user.uid,
       email: user.email ?? '',
       fullName: user.displayName ?? (user.email != null ? user.email!.split('@').first : 'User'),
-      role: UserRole.student,
+      role: inferredRole,
+      createdAt: user.metadata.creationTime ?? DateTime.now(),
+      lastLoginAt: user.metadata.lastSignInTime,
     );
   }
 
@@ -151,30 +201,35 @@ class FirebaseAuthService implements AuthService {
       _mockUser = UserModel(uid: 'DEMO-HOD', email: email, fullName: 'Dr. R. Kumar', role: UserRole.hod);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordLogin('DEMO-HOD'));
       return;
     }
     if (lowerEmail == 'admin@unisphere.edu') {
       _mockUser = UserModel(uid: 'DEMO-ADM', email: email, fullName: 'Demo Admin', role: UserRole.admin);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordLogin('DEMO-ADM'));
       return;
     }
     if (lowerEmail == 'staff@unisphere.edu' || lowerEmail == 'faculty@unisphere.edu') {
       _mockUser = UserModel(uid: 'DEMO-STF', email: email, fullName: 'Demo Staff', role: UserRole.staff);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordLogin('DEMO-STF'));
       return;
     }
     if (lowerEmail == 'student@unisphere.edu') {
       _mockUser = UserModel(uid: 'DEMO-STU', email: email, fullName: 'Student Demo', role: UserRole.student);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordLogin('DEMO-STU'));
       return;
     }
     if (lowerEmail == 'parent@unisphere.edu') {
       _mockUser = UserModel(uid: 'DEMO-PRT', email: email, fullName: 'Rajesh Kumar', role: UserRole.parent);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordLogin('DEMO-PRT'));
       return;
     }
 
@@ -192,6 +247,7 @@ class FirebaseAuthService implements AuthService {
         password: password,
       );
       if (credential.user != null) {
+        unawaited(UserSessionService.instance.recordLogin(credential.user!.uid));
         _handleFirebaseUserChange(credential.user);
         return;
       }
@@ -212,6 +268,7 @@ class FirebaseAuthService implements AuthService {
               role: UserRole.student,
             );
             await saveUserData(newUser);
+            unawaited(UserSessionService.instance.recordFreshSignup(newCred.user!.uid));
             _handleFirebaseUserChange(newCred.user);
             return;
           }
@@ -237,6 +294,7 @@ class FirebaseAuthService implements AuthService {
       final googleProvider = GoogleAuthProvider();
       final credential = await auth.signInWithProvider(googleProvider);
       if (credential.user != null) {
+        unawaited(UserSessionService.instance.recordLogin(credential.user!.uid));
         _handleFirebaseUserChange(credential.user);
         return;
       }
@@ -257,6 +315,7 @@ class FirebaseAuthService implements AuthService {
       final appleProvider = OAuthProvider('apple.com');
       final credential = await auth.signInWithProvider(appleProvider);
       if (credential.user != null) {
+        unawaited(UserSessionService.instance.recordLogin(credential.user!.uid));
         _handleFirebaseUserChange(credential.user);
         return;
       }
@@ -280,6 +339,14 @@ class FirebaseAuthService implements AuthService {
       _mockUser = UserModel(uid: 'DEMO-STU', email: email, fullName: name, role: UserRole.student);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordFreshSignup('DEMO-STU'));
+      return;
+    }
+    if (lowerEmail == 'parent@unisphere.edu') {
+      _mockUser = UserModel(uid: 'DEMO-PRT', email: email, fullName: name, role: UserRole.parent, metadata: metadata);
+      _currentUser = _mockUser;
+      _stateController.add(_mockUser);
+      unawaited(UserSessionService.instance.recordFreshSignup('DEMO-PRT'));
       return;
     }
 
@@ -291,6 +358,16 @@ class FirebaseAuthService implements AuthService {
       throw 'Firebase Authentication is not available. Please verify your connection.';
     }
 
+    final provisionalUser = UserModel(
+      uid: '',
+      email: email.trim(),
+      fullName: name,
+      role: role,
+      phone: phoneNumber,
+      metadata: metadata,
+    );
+    _pendingRegistrationUser = provisionalUser;
+
     try {
       final credential = await auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -301,16 +378,13 @@ class FirebaseAuthService implements AuthService {
           await credential.user!.updateDisplayName(name);
         } catch (_) {}
 
-        final newUser = UserModel(
-          uid: credential.user!.uid,
-          email: email.trim(),
-          fullName: name,
-          role: role,
-          phone: phoneNumber,
-          metadata: metadata,
-        );
+        final newUser = provisionalUser.copyWith(uid: credential.user!.uid);
+        _currentUser = newUser;
+        _stateController.add(newUser);
         await saveUserData(newUser);
-        _handleFirebaseUserChange(credential.user);
+        unawaited(UserSessionService.instance.recordFreshSignup(credential.user!.uid));
+        _handleFirebaseUserChange(credential.user, explicitUser: newUser, intendedRole: role);
+        _pendingRegistrationUser = null;
         return;
       }
     } on FirebaseAuthException catch (e) {
@@ -321,12 +395,20 @@ class FirebaseAuthService implements AuthService {
           password: password,
         );
         if (cred.user != null) {
-          _handleFirebaseUserChange(cred.user);
+          final updatedUser = provisionalUser.copyWith(uid: cred.user!.uid);
+          _currentUser = updatedUser;
+          _stateController.add(updatedUser);
+          await saveUserData(updatedUser);
+          unawaited(UserSessionService.instance.recordLogin(cred.user!.uid));
+          _handleFirebaseUserChange(cred.user, explicitUser: updatedUser, intendedRole: role);
+          _pendingRegistrationUser = null;
           return;
         }
       }
+      _pendingRegistrationUser = null;
       throw e.message ?? e.code;
     } catch (e) {
+      _pendingRegistrationUser = null;
       debugPrint('Firebase Registration Exception: $e');
       rethrow;
     }
@@ -407,7 +489,106 @@ class FirebaseAuthService implements AuthService {
     final firestore = _resolvedFirestore;
     if (firestore == null) return;
     try {
-      await firestore.collection('users').doc(user.uid).set(user.toMap(), SetOptions(merge: true));
+      final userMap = user.toMap();
+      final meta = user.metadata ?? {};
+      final regNo = (meta['registerNumber'] ?? meta['regNo'] ?? meta['studentId'])?.toString().trim();
+      final dept = (meta['department'] ?? meta['departmentName'])?.toString().trim();
+      final year = (meta['year'] ?? meta['currentYear'])?.toString().trim();
+      final sem = (meta['semester'] ?? meta['currentSemester'])?.toString().trim();
+
+      if (regNo != null && regNo.isNotEmpty) {
+        userMap['registerNumber'] = regNo;
+        userMap['regNo'] = regNo;
+        userMap['studentId'] = regNo;
+      }
+      if (dept != null && dept.isNotEmpty) {
+        userMap['department'] = dept;
+        userMap['departmentName'] = dept;
+      }
+      if (year != null && year.isNotEmpty) {
+        userMap['currentYear'] = year;
+        userMap['year'] = year;
+      }
+      if (sem != null && sem.isNotEmpty) {
+        userMap['semester'] = sem;
+        userMap['currentSemester'] = sem;
+      }
+
+      if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
+        userMap['profileImageUrl'] = user.profileImageUrl;
+        userMap['photoUrl'] = user.profileImageUrl;
+      }
+
+      await firestore.collection('users').doc(user.uid).set(userMap, SetOptions(merge: true));
+
+      if (user.role == UserRole.parent) {
+        final parentDoc = {
+          'parentId': user.uid,
+          'userId': user.uid,
+          'uid': user.uid,
+          'name': user.fullName,
+          'fullName': user.fullName,
+          'email': user.email,
+          'phone': user.phone,
+          'role': 'parent',
+          'userRole': 'parent',
+          if (meta['wardRegisterNumbers'] != null) 'wardRegisterNumbers': meta['wardRegisterNumbers'],
+          if (meta['childRegisterNumbers'] != null) 'childRegisterNumbers': meta['childRegisterNumbers'],
+          if (meta['studentIds'] != null) 'studentIds': meta['studentIds'],
+          'updatedAt': FieldValue.serverTimestamp(),
+          ...meta,
+        };
+        await firestore.collection('parents').doc(user.uid).set(parentDoc, SetOptions(merge: true));
+      }
+
+      if (user.role == UserRole.student && regNo != null && regNo.isNotEmpty) {
+        final photo = user.profileImageUrl ?? meta['passportPhotoUrl'] ?? meta['photoUrl'] ?? '';
+        final studentDoc = {
+          'userId': user.uid,
+          'uid': user.uid,
+          'studentId': regNo,
+          'registerNumber': regNo,
+          'regNo': regNo,
+          'fullName': user.fullName,
+          'name': user.fullName,
+          'email': user.email,
+          'phone': user.phone,
+          'department': dept ?? '',
+          'departmentName': dept ?? '',
+          'year': year ?? '',
+          'currentYear': year ?? '',
+          'semester': sem ?? '',
+          'currentSemester': sem ?? '',
+          if (photo.isNotEmpty) 'profileImageUrl': photo,
+          if (photo.isNotEmpty) 'photoUrl': photo,
+          if (photo.isNotEmpty) 'passportPhotoUrl': photo,
+          'updatedAt': FieldValue.serverTimestamp(),
+          ...meta,
+        };
+        await firestore.collection('students').doc(regNo).set(studentDoc, SetOptions(merge: true));
+        await firestore.collection('students').doc(regNo.toUpperCase()).set(studentDoc, SetOptions(merge: true));
+        await firestore.collection('students').doc(user.uid).set(studentDoc, SetOptions(merge: true));
+        await firestore.collection('users').doc(regNo).set(userMap, SetOptions(merge: true));
+        await firestore.collection('users').doc(regNo.toUpperCase()).set(userMap, SetOptions(merge: true));
+
+        final profileDoc = {
+          'studentUid': user.uid,
+          'registerNumber': regNo,
+          if (photo.isNotEmpty) 'photoUrl': photo,
+          if (photo.isNotEmpty) 'profileImageUrl': photo,
+          'personal': {
+            'fullName': user.fullName,
+            'email': user.email,
+            'phone': user.phone,
+            if (photo.isNotEmpty) 'photoUrl': photo,
+            if (photo.isNotEmpty) 'passportPhotoUrl': photo,
+          },
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        await firestore.collection('student_profiles').doc(regNo).set(profileDoc, SetOptions(merge: true));
+        await firestore.collection('student_profiles').doc(regNo.toUpperCase()).set(profileDoc, SetOptions(merge: true));
+        await firestore.collection('student_profiles').doc(user.uid).set(profileDoc, SetOptions(merge: true));
+      }
     } catch (e) {
       debugPrint('Firestore saveUserData Warning: $e');
     }

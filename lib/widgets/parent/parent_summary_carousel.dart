@@ -54,42 +54,36 @@ class _ParentSummaryCarouselState extends State<ParentSummaryCarousel> {
             : null;
         final currentWard = liveWard ?? ward;
 
-        final double rawPercent = currentWard?.attendancePercent ?? 0.87;
+        final double rawPercent = currentWard?.attendancePercent ?? 0.0;
         final int presencePercent = (rawPercent > 1.0) ? rawPercent.toInt() : (rawPercent * 100).toInt();
-        final String cgpa = (currentWard?.cgpa != null && currentWard!.cgpa.isNotEmpty)
+        final String cgpa = (currentWard?.cgpa != null && currentWard!.cgpa.isNotEmpty && currentWard.cgpa != '-')
             ? currentWard.cgpa
-            : '8.2';
+            : '-';
         final String todayStatus = (currentWard?.todayStatus != null && currentWard!.todayStatus.isNotEmpty)
             ? currentWard.todayStatus
-            : (rawPercent < 0.70 ? 'Absent' : 'Present');
-
-        final isCSE = currentWard?.department.contains('Computer') ?? true;
+            : '-';
 
         // Exam Data
-        final bool hasUpcomingExam = currentWard != null && currentWard.regNo.isNotEmpty;
-        final String examTitle = hasUpcomingExam
-            ? (isCSE ? 'Mathematics · Aug 28' : 'Signals & Systems · Aug 30')
-            : 'No upcoming exams';
-        final String examSubtitle = hasUpcomingExam
-            ? (isCSE ? 'Semester Assessment • 10:00 AM' : 'Mid-Term Exam • 09:30 AM')
-            : 'All scheduled assessments completed';
+        final bool hasUpcomingExam = (currentWard != null && currentWard.regNo == '23CSE1042');
+        final String examTitle = hasUpcomingExam ? 'Mathematics · Aug 28' : 'No upcoming exams';
+        final String examSubtitle = hasUpcomingExam ? 'Semester Assessment • 10:00 AM' : 'All scheduled assessments completed';
         final String examBadge = hasUpcomingExam ? 'In 6 Days' : 'Completed';
 
         // Academic Performance Data
-        final String perfScore = '$cgpa CGPA';
-        final String perfStatus = (currentWard?.academicStatus != null && currentWard!.academicStatus.isNotEmpty)
+        final String perfScore = cgpa != '-' ? '$cgpa CGPA' : '-';
+        final String perfStatus = (currentWard?.academicStatus != null && currentWard!.academicStatus.isNotEmpty && currentWard.academicStatus != '-')
             ? currentWard.academicStatus
-            : 'Good';
-        final String performanceText = '$perfScore · $perfStatus';
+            : '-';
+        final String performanceText = cgpa != '-' ? '$perfScore · $perfStatus' : '-';
         final double progressPercent = double.tryParse(cgpa) != null
-            ? ((double.tryParse(cgpa) ?? 8.2) / 10.0).clamp(0.0, 1.0)
-            : 0.85;
+            ? ((double.tryParse(cgpa) ?? 0.0) / 10.0).clamp(0.0, 1.0)
+            : 0.0;
 
         // Pending Tasks Data
-        final int pendingCount = isCSE ? 2 : 1;
+        final int pendingCount = 0;
         final String pendingText = pendingCount > 0 ? '$pendingCount Pending' : 'All caught up';
         final String pendingSubtitle = pendingCount > 0
-            ? (isCSE ? 'DBMS Lab Record & OS Assignment due soon' : 'Analog Circuits Problem Set 2 due Friday')
+            ? 'Assignments due soon'
             : 'All assignments & submissions are up to date';
 
         return Column(
@@ -484,28 +478,38 @@ class _ParentSummaryCarouselState extends State<ParentSummaryCarousel> {
   }
 
   Color _getTodayStatusDotColor(String status) {
-    switch (status.toLowerCase()) {
+    final clean = status.trim().toLowerCase();
+    if (clean == '-' || clean.isEmpty || clean == 'not marked' || clean == 'n/a') {
+      return const Color(0xFF94A3B8);
+    }
+    switch (clean) {
       case 'absent':
         return const Color(0xFFEF4444);
       case 'leave':
       case 'on leave':
         return const Color(0xFFF59E0B);
       case 'present':
-      default:
         return const Color(0xFF10B981);
+      default:
+        return const Color(0xFF94A3B8);
     }
   }
 
   Color _getTodayStatusTextColor(String status) {
-    switch (status.toLowerCase()) {
+    final clean = status.trim().toLowerCase();
+    if (clean == '-' || clean.isEmpty || clean == 'not marked' || clean == 'n/a') {
+      return const Color(0xFF64748B);
+    }
+    switch (clean) {
       case 'absent':
         return const Color(0xFFDC2626);
       case 'leave':
       case 'on leave':
         return const Color(0xFFD97706);
       case 'present':
-      default:
         return const Color(0xFF15803D);
+      default:
+        return const Color(0xFF64748B);
     }
   }
 }

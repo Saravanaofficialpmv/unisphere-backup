@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
 
 import 'package:unisphere/screens/staff/modules/staff_assignment_creation.dart';
@@ -374,6 +375,33 @@ class StaffHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _StaffHomeScreenState extends ConsumerState<StaffHomeScreen> {
+  bool _isReturningUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserSession();
+  }
+
+  Future<void> _checkUserSession() async {
+    try {
+      final currentUser = ref.read(authServiceProvider).currentUser;
+      final uid = currentUser?.uid ?? '';
+      final sessionService = ref.read(userSessionServiceProvider);
+      final isReturning = await sessionService.isReturningUser(uid);
+      if (mounted) {
+        setState(() {
+          _isReturningUser = isReturning;
+        });
+      }
+      if (!isReturning && uid.isNotEmpty) {
+        await sessionService.markUserSessionSeen(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking staff user session: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
@@ -473,7 +501,7 @@ class _StaffHomeScreenState extends ConsumerState<StaffHomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Welcome back,',
+                    _isReturningUser ? 'Welcome back,' : 'Welcome,',
                     style: TextStyle(
                       fontSize: isMobile ? 13 : 14,
                       color: Colors.white.withValues(alpha: 0.85),
