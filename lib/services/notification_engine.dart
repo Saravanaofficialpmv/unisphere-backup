@@ -11,6 +11,12 @@ enum NotificationDecision {
   failed,
 }
 
+enum AtomicPersistResult {
+  created,
+  alreadyExistsSuppressed,
+  failure,
+}
+
 class NotificationDispatchResult {
   final bool success;
   final NotificationDecision decision;
@@ -134,9 +140,44 @@ reason: Notification for this exact rule, recipient, and event was already dispa
     );
 
     // 3. Atomically persist & check duplicate in Firestore
-    final success = await _persistNotificationAtomic(notification, deduplicationKey);
+    final persistResult = await _persistNotificationAtomic(
+      notification,
+      deduplicationKey,
+      cooldownHours: cooldownHours,
+    );
 
-    if (!success) {
+    if (persistResult == AtomicPersistResult.alreadyExistsSuppressed) {
+      await _duplicatePreventer.recordExecution(
+        ruleId: ruleId,
+        recipientUserId: recipientUserId,
+        eventId: eventId,
+        status: 'sent',
+        cooldownHours: cooldownHours,
+        currentStatusValue: currentStatusValue,
+      );
+
+      debugPrint('''
+NotificationEngine:
+ruleId: $ruleId
+recipient: $recipientUserId
+eventId: $eventId
+deduplicationKey: $deduplicationKey
+decision: SUPPRESS_DUPLICATE
+reason: Notification for this exact rule, recipient, and event was already dispatched and is within cooldown.
+''');
+
+      return NotificationDispatchResult(
+        success: false,
+        decision: NotificationDecision.suppressDuplicate,
+        deduplicationKey: deduplicationKey,
+        ruleId: ruleId,
+        recipientUserId: recipientUserId,
+        eventId: eventId,
+        reason: 'Duplicate suppressed for recipient $recipientUserId and event $eventId',
+      );
+    }
+
+    if (persistResult == AtomicPersistResult.failure) {
       debugPrint('''
 NotificationEngine:
 ruleId: $ruleId
@@ -144,7 +185,7 @@ recipient: $recipientUserId
 eventId: $eventId
 deduplicationKey: $deduplicationKey
 decision: FAILED
-reason: Firestore persistence or atomic creation failed.
+reason: Firestore persistence failed.
 ''');
 
       await _duplicatePreventer.recordExecution(
@@ -273,26 +314,40 @@ reason: Successfully dispatched new automated notification.
   }
 
   /// Atomic persistence using deterministic document ID notifications/{deduplicationKey} and Firestore transaction
-  Future<bool> _persistNotificationAtomic(NotificationModel notif, String deduplicationKey) async {
+  Future<AtomicPersistResult> _persistNotificationAtomic(
+    NotificationModel notif,
+    String deduplicationKey, {
+    int cooldownHours = 24,
+  }) async {
     final firestore = _firestore;
     if (firestore == null) {
       // Standalone mode / unit test
-      return true;
+      return AtomicPersistResult.created;
     }
+
+    final now = DateTime.now();
 
     try {
       final docRef = firestore.collection('notifications').doc(deduplicationKey);
-      return await firestore.runTransaction<bool>((transaction) async {
+      return await firestore.runTransaction<AtomicPersistResult>((transaction) async {
         final snapshot = await transaction.get(docRef);
         if (snapshot.exists && snapshot.data() != null) {
-          final statusVal = snapshot.data()!['status']?.toString() ?? 'sent';
-          if (statusVal == 'sent' || statusVal == 'pending' || statusVal == 'delivered') {
-            // Document already exists atomically -> SUPPRESS
-            return false;
+          final data = snapshot.data()!;
+          final createdAtStr = data['created_at'] ?? data['createdAt'];
+          final createdAt = createdAtStr != null ? DateTime.tryParse(createdAtStr.toString()) : null;
+
+          if (createdAt != null) {
+            final cooldownExpiration = createdAt.add(Duration(hours: cooldownHours));
+            if (now.isBefore(cooldownExpiration)) {
+              // Document already exists atomically within cooldown -> SUPPRESS
+              return AtomicPersistResult.alreadyExistsSuppressed;
+            }
+          } else {
+            return AtomicPersistResult.alreadyExistsSuppressed;
           }
         }
         transaction.set(docRef, notif.toMap(), SetOptions(merge: true));
-        return true;
+        return AtomicPersistResult.created;
       });
     } catch (e) {
       debugPrint('NotificationEngine atomic persistence transaction fallback: $e');
@@ -300,16 +355,24 @@ reason: Successfully dispatched new automated notification.
         final docRef = firestore.collection('notifications').doc(deduplicationKey);
         final doc = await docRef.get();
         if (doc.exists && doc.data() != null) {
-          final statusVal = doc.data()!['status']?.toString() ?? 'sent';
-          if (statusVal == 'sent' || statusVal == 'pending' || statusVal == 'delivered') {
-            return false;
+          final data = doc.data()!;
+          final createdAtStr = data['created_at'] ?? data['createdAt'];
+          final createdAt = createdAtStr != null ? DateTime.tryParse(createdAtStr.toString()) : null;
+
+          if (createdAt != null) {
+            final cooldownExpiration = createdAt.add(Duration(hours: cooldownHours));
+            if (now.isBefore(cooldownExpiration)) {
+              return AtomicPersistResult.alreadyExistsSuppressed;
+            }
+          } else {
+            return AtomicPersistResult.alreadyExistsSuppressed;
           }
         }
         await docRef.set(notif.toMap(), SetOptions(merge: true));
-        return true;
+        return AtomicPersistResult.created;
       } catch (err) {
         debugPrint('NotificationEngine atomic persistence error: $err');
-        return false;
+        return AtomicPersistResult.failure;
       }
     }
   }

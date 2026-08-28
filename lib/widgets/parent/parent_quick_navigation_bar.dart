@@ -19,6 +19,7 @@ class ParentQuickNavigationBar extends StatelessWidget {
   final VoidCallback onExamsTap;
   final VoidCallback onUpdatesTap;
   final VoidCallback onMoreTap;
+  final int? updatesBadgeCount;
 
   const ParentQuickNavigationBar({
     super.key,
@@ -27,6 +28,7 @@ class ParentQuickNavigationBar extends StatelessWidget {
     required this.onExamsTap,
     required this.onUpdatesTap,
     required this.onMoreTap,
+    this.updatesBadgeCount,
   });
 
   @override
@@ -95,6 +97,7 @@ class ParentQuickNavigationBar extends StatelessWidget {
               bgColor: const Color(0xFFFFF7ED),
               iconColor: const Color(0xFFEA580C),
               tooltip: 'Announcements & Notifications',
+              badgeCount: updatesBadgeCount,
               onTap: onUpdatesTap,
             ),
           ),
@@ -121,6 +124,7 @@ class _QuickNavItemButton extends StatefulWidget {
   final Color iconColor;
   final String tooltip;
   final VoidCallback onTap;
+  final int? badgeCount;
 
   const _QuickNavItemButton({
     required this.label,
@@ -129,6 +133,7 @@ class _QuickNavItemButton extends StatefulWidget {
     required this.iconColor,
     required this.tooltip,
     required this.onTap,
+    this.badgeCount,
   });
 
   @override
@@ -152,6 +157,7 @@ class _QuickNavItemButtonState extends State<_QuickNavItemButton> {
 
   @override
   Widget build(BuildContext context) {
+    final count = widget.badgeCount ?? 0;
     return Semantics(
       button: true,
       label: widget.tooltip,
@@ -173,33 +179,66 @@ class _QuickNavItemButtonState extends State<_QuickNavItemButton> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: widget.bgColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: widget.iconColor.withValues(alpha: 0.16),
-                      width: 1.0,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: widget.bgColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: widget.iconColor.withValues(alpha: 0.16),
+                          width: 1.0,
+                        ),
+                        boxShadow: _isPressed
+                            ? []
+                            : [
+                                BoxShadow(
+                                  color: widget.iconColor.withValues(alpha: 0.08),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          widget.icon,
+                          color: widget.iconColor,
+                          size: 22,
+                        ),
+                      ),
                     ),
-                    boxShadow: _isPressed
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: widget.iconColor.withValues(alpha: 0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                    if (count > 0)
+                      Positioned(
+                        top: -3,
+                        right: -3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: GoogleFonts.manrope(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
                             ),
-                          ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      widget.icon,
-                      color: widget.iconColor,
-                      size: 22,
-                    ),
-                  ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 7),
                 FittedBox(

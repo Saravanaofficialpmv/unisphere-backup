@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/screens/auth/auth_screen.dart';
+import 'package:unisphere/screens/auth/forgot_password_screen.dart';
 import 'package:unisphere/screens/auth/request_submitted_screen.dart';
 import 'package:unisphere/screens/student/student_dashboard.dart';
 import 'package:unisphere/screens/parent/parent_dashboard.dart';
@@ -65,6 +66,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isSplash = state.matchedLocation == '/splash';
       final isLogin = state.matchedLocation == '/login';
       final isSignup = state.matchedLocation == '/signup';
+      final isForgotPassword = state.matchedLocation == '/forgot-password';
       final isRequestSubmitted = state.matchedLocation == '/request-submitted';
       final isOnboarding = state.matchedLocation == '/onboarding';
       final isPreview = state.matchedLocation == '/loader-preview';
@@ -72,11 +74,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isPreview || isSplash) return null;
 
       if (!isAuth) {
-        if (isLogin || isOnboarding || isSignup || isRequestSubmitted) return null;
+        if (isLogin || isOnboarding || isSignup || isForgotPassword || isRequestSubmitted) return null;
         return '/onboarding';
       }
 
-      if (isAuth && (isLogin || isSignup || isOnboarding)) {
+      if (isAuth && (isLogin || isSignup || isOnboarding || isForgotPassword)) {
         switch (user.role) {
           case UserRole.admin:
             return '/admin';
@@ -127,6 +129,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state,
           child: const AuthScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (context, state) {
+          final email = state.uri.queryParameters['email'];
+          return AppRouteTransitions.slideFade(
+            context: context,
+            state: state,
+            child: ForgotPasswordScreen(initialEmail: email),
+          );
+        },
       ),
       GoRoute(
         path: '/signup',

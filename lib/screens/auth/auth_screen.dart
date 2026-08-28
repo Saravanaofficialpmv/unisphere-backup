@@ -266,95 +266,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  void _showForgotPasswordDialog() {
-    final resetEmailController = TextEditingController(text: _emailController.text);
-    showDialog(
-      context: context,
-      builder: (context) {
-        bool isResetting = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Enter your registered email to receive a password reset link.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: resetEmailController,
-                    decoration: InputDecoration(
-                      hintText: 'example@unisphere.edu',
-                      prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primary),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: isResetting
-                      ? null
-                      : () async {
-                          final email = resetEmailController.text.trim();
-                          if (email.isEmpty || !email.contains('@')) {
-                            _showSnackBar('Enter a valid email address', AppColors.error);
-                            return;
-                          }
-                          setDialogState(() => isResetting = true);
-                          try {
-                            await ref.read(authServiceProvider).sendPasswordResetEmail(email);
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              _showSnackBar('✅ Password reset email sent to $email', AppColors.success);
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              _showSnackBar('Notice: ${e.toString()}', AppColors.error);
-                            }
-                          } finally {
-                            if (context.mounted) setDialogState(() => isResetting = false);
-                          }
-                        },
-                  child: isResetting
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Image.asset(
-                                'assets/tibsy-dp.gif',
-                                width: 18,
-                                height: 18,
-                                fit: BoxFit.contain,
-                                gaplessPlayback: true,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Sending...'),
-                          ],
-                        )
-                      : const Text('Send Reset Link'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  void _navigateToForgotPassword() {
+    final currentEmail = _emailController.text.trim();
+    final uri = Uri(
+      path: '/forgot-password',
+      queryParameters: currentEmail.isNotEmpty ? {'email': currentEmail} : null,
     );
+    context.push(uri.toString());
   }
 
   void _showSnackBar(String message, Color color) {
@@ -549,7 +467,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ],
             ),
             TextButton(
-              onPressed: _showForgotPasswordDialog,
+              onPressed: _navigateToForgotPassword,
               child: const Text('Forgot password?', style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
           ],

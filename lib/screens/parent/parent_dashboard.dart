@@ -9,6 +9,7 @@ import 'package:unisphere/services/parent_service.dart';
 import 'package:unisphere/services/institution_service.dart';
 import 'package:unisphere/models/parent_portal_types.dart';
 import 'package:flutter/services.dart';
+import 'package:unisphere/providers/notification_provider.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 import 'package:unisphere/widgets/common/main_sidebar.dart';
@@ -638,62 +639,76 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
           ),
         ),
 
-        // Right Action Button: Notification Bell with Badge
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => showNotificationSheet(context),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(9),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+        // Right Action Button: Notification Bell with Live Badge
+        Consumer(
+          builder: (context, ref, _) {
+            final unreadCount = ref.watch(notificationProvider).unreadCount;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => showNotificationSheet(context),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFDBEAFE)),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Image.asset(
-                    'assets/bell_ring_2.png',
-                    width: 22,
-                    height: 22,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      'assets/bell-ring-2.png',
-                      width: 22,
-                      height: 22,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.notifications_rounded,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFDBEAFE)),
                   ),
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(3.5),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '3',
-                        style: GoogleFonts.manrope(
-                          color: Colors.white,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Image.asset(
+                        'assets/bell_ring_2.png',
+                        width: 22,
+                        height: 22,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          'assets/bell-ring-2.png',
+                          width: 22,
+                          height: 22,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.notifications_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
                         ),
                       ),
-                    ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          top: -5,
+                          right: -5,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white, width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: GoogleFonts.manrope(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -1620,115 +1635,142 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
   // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS (PARENT QUICK NAVIGATION BAR)
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildFiveQuickLauncherIcons(BuildContext context) {
-    return ParentQuickNavigationBar(
-      onAcademicsTap: () => widget.onNavigateToTab?.call(2),
-      onAttendanceTap: () => widget.onNavigateToTab?.call(1),
-      onExamsTap: () => widget.onNavigateToTab?.call(5),
-      onUpdatesTap: () => widget.onNavigateToTab?.call(3),
-      onMoreTap: () {
-        showParentNavigationSheet(
-          context: context,
-          selectedIndex: 0,
-          onDestinationSelected: (idx) => widget.onNavigateToTab?.call(idx),
-          items: _ParentDashboardState.parentSidebarItems,
-          userName: _parentDisplayName,
-          userEmail: _parentDisplayEmail,
+    return Consumer(
+      builder: (context, ref, _) {
+        final unreadCount = ref.watch(notificationProvider).unreadCount;
+        return ParentQuickNavigationBar(
+          onAcademicsTap: () => widget.onNavigateToTab?.call(2),
+          onAttendanceTap: () => widget.onNavigateToTab?.call(1),
+          onExamsTap: () => widget.onNavigateToTab?.call(5),
+          onUpdatesTap: () => showNotificationSheet(context),
+          updatesBadgeCount: unreadCount,
+          onMoreTap: () {
+            showParentNavigationSheet(
+              context: context,
+              selectedIndex: 0,
+              onDestinationSelected: (idx) => widget.onNavigateToTab?.call(idx),
+              items: _ParentDashboardState.parentSidebarItems,
+              userName: _parentDisplayName,
+              userEmail: _parentDisplayEmail,
+            );
+          },
         );
       },
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 6B. RECENT UPDATES CARD
+  // 6B. RECENT UPDATES CARD (LIVE STREAMED NOTIFICATIONS)
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildRecentUpdatesCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Updates',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              InkWell(
-                onTap: () => widget.onNavigateToTab?.call(3),
-                child: Text(
-                  'View All',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final notificationsState = ref.watch(notificationProvider);
+        final liveItems = notificationsState.items.take(4).toList();
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Recent Updates',
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      if (notificationsState.unreadCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${notificationsState.unreadCount} NEW',
+                            style: GoogleFonts.manrope(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () => showNotificationSheet(context),
+                    child: Text(
+                      'View All',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
 
-          // 1. Internal Marks Published
-          _buildRecentUpdateRow(
-            icon: Icons.campaign_rounded,
-            iconBg: const Color(0xFFFFF7ED),
-            iconColor: const Color(0xFFEA580C),
-            title: 'Internal marks published',
-            time: 'Today, 10:30 AM',
-            onTap: () => widget.onNavigateToTab?.call(2),
+              if (liveItems.isNotEmpty)
+                ...liveItems.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildRecentUpdateRow(
+                      icon: item.icon,
+                      iconBg: item.iconBgColor,
+                      iconColor: item.iconColor,
+                      title: item.title,
+                      time: item.timeAgo,
+                      isUnread: item.isUnread,
+                      onTap: () => showNotificationSheet(context),
+                    ),
+                  );
+                })
+              else ...[
+                _buildRecentUpdateRow(
+                  icon: Icons.campaign_rounded,
+                  iconBg: const Color(0xFFFFF7ED),
+                  iconColor: const Color(0xFFEA580C),
+                  title: 'Internal marks published',
+                  time: 'Today, 10:30 AM',
+                  onTap: () => widget.onNavigateToTab?.call(2),
+                ),
+                const SizedBox(height: 12),
+                _buildRecentUpdateRow(
+                  icon: Icons.calendar_month_rounded,
+                  iconBg: const Color(0xFFF3E8FF),
+                  iconColor: const Color(0xFF7C3AED),
+                  title: 'Exam timetable updated',
+                  time: 'Yesterday, 04:15 PM',
+                  onTap: () => widget.onNavigateToTab?.call(5),
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 12),
-
-          // 2. Exam Timetable Updated
-          _buildRecentUpdateRow(
-            icon: Icons.calendar_month_rounded,
-            iconBg: const Color(0xFFF3E8FF),
-            iconColor: const Color(0xFF7C3AED),
-            title: 'Exam timetable updated',
-            time: 'Yesterday, 04:15 PM',
-            onTap: () => widget.onNavigateToTab?.call(8),
-          ),
-          const SizedBox(height: 12),
-
-          // 3. Assignment Uploaded
-          _buildRecentUpdateRow(
-            icon: Icons.description_outlined,
-            iconBg: const Color(0xFFF0FDF4),
-            iconColor: const Color(0xFF16A34A),
-            title: 'Assignment uploaded',
-            time: '2 May 2025',
-            onTap: () => widget.onNavigateToTab?.call(2),
-          ),
-          const SizedBox(height: 12),
-
-          // 4. College Announcement
-          _buildRecentUpdateRow(
-            icon: Icons.info_outline_rounded,
-            iconBg: const Color(0xFFEFF6FF),
-            iconColor: const Color(0xFF2563EB),
-            title: 'College announcement',
-            time: '1 May 2025',
-            onTap: () => widget.onNavigateToTab?.call(3),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1739,6 +1781,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
     required String title,
     required String time,
     required VoidCallback onTap,
+    bool isUnread = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1761,16 +1804,34 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: isUnread ? FontWeight.w900 : FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isUnread) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
                   time,
                   style: GoogleFonts.manrope(

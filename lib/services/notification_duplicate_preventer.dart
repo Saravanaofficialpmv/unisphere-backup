@@ -121,16 +121,20 @@ class NotificationDuplicatePreventer {
           final notifDoc = await _firestore.collection('notifications').doc(key).get();
           if (notifDoc.exists && notifDoc.data() != null) {
             final statusVal = notifDoc.data()!['status']?.toString() ?? 'sent';
+            final createdAt = notifDoc.data()!['created_at'] != null
+                ? DateTime.tryParse(notifDoc.data()!['created_at'].toString()) ?? DateTime.now()
+                : (notifDoc.data()!['createdAt'] != null
+                    ? DateTime.tryParse(notifDoc.data()!['createdAt'].toString()) ?? DateTime.now()
+                    : DateTime.now());
             record = RuleExecutionRecord(
               ruleId: ruleId,
               recipientUserId: recipientUserId,
               eventId: eventId,
               deduplicationKey: key,
-              lastTriggeredAt: notifDoc.data()!['created_at'] != null
-                  ? DateTime.tryParse(notifDoc.data()!['created_at'].toString()) ?? DateTime.now()
-                  : DateTime.now(),
+              lastTriggeredAt: createdAt,
+              lastStatusValue: notifDoc.data()!['last_status_value']?.toString(),
               status: statusVal,
-              cooldownUntil: now.add(Duration(hours: cooldownHours)),
+              cooldownUntil: createdAt.add(Duration(hours: cooldownHours)),
             );
             _localCache[key] = record;
           }
@@ -145,8 +149,24 @@ class NotificationDuplicatePreventer {
       return true;
     }
 
-    // 2. FAILED NOTIFICATION HANDLING: If status is 'failed', allow retry!
+    // 2. FAILED NOTIFICATION HANDLING: If status is 'failed', verify against notifications collection before retrying
     if (record.status == 'failed') {
+      if (_firestore != null) {
+        try {
+          final notifDoc = await _firestore.collection('notifications').doc(key).get();
+          if (notifDoc.exists && notifDoc.data() != null) {
+            final createdAt = notifDoc.data()!['created_at'] != null
+                ? DateTime.tryParse(notifDoc.data()!['created_at'].toString()) ?? DateTime.now()
+                : (notifDoc.data()!['createdAt'] != null
+                    ? DateTime.tryParse(notifDoc.data()!['createdAt'].toString()) ?? DateTime.now()
+                    : DateTime.now());
+            if (now.isBefore(createdAt.add(Duration(hours: cooldownHours)))) {
+              // Notification was actually persisted and is within cooldown -> SUPPRESS
+              return false;
+            }
+          }
+        } catch (_) {}
+      }
       return true;
     }
 

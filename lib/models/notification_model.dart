@@ -107,6 +107,7 @@ class NotificationModel {
       'title': title,
       'message': message,
       'type': type,
+      'status': 'sent',
       'category': category,
       'priority': priority,
       'sender_id': senderId,

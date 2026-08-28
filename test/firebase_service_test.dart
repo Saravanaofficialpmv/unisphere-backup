@@ -219,10 +219,10 @@ void main() {
       final authService = FirebaseAuthService();
 
       // Sign in with demo student account
-      await authService.signInWithEmail('saravanapmvofficial@gmail.com', 'Sivamani9698pmv\$');
+      await authService.signInWithEmail('student@unisphere.edu', 'StudentPass123!');
 
       expect(authService.currentUser, isNotNull);
-      expect(authService.currentUser?.email, 'saravanapmvofficial@gmail.com');
+      expect(authService.currentUser?.email, 'student@unisphere.edu');
       expect(authService.currentUser?.role, UserRole.student);
 
       // Sign out

@@ -25,14 +25,19 @@ class NotificationRepository {
     }
   }
 
-  /// Watch targeted notifications for a user based on UID, Role, and Department
+  /// Watch targeted notifications for a user based on UID, Role, Department, and optional child/ward ID
   Stream<List<NotificationModel>> watchUserNotifications(
     String targetUserId, {
     String? userRole,
     String? department,
+    String? childStudentId,
   }) {
     final firestore = _firestore;
     if (firestore == null) return Stream.value([]);
+
+    final roleNormalized = userRole?.toLowerCase().trim() ?? '';
+    final isParent = roleNormalized == 'parent';
+    final isAdmin = roleNormalized == 'admin' || roleNormalized == 'administrator';
 
     return firestore
         .collection('notifications')
@@ -42,22 +47,54 @@ class NotificationRepository {
       return snapshot.docs
           .map((doc) => NotificationModel.fromMap(doc.data(), doc.id, currentUserId: targetUserId))
           .where((n) {
-        // 1. Direct recipient match
-        if (n.recipientUserIds.contains(targetUserId) || n.recipientUserIds.contains('ALL')) {
+        final targetRolesLower = n.targetRoles.map((r) => r.toLowerCase().trim()).toList();
+
+        // 1. Direct recipient match (e.g. DEMO-PRT, parent UID, or PRT-studentRoll)
+        if (n.recipientUserIds.contains(targetUserId)) {
           return true;
         }
-        // 2. Target Role match
-        if (userRole != null && n.targetRoles.map((r) => r.toLowerCase()).contains(userRole.toLowerCase())) {
-          // If department specified on notification, check department match
+
+        // 2. Specific Parent logic
+        if (isParent) {
+          // If child/ward roll number or student ID is matched via PRT- prefix
+          if (childStudentId != null && (n.recipientUserIds.contains('PRT-$childStudentId') || n.recipientUserIds.contains(childStudentId) && targetRolesLower.contains('parent'))) {
+            return true;
+          }
+          // If the notification targets parents specifically
+          if (targetRolesLower.contains('parent')) {
+            if (n.targetDepartment != null && department != null) {
+              return n.targetDepartment!.toLowerCase() == department.toLowerCase();
+            }
+            return true;
+          }
+          // If global broadcast with parent role included or empty targetRoles
+          if (n.recipientUserIds.contains('ALL') && (targetRolesLower.isEmpty || targetRolesLower.contains('parent'))) {
+            return true;
+          }
+          // Parents MUST NOT receive student/staff/admin-only notifications
+          return false;
+        }
+
+        // 3. Admin view sees all
+        if (isAdmin) {
+          return true;
+        }
+
+        // 4. Global broadcast for other roles
+        if (n.recipientUserIds.contains('ALL')) {
+          if (targetRolesLower.isEmpty || (userRole != null && targetRolesLower.contains(roleNormalized))) {
+            return true;
+          }
+        }
+
+        // 5. Target Role match for other roles
+        if (userRole != null && targetRolesLower.contains(roleNormalized)) {
           if (n.targetDepartment != null && department != null) {
             return n.targetDepartment!.toLowerCase() == department.toLowerCase();
           }
           return true;
         }
-        // 3. Admin view sees all
-        if (userRole?.toLowerCase() == 'admin' || userRole?.toLowerCase() == 'administrator') {
-          return true;
-        }
+
         return false;
       }).toList();
     }).handleError((e) {

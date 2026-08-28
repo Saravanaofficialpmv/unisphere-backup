@@ -42,8 +42,11 @@ class FirebaseAuthService implements AuthService {
     }
   }
 
+  FirebaseAuth? get _resolvedAuth => _auth ?? _tryGetAuth();
+  FirebaseFirestore? get _resolvedFirestore => _firestore ?? _tryGetFirestore();
+
   void _initRealtimeAuth() {
-    final auth = _auth;
+    final auth = _resolvedAuth;
     if (auth == null) return;
     try {
       // Listen to real-time Firebase Auth user changes (login, logout, token refresh)
@@ -75,7 +78,7 @@ class FirebaseAuthService implements AuthService {
       }
 
       // Subscribe to real-time updates from Firestore for this user's profile
-      final firestore = _firestore;
+      final firestore = _resolvedFirestore;
       if (firestore != null) {
         try {
           _userDocSubscription = firestore
@@ -119,14 +122,14 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Stream<User?>? get firebaseUserStream => _auth?.userChanges();
+  Stream<User?>? get firebaseUserStream => _resolvedAuth?.userChanges();
 
   @override
   UserModel? get currentUser => _mockUser ?? _currentUser;
 
   @override
   Future<void> reloadUser() async {
-    final auth = _auth;
+    final auth = _resolvedAuth;
     if (_mockUser != null || auth == null) return;
     try {
       final user = auth.currentUser;
@@ -178,7 +181,11 @@ class FirebaseAuthService implements AuthService {
     // REAL USER SIGN IN: Clear mock user state first!
     _mockUser = null;
 
-    final auth = _auth ?? FirebaseAuth.instance;
+    final auth = _resolvedAuth;
+    if (auth == null) {
+      throw 'Firebase Authentication is not available. Please verify your connection.';
+    }
+
     try {
       final credential = await auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -222,7 +229,10 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> signInWithGoogle() async {
     _mockUser = null;
-    final auth = _auth ?? FirebaseAuth.instance;
+    final auth = _resolvedAuth;
+    if (auth == null) {
+      throw 'Firebase Authentication is not available. Please verify your connection.';
+    }
     try {
       final googleProvider = GoogleAuthProvider();
       final credential = await auth.signInWithProvider(googleProvider);
@@ -239,7 +249,10 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> signInWithApple() async {
     _mockUser = null;
-    final auth = _auth ?? FirebaseAuth.instance;
+    final auth = _resolvedAuth;
+    if (auth == null) {
+      throw 'Firebase Authentication is not available. Please verify your connection.';
+    }
     try {
       final appleProvider = OAuthProvider('apple.com');
       final credential = await auth.signInWithProvider(appleProvider);
@@ -273,7 +286,11 @@ class FirebaseAuthService implements AuthService {
     // REAL USER REGISTRATION: Clear mock user state first!
     _mockUser = null;
 
-    final auth = _auth ?? FirebaseAuth.instance;
+    final auth = _resolvedAuth;
+    if (auth == null) {
+      throw 'Firebase Authentication is not available. Please verify your connection.';
+    }
+
     try {
       final credential = await auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -328,14 +345,30 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    final auth = _auth;
-    if (auth != null) {
-      try {
-        await auth.sendPasswordResetEmail(email: email.trim());
-      } catch (e) {
-        debugPrint('Firebase Password Reset Error: $e');
-        rethrow;
+    final auth = _resolvedAuth;
+    if (auth == null) {
+      throw Exception('Firebase Authentication is not available.');
+    }
+    try {
+      await auth.sendPasswordResetEmail(email: email.trim());
+      debugPrint('Firebase: Password reset email successfully dispatched to ${email.trim()}');
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Firebase Password Reset Error [${e.code}]: ${e.message}');
+      switch (e.code) {
+        case 'user-not-found':
+          throw Exception('No account found with this email address.');
+        case 'invalid-email':
+          throw Exception('The email address is invalid.');
+        case 'too-many-requests':
+          throw Exception('Too many reset requests. Please wait a few minutes before trying again.');
+        case 'network-request-failed':
+          throw Exception('Network connection error. Please check your internet connection.');
+        default:
+          throw Exception(e.message ?? 'Failed to send password reset email.');
       }
+    } catch (e) {
+      debugPrint('Firebase Password Reset Error: $e');
+      rethrow;
     }
   }
 
@@ -345,7 +378,7 @@ class FirebaseAuthService implements AuthService {
     _userDocSubscription?.cancel();
     _userDocSubscription = null;
     try {
-      final auth = _auth;
+      final auth = _resolvedAuth;
       if (auth != null) {
         await auth.signOut();
       }
@@ -357,7 +390,7 @@ class FirebaseAuthService implements AuthService {
   }
 
   Future<UserModel?> getUserData(String uid) async {
-    final firestore = _firestore;
+    final firestore = _resolvedFirestore;
     if (uid.isEmpty || firestore == null) return null;
     try {
       final doc = await firestore.collection('users').doc(uid).get();
@@ -371,7 +404,7 @@ class FirebaseAuthService implements AuthService {
   }
 
   Future<void> saveUserData(UserModel user) async {
-    final firestore = _firestore;
+    final firestore = _resolvedFirestore;
     if (firestore == null) return;
     try {
       await firestore.collection('users').doc(user.uid).set(user.toMap(), SetOptions(merge: true));

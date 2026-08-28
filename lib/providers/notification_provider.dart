@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -243,22 +244,33 @@ class NotificationState {
 class NotificationNotifier extends StateNotifier<NotificationState> {
   final NotificationRepository _repository;
   final UserModel? _currentUser;
+  StreamSubscription<List<NotificationModel>>? _subscription;
 
   NotificationNotifier(this._repository, this._currentUser)
-      : super(NotificationState(items: _initialNotifications)) {
+      : super(NotificationState(items: _getInitialNotificationsForRole(_currentUser))) {
     _listenToNotifications();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   void _listenToNotifications() {
     final user = _currentUser;
-    final userId = user?.uid ?? 'DEMO-STU';
-    final userRole = user?.role.name ?? 'student';
+    final isParent = user?.role == UserRole.parent;
+    final userId = user?.uid ?? (isParent ? 'DEMO-PRT' : 'DEMO-STU');
+    final userRole = user?.role.name ?? (isParent ? 'parent' : 'student');
     final userDept = user?.metadata?['department'] ?? user?.metadata?['department_name'];
+    final childId = user?.metadata?['child_id'] ?? user?.metadata?['student_id'] ?? user?.metadata?['roll_number'];
 
-    _repository.watchUserNotifications(
+    _subscription?.cancel();
+    _subscription = _repository.watchUserNotifications(
       userId,
       userRole: userRole,
       department: userDept?.toString(),
+      childStudentId: childId?.toString(),
     ).listen((models) {
       if (models.isNotEmpty) {
         final items = models.map((m) => NotificationItem.fromModel(m)).toList();
@@ -308,7 +320,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
             category: category ?? 'General',
             priority: priority ?? 'medium',
             createdAt: DateTime.now(),
-            recipientUserIds: [_currentUser?.uid ?? 'DEMO-STU'],
+            recipientUserIds: [_currentUser?.uid ?? (_currentUser?.role == UserRole.parent ? 'DEMO-PRT' : 'DEMO-STU')],
           ),
         );
     state = state.copyWith(items: [newItem, ...state.items]);
@@ -323,80 +335,135 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       return item;
     }).toList();
     state = state.copyWith(items: updatedItems);
-    await _repository.markAsRead(id, userId: _currentUser?.uid ?? 'DEMO-STU');
+    await _repository.markAsRead(id, userId: _currentUser?.uid ?? (_currentUser?.role == UserRole.parent ? 'DEMO-PRT' : 'DEMO-STU'));
   }
 
   Future<void> markAllAsRead() async {
     final updatedItems = state.items.map((item) => item.copyWith(isUnread: false)).toList();
     state = state.copyWith(items: updatedItems);
-    await _repository.markAllAsRead(_currentUser?.uid ?? 'DEMO-STU');
+    await _repository.markAllAsRead(_currentUser?.uid ?? (_currentUser?.role == UserRole.parent ? 'DEMO-PRT' : 'DEMO-STU'));
   }
 
-  static List<NotificationItem> get _initialNotifications => [
+  static List<NotificationItem> _getInitialNotificationsForRole(UserModel? user) {
+    if (user?.role == UserRole.parent) {
+      return [
         NotificationItem.fromModel(NotificationModel(
-          id: 'notif-demo-1',
-          title: '🚨 CRITICAL: Low Attendance Alert',
-          message: 'Your overall attendance has fallen to 74.5%, which is below the required 75% minimum threshold.',
+          id: 'notif-parent-demo-1',
+          title: '⚠️ Parent Notice: Student Low Attendance Alert',
+          message: 'Your ward Alex Johnson has fallen below the 75% minimum attendance requirement (74.5%). Please ensure regular class attendance.',
           type: 'automated',
           category: 'Attendance',
           priority: 'critical',
           senderId: 'system_rule_attendance',
           senderName: 'System Automation Engine',
           recipientType: 'user',
-          recipientUserIds: ['DEMO-STU'],
-          targetRoles: ['student'],
+          recipientUserIds: ['DEMO-PRT'],
+          targetRoles: ['parent'],
           relatedModule: 'attendance',
-          createdAt: DateTime.now().subtract(const Duration(minutes: 25)),
+          createdAt: DateTime.now().subtract(const Duration(minutes: 20)),
           isRead: false,
         )),
         NotificationItem.fromModel(NotificationModel(
-          id: 'notif-demo-2',
-          title: '⏰ Assignment Due Tomorrow',
-          message: 'Computer Networks Socket Programming assignment is due in 1 day (Tomorrow, 11:59 PM).',
+          id: 'notif-parent-demo-2',
+          title: '💳 Fee Payment Reminder: Semester VI Tuition Fee',
+          message: 'Semester VI Tuition Fee (₹45,000) for Alex Johnson is due on 25th August. Please process payment online.',
           type: 'automated',
-          category: 'Academic',
+          category: 'Finance',
           priority: 'high',
-          senderId: 'system_rule_assignments',
-          senderName: 'System Automation Engine',
+          senderId: 'system_rule_fees',
+          senderName: 'Finance Department',
           recipientType: 'user',
-          recipientUserIds: ['DEMO-STU'],
-          targetRoles: ['student'],
-          relatedModule: 'assignment',
-          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          recipientUserIds: ['DEMO-PRT'],
+          targetRoles: ['parent'],
+          relatedModule: 'fee',
+          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
           isRead: false,
         )),
         NotificationItem.fromModel(NotificationModel(
-          id: 'notif-demo-3',
-          title: '📢 Department Circular: End-Sem Exam Rules',
-          message: 'Dr. R. Kumar published end-semester examination guidelines for Computer Science Department.',
+          id: 'notif-parent-demo-3',
+          title: '📅 End-Semester Examination & PTM Schedule',
+          message: 'End-semester theory examinations begin on September 15th. Parent-Teacher Meeting is scheduled for September 5th.',
           type: 'manual',
           category: 'Academic',
           priority: 'medium',
           senderId: 'DEMO-HOD',
-          senderName: 'Dr. R. Kumar',
+          senderName: 'Academic Affairs Office',
           senderRole: 'HOD',
-          recipientType: 'department',
-          targetDepartment: 'Computer Science',
+          recipientType: 'role',
+          targetRoles: ['parent', 'student'],
           relatedModule: 'exam',
-          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
           isRead: true,
         )),
-        NotificationItem.fromModel(NotificationModel(
-          id: 'notif-demo-4',
-          title: '🎯 Placement Drive: Google SWE Campus Recruitment',
-          message: 'Applications are open for Google SWE On-Campus Recruitment Drive. Deadline: 24th August.',
-          type: 'manual',
-          category: 'Career',
-          priority: 'high',
-          senderId: 'DEMO-ADM',
-          senderName: 'Placement Office',
-          recipientType: 'role',
-          targetRoles: ['student'],
-          relatedModule: 'placement',
-          createdAt: DateTime.now().subtract(const Duration(days: 1)),
-          isRead: false,
-        )),
       ];
+    }
+
+    return [
+      NotificationItem.fromModel(NotificationModel(
+        id: 'notif-demo-1',
+        title: '🚨 CRITICAL: Low Attendance Alert',
+        message: 'Your overall attendance has fallen to 74.5%, which is below the required 75% minimum threshold.',
+        type: 'automated',
+        category: 'Attendance',
+        priority: 'critical',
+        senderId: 'system_rule_attendance',
+        senderName: 'System Automation Engine',
+        recipientType: 'user',
+        recipientUserIds: ['DEMO-STU'],
+        targetRoles: ['student'],
+        relatedModule: 'attendance',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 25)),
+        isRead: false,
+      )),
+      NotificationItem.fromModel(NotificationModel(
+        id: 'notif-demo-2',
+        title: '⏰ Assignment Due Tomorrow',
+        message: 'Computer Networks Socket Programming assignment is due in 1 day (Tomorrow, 11:59 PM).',
+        type: 'automated',
+        category: 'Academic',
+        priority: 'high',
+        senderId: 'system_rule_assignments',
+        senderName: 'System Automation Engine',
+        recipientType: 'user',
+        recipientUserIds: ['DEMO-STU'],
+        targetRoles: ['student'],
+        relatedModule: 'assignment',
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        isRead: false,
+      )),
+      NotificationItem.fromModel(NotificationModel(
+        id: 'notif-demo-3',
+        title: '📢 Department Circular: End-Sem Exam Rules',
+        message: 'Dr. R. Kumar published end-semester examination guidelines for Computer Science Department.',
+        type: 'manual',
+        category: 'Academic',
+        priority: 'medium',
+        senderId: 'DEMO-HOD',
+        senderName: 'Dr. R. Kumar',
+        senderRole: 'HOD',
+        recipientType: 'department',
+        targetDepartment: 'Computer Science',
+        relatedModule: 'exam',
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+        isRead: true,
+      )),
+      NotificationItem.fromModel(NotificationModel(
+        id: 'notif-demo-4',
+        title: '🎯 Placement Drive: Google SWE Campus Recruitment',
+        message: 'Applications are open for Google SWE On-Campus Recruitment Drive. Deadline: 24th August.',
+        type: 'manual',
+        category: 'Career',
+        priority: 'high',
+        senderId: 'DEMO-ADM',
+        senderName: 'Placement Office',
+        recipientType: 'role',
+        targetRoles: ['student'],
+        relatedModule: 'placement',
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        isRead: false,
+      )),
+    ];
+  }
 }
 
 final notificationProvider = StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {

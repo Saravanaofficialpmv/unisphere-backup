@@ -62,7 +62,6 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  bool _isGridView = true; // Modern 2-column grid by default
 
   final List<_CategoryData> _categories = [
     _CategoryData('All', Icons.grid_view_rounded, AppColors.primary),
@@ -180,91 +179,17 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                     ),
                   ),
 
-                  // Title & Layout Mode Toggle Header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Explore Parent Portal',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${filteredItems.length} parent tools and student services available',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Grid / List View Toggle
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: AppColors.backgroundSubtle,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _ViewModeButton(
-                                icon: Icons.grid_view_rounded,
-                                isSelected: _isGridView,
-                                onTap: () {
-                                  if (!_isGridView) {
-                                    HapticFeedback.selectionClick();
-                                    setState(() => _isGridView = true);
-                                  }
-                                },
-                              ),
-                              _ViewModeButton(
-                                icon: Icons.view_list_rounded,
-                                isSelected: !_isGridView,
-                                onTap: () {
-                                  if (_isGridView) {
-                                    HapticFeedback.selectionClick();
-                                    setState(() => _isGridView = false);
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Close Button
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 20),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                          tooltip: 'Close',
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-
                   // Search Bar
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
                     child: Container(
-                      height: 44,
+                      height: 46,
                       decoration: BoxDecoration(
-                        color: AppColors.backgroundSubtle,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        ),
                       ),
                       child: TextField(
                         controller: _searchController,
@@ -272,7 +197,7 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Search academics, attendance, exams, updates...',
-                          hintStyle: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
+                          hintStyle: const TextStyle(fontSize: 13.5, color: AppColors.textTertiary),
                           prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
@@ -284,17 +209,15 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 13),
                         ),
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 10),
-
                   // Category Filter Pills
                   SizedBox(
-                    height: 36,
+                    height: 38,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -310,21 +233,25 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                             setState(() => _selectedCategory = catData.name);
                           },
                           scaleFactor: 0.95,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           child: AnimatedContainer(
                             duration: AppAnimations.fast,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primary : AppColors.backgroundSubtle,
-                              borderRadius: BorderRadius.circular(12),
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected ? AppColors.primary : AppColors.border.withValues(alpha: 0.8),
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                                 width: 1,
                               ),
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: AppColors.primary.withValues(alpha: 0.25),
+                                        color: AppColors.primary.withValues(alpha: 0.28),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -336,16 +263,16 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                               children: [
                                 Icon(
                                   catData.icon,
-                                  size: 15,
-                                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                                  size: 16,
+                                  color: isSelected ? Colors.white : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   catData.name,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                                    color: isSelected ? Colors.white : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569)),
                                   ),
                                 ),
                               ],
@@ -356,10 +283,9 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
-                  const Divider(height: 1),
+                  const SizedBox(height: 12),
 
-                  // Modules List or Grid
+                  // Modules List
                   Expanded(
                     child: filteredItems.isEmpty
                         ? Center(
@@ -375,9 +301,7 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                               ],
                             ),
                           )
-                        : _isGridView
-                            ? _buildGridView(scrollController, filteredItems)
-                            : _buildListView(scrollController, filteredItems),
+                        : _buildListView(scrollController, filteredItems),
                   ),
                 ],
               ),
@@ -388,165 +312,14 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
     );
   }
 
-  /// Builds a responsive 2-column squircle grid layout.
-  Widget _buildGridView(ScrollController scrollController, List<_IndexedSidebarItem> items) {
-    final bottomPad = math.max(36.0, MediaQuery.of(context).padding.bottom + 24.0);
-    return GridView.builder(
-      controller: scrollController,
-      padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPad),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 2.1,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, idx) {
-        final itemData = items[idx];
-        final isSelected = widget.selectedIndex == itemData.index;
-        final catColor = _getCategoryColor(itemData.category);
-
-        return AppPressable(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            Navigator.of(context).pop();
-            widget.onDestinationSelected(itemData.index);
-          },
-          scaleFactor: 0.96,
-          borderRadius: BorderRadius.circular(16),
-          child: AnimatedContainer(
-            duration: AppAnimations.fast,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primarySubtle : AppColors.backgroundSubtle,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected ? AppColors.primary : AppColors.border.withValues(alpha: 0.7),
-                width: isSelected ? 1.5 : 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Icon Tile
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isSelected
-                          ? [
-                              AppColors.primary,
-                              const Color(0xFF1D4ED8),
-                            ]
-                          : [
-                              catColor.withValues(alpha: 0.16),
-                              catColor.withValues(alpha: 0.08),
-                            ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(11),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    itemData.item.icon,
-                    size: 19,
-                    color: isSelected ? Colors.white : catColor,
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Label & Category Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        itemData.item.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              itemData.category,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                color: AppColors.textTertiary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (itemData.item.badge != null) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: itemData.item.badgeColor ?? AppColors.primary,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                itemData.item.badge!,
-                                style: const TextStyle(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Active dot or mini checkmark
-                if (isSelected)
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Builds a classic streamlined list view layout.
+  /// Builds the clean streamlined list view layout.
   Widget _buildListView(ScrollController scrollController, List<_IndexedSidebarItem> items) {
     final bottomPad = math.max(36.0, MediaQuery.of(context).padding.bottom + 24.0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListView.builder(
       controller: scrollController,
-      padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
       itemCount: items.length,
       itemBuilder: (context, idx) {
         final itemData = items[idx];
@@ -554,7 +327,7 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
         final catColor = _getCategoryColor(itemData.category);
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.only(bottom: 8),
           child: AppPressable(
             onTap: () {
               HapticFeedback.lightImpact();
@@ -562,30 +335,41 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
               widget.onDestinationSelected(itemData.index);
             },
             scaleFactor: 0.98,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: AnimatedContainer(
               duration: AppAnimations.fast,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primarySubtle : AppColors.backgroundSubtle,
-                borderRadius: BorderRadius.circular(14),
+                color: isSelected
+                    ? AppColors.primarySubtle
+                    : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border.withValues(alpha: 0.7),
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                   width: isSelected ? 1.5 : 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
                       color: isSelected ? AppColors.primary : catColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       itemData.item.icon,
-                      size: 19,
+                      size: 20,
                       color: isSelected ? Colors.white : catColor,
                     ),
                   ),
@@ -597,17 +381,20 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                         Text(
                           itemData.item.label,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            color: isSelected
+                                ? AppColors.primary
+                                : (isDark ? Colors.white : const Color(0xFF1E293B)),
+                            letterSpacing: -0.2,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           itemData.category,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textTertiary,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFF94A3B8) : AppColors.textTertiary,
                           ),
                         ),
                       ],
@@ -632,8 +419,10 @@ class _ParentNavigationSheetState extends ConsumerState<ParentNavigationSheet> {
                     ),
                   Icon(
                     isSelected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
-                    size: 19,
-                    color: isSelected ? AppColors.primary : AppColors.textTertiary,
+                    size: isSelected ? 22 : 20,
+                    color: isSelected
+                        ? AppColors.primary
+                        : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                   ),
                 ],
               ),
@@ -678,45 +467,4 @@ class _IndexedSidebarItem {
     required this.item,
     required this.category,
   });
-}
-
-class _ViewModeButton extends StatelessWidget {
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ViewModeButton({
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppAnimations.fast,
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: isSelected ? AppColors.primary : AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
 }
