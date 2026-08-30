@@ -6,6 +6,7 @@ class StudentPersonalDetails {
   final String registerNumber;
   final String department;
   final String collegeEmail;
+  final String batch; // Academic batch range (From - To), e.g. '2023 - 2027'
   final String? profilePhotoUrl;
   final String? dateOfBirth;
   final String? gender;
@@ -24,6 +25,7 @@ class StudentPersonalDetails {
     required this.registerNumber,
     required this.department,
     required this.collegeEmail,
+    this.batch = '2023 - 2027',
     this.profilePhotoUrl,
     this.dateOfBirth,
     this.gender,
@@ -43,6 +45,7 @@ class StudentPersonalDetails {
         'registerNumber': registerNumber,
         'department': department,
         'collegeEmail': collegeEmail,
+        'batch': batch,
         'profilePhotoUrl': profilePhotoUrl,
         'dateOfBirth': dateOfBirth,
         'gender': gender,
@@ -63,6 +66,7 @@ class StudentPersonalDetails {
         registerNumber: map['registerNumber'] ?? '',
         department: map['department'] ?? '',
         collegeEmail: map['collegeEmail'] ?? '',
+        batch: map['batch'] ?? '2023 - 2027',
         profilePhotoUrl: map['profilePhotoUrl'],
         dateOfBirth: map['dateOfBirth'],
         gender: map['gender'],

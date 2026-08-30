@@ -89,19 +89,22 @@ class UserModel {
     final nameVal = map['fullName'] ?? map['name'] ?? map['full_name'] ?? '';
     final phoneVal = map['phone'] ?? map['phone_number'] ?? map['phoneNumber'] ?? '';
 
-    final metaMap = map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata']) : null;
-    final creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap?['createdAt'] ?? metaMap?['created_at']);
+    final metaMap = map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata']) : <String, dynamic>{};
+    if (map['batch'] != null && map['batch'].toString().isNotEmpty) {
+      metaMap['batch'] = map['batch'].toString();
+    }
+    final creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap['createdAt'] ?? metaMap['created_at']);
 
-    final rawRole = map['role'] ?? map['userRole'] ?? map['user_role'] ?? metaMap?['role'] ?? metaMap?['userRole'];
+    final rawRole = map['role'] ?? map['userRole'] ?? map['user_role'] ?? metaMap['role'] ?? metaMap['userRole'];
     UserRole parsedRole = _parseRole(rawRole?.toString());
 
     if (parsedRole == UserRole.student || parsedRole == UserRole.unknown) {
       final hasWards = map['wardRegisterNumbers'] != null ||
           map['childRegisterNumbers'] != null ||
           map['wards'] != null ||
-          metaMap?['wardRegisterNumbers'] != null ||
-          metaMap?['childRegisterNumbers'] != null ||
-          metaMap?['studentIds'] != null;
+          metaMap['wardRegisterNumbers'] != null ||
+          metaMap['childRegisterNumbers'] != null ||
+          metaMap['studentIds'] != null;
       if (hasWards) {
         parsedRole = UserRole.parent;
       }
@@ -119,7 +122,7 @@ class UserModel {
       createdAt: creationDate,
       updatedAt: parseDate(map['updatedAt'] ?? map['updated_at']),
       lastLoginAt: parseDate(map['lastLoginAt'] ?? map['last_login_at']),
-      metadata: metaMap,
+      metadata: metaMap.isNotEmpty ? metaMap : null,
     );
   }
 
@@ -135,6 +138,7 @@ class UserModel {
       'profileCompleted': profileCompleted,
       'profile_image_url': profileImageUrl,
       'profileImageUrl': profileImageUrl,
+      if (metadata?['batch'] != null) 'batch': metadata!['batch'],
       'createdAt': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),

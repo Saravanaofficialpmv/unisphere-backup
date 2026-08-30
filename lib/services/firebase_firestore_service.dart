@@ -528,6 +528,7 @@ class FirebaseFirestoreService implements SupabaseService {
     try {
       final uid = profileMap['studentUid']?.toString() ?? '';
       final regNo = (profileMap['personal']?['registerNumber'] ?? profileMap['registerNumber'])?.toString().trim() ?? '';
+      final batch = (profileMap['personal']?['batch'] ?? profileMap['batch'])?.toString().trim() ?? '2023 - 2027';
 
       if (uid.isEmpty && regNo.isEmpty) return;
 
@@ -535,6 +536,10 @@ class FirebaseFirestoreService implements SupabaseService {
       profileMap['completionStatus'] = 'submitted';
       profileMap['completionPercentage'] = 100;
       profileMap['submittedAt'] = nowStr;
+      profileMap['batch'] = batch;
+      if (profileMap['personal'] is Map) {
+        (profileMap['personal'] as Map)['batch'] = batch;
+      }
 
       // 1. Store details under regNo in student_profiles collection (as primary unique ID)
       if (regNo.isNotEmpty) {
@@ -554,6 +559,7 @@ class FirebaseFirestoreService implements SupabaseService {
         await _firestore.collection('students').doc(regNo).set({
           'register_number': regNo,
           'user_id': uid,
+          'batch': batch,
           'details': profileMap,
           if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
           if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
@@ -561,14 +567,16 @@ class FirebaseFirestoreService implements SupabaseService {
         }, SetOptions(merge: true));
       }
 
-      // 4. Update user document profile completion status & metadata
+      // 4. Update user document profile completion status, batch & metadata
       if (uid.isNotEmpty) {
         await _firestore.collection('users').doc(uid).set({
           'profileCompletionStatus': 'submitted',
+          'batch': batch,
           if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
           if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
           'metadata': {
             'registerNumber': regNo.isNotEmpty ? regNo : null,
+            'batch': batch,
             'profileCompletionPercentage': 100,
             if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
             if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
@@ -580,10 +588,12 @@ class FirebaseFirestoreService implements SupabaseService {
       if (regNo.isNotEmpty) {
         await _firestore.collection('users').doc(regNo).set({
           'profileCompletionStatus': 'submitted',
+          'batch': batch,
           if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
           if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
           'metadata': {
             'registerNumber': regNo,
+            'batch': batch,
             'profileCompletionPercentage': 100,
             if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
             if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
@@ -594,6 +604,43 @@ class FirebaseFirestoreService implements SupabaseService {
     } catch (e) {
       debugPrint('Firestore submitFullStudentProfile error: $e');
     }
+  }
+
+  Future<Map<String, dynamic>?> getFullStudentProfile(String identifier) async {
+    final cleanId = identifier.trim();
+    if (cleanId.isEmpty) return null;
+    try {
+      // 1. Direct lookup in student_profiles doc
+      final spDoc = await _firestore.collection('student_profiles').doc(cleanId).get();
+      if (spDoc.exists && spDoc.data() != null) {
+        return spDoc.data();
+      }
+
+      // 2. Query student_profiles by registerNumber
+      final spQuery = await _firestore.collection('student_profiles').where('registerNumber', isEqualTo: cleanId).limit(1).get();
+      if (spQuery.docs.isNotEmpty) {
+        return spQuery.docs.first.data();
+      }
+
+      // 3. Direct lookup in students doc
+      final stDoc = await _firestore.collection('students').doc(cleanId).get();
+      if (stDoc.exists && stDoc.data() != null) {
+        final data = stDoc.data()!;
+        if (data['details'] is Map<String, dynamic>) {
+          return data['details'] as Map<String, dynamic>;
+        }
+        return data;
+      }
+
+      // 4. Direct lookup in users doc
+      final uDoc = await _firestore.collection('users').doc(cleanId).get();
+      if (uDoc.exists && uDoc.data() != null) {
+        return uDoc.data();
+      }
+    } catch (e) {
+      debugPrint('Firestore getFullStudentProfile error: $e');
+    }
+    return null;
   }
 
   Stream<Map<String, dynamic>?> getFullStudentProfileStream(String identifier) {

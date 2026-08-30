@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/parent_service.dart';
-import 'package:unisphere/services/institution_service.dart';
 import 'package:unisphere/services/user_session_service.dart';
 import 'package:unisphere/models/parent_portal_types.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +20,8 @@ import 'package:unisphere/widgets/parent/parent_summary_carousel.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 import 'package:unisphere/screens/parent/parent_profile_screen.dart';
 import 'package:unisphere/widgets/common/recent_photos_section.dart';
+import 'package:unisphere/widgets/common/recent_updates_card.dart';
+import 'package:unisphere/widgets/common/latest_photo_gallery_card.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/screens/features/events_screen.dart';
@@ -370,7 +371,6 @@ class ParentHomeScreen extends ConsumerStatefulWidget {
 class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with SingleTickerProviderStateMixin {
   late List<ParentStudentWard> _wards;
   late ParentStudentWard _selectedWard;
-  String _selectedTrendMode = 'CGPA'; // 'CGPA' or 'SGPA'
   bool _isRefreshing = false;
   int _refreshEpoch = 0;
   bool _isReturningUser = true;
@@ -565,33 +565,44 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 3. STUDENT IDENTITY PROFILE CARD
-                      _buildStudentIdentityCard(context),
-
-                      const SizedBox(height: 14),
-
-                      // 4. HORIZONTALLY SLIDING TOP SUMMARY CAROUSEL
-                      ParentSummaryCarousel(
+                      // 3. STUDENT IDENTITY PROFILE CARD WITH ATTACHED STATUS DECK (REFERENCE DESIGN)
+                      StudentReferenceCardWithDeck(
                         selectedWard: _selectedWard,
+                        onCardTap: () => _showStudentSelectorSheet(context),
                         onNavigateToTab: widget.onNavigateToTab,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 20),
 
                       // 5. 5 CIRCULAR QUICK LAUNCHER ACTION BUTTONS
                       _buildFiveQuickLauncherIcons(context),
 
                       const SizedBox(height: 20),
 
+                      // 5B. LATEST PHOTO GALLERY (ADVISOR & HOD UPDATES - FITTED IMAGES)
+                      LatestPhotoGalleryCard(
+                        departmentFilter: _selectedWard.department,
+                        onViewAllPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const FullPhotoGalleryScreen()),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
                       // 6. RECENT UPDATES & BULLETINS
-                      _buildRecentUpdatesCard(context),
+                      RecentUpdatesCard(
+                        onNavigateToTab: widget.onNavigateToTab,
+                        onViewAll: () => showNotificationSheet(
+                          context,
+                          onNavigateToTab: widget.onNavigateToTab != null
+                              ? (idx, {openCalculator = false}) => widget.onNavigateToTab!(idx)
+                              : null,
+                        ),
+                      ),
 
-                      const SizedBox(height: 22),
-
-                      // 8. ACADEMIC PERFORMANCE TREND & INSIGHT CARD
-                      _buildAcademicPerformanceTrendSection(context, isDesktop),
-
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
 
                       // 8. CAMPUS RECENT PHOTO GALLERY
                       const RecentPhotosSection(),
@@ -673,98 +684,26 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
                     Text(
                       'Parent of ',
                       style: GoogleFonts.manrope(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF64748B),
                       ),
                     ),
                     Text(
-                      _selectedWard.name,
+                      _selectedWard.regNo.isNotEmpty ? _selectedWard.regNo : _selectedWard.name,
                       style: GoogleFonts.manrope(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 2),
-                    const Icon(Icons.keyboard_arrow_down_rounded, size: 15, color: AppColors.primary),
+                    const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.primary),
                   ],
                 ),
               ),
             ],
           ),
-        ),
-
-        // Right Action Button: Notification Bell with Live Badge
-        Consumer(
-          builder: (context, ref, _) {
-            final unreadCount = ref.watch(notificationProvider).unreadCount;
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => showNotificationSheet(context),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDBEAFE)),
-                  ),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Image.asset(
-                        'assets/bell_ring_2.png',
-                        width: 22,
-                        height: 22,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Image.asset(
-                          'assets/bell-ring-2.png',
-                          width: 22,
-                          height: 22,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.notifications_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      if (unreadCount > 0)
-                        Positioned(
-                          top: -5,
-                          right: -5,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 1.2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.4),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              unreadCount > 99 ? '99+' : '$unreadCount',
-                              style: GoogleFonts.manrope(
-                                color: Colors.white,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
         ),
       ],
     );
@@ -1058,198 +997,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 3. STUDENT IDENTITY PROFILE CARD (DYNAMIC PER ACTIVE WARD)
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildStudentIdentityCard(BuildContext context) {
-    final rawDept = _selectedWard.department;
-    final deptName = (rawDept.contains('Artificial') || rawDept.contains('AI') || rawDept.contains('Data Science'))
-        ? 'AI & Data Science'
-        : (rawDept.contains('Computer')
-            ? 'Computer Science'
-            : (rawDept.contains('Electronics')
-                ? 'Electronics & Comm.'
-                : (rawDept.contains('Mechanical')
-                    ? 'Mechanical Engg'
-                    : (rawDept.contains('Civil') ? 'Civil Engg' : rawDept))));
 
-    final deptIcon = (rawDept.contains('Artificial') || rawDept.contains('AI') || rawDept.contains('Data'))
-        ? Icons.memory_rounded
-        : (rawDept.contains('Computer')
-            ? Icons.computer_rounded
-            : Icons.school_rounded);
-
-    return InkWell(
-      onTap: () => _showStudentSelectorSheet(context),
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Student Photo Avatar with Active Green Dot
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-                  ),
-                  child: ClipOval(
-                    child: _buildWardPhotoAvatar(_selectedWard.photoUrl, _selectedWard.avatarInitials, size: 58),
-                  ),
-                ),
-                Positioned(
-                  bottom: 2,
-                  right: 2,
-                  child: Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 14),
-
-            // Name, Active Tag, RegNo, and Department Chip (Year & Section removed)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _selectedWard.name,
-                          style: GoogleFonts.manrope(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0F172A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'Active',
-                          style: GoogleFonts.manrope(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF15803D),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Reg No: ${_selectedWard.regNo}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _buildSmallTag(
-                    deptIcon,
-                    deptName,
-                    const Color(0xFFEFF6FF),
-                    const Color(0xFF2563EB),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // College / Institution Branding (Dynamic per Admin Configuration)
-            Consumer(
-              builder: (context, ref, _) {
-                final collegeName = ref.watch(collegeNameProvider);
-                return ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 108),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Icon(Icons.account_balance_rounded, color: Color(0xFF4F46E5), size: 24),
-                      const SizedBox(height: 3),
-                      Text(
-                        collegeName,
-                        style: GoogleFonts.manrope(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1E293B),
-                          height: 1.15,
-                        ),
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallTag(IconData icon, String text, Color bgColor, Color textColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: textColor),
-          const SizedBox(width: 3.5),
-          Flexible(
-            child: Text(
-              text,
-              style: GoogleFonts.manrope(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildWardPhotoAvatar(String? photoUrl, String initials, {double size = 48, bool isSelected = false}) {
     final cleanUrl = photoUrl?.trim() ?? '';
@@ -1291,203 +1039,198 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       backgroundColor: Colors.white,
       builder: (ctx) => SafeArea(
         top: false,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Select Active Student Ward',
-                style: GoogleFonts.manrope(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Switch profile view to monitor another student ward',
-                style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
-              ..._wards.map((ward) {
-                final isSelected = ward.id == _selectedWard.id;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF0F6FF) : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
-                      width: isSelected ? 1.8 : 1.0,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFF2563EB).withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () async {
-                      HapticFeedback.lightImpact();
-                      final nav = Navigator.of(ctx);
-                      final messenger = ScaffoldMessenger.of(context);
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Select Active Student Ward',
+                  style: GoogleFonts.manrope(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Switch profile view to monitor another student ward',
+                  style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _wards.map((ward) {
+                        final isSelected = ward.id == _selectedWard.id;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFF0F6FF) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                              width: isSelected ? 1.8 : 1.0,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.02),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () async {
+                              HapticFeedback.lightImpact();
+                              final nav = Navigator.of(ctx);
 
-                      setState(() => _selectedWard = ward);
-                      ref.read(activeParentWardProvider.notifier).state = ward;
-                      widget.onWardChanged?.call(ward);
+                              setState(() => _selectedWard = ward);
+                              ref.read(activeParentWardProvider.notifier).state = ward;
+                              widget.onWardChanged?.call(ward);
 
-                      final currentUser = ref.read(authServiceProvider).currentUser;
-                      final userKey = currentUser?.uid ?? currentUser?.email ?? '';
-                      if (userKey.isNotEmpty) {
-                        await ref.read(parentServiceProvider).saveActiveWardPreference(
-                          parentUidOrEmail: userKey,
-                          wardRegNo: ward.regNo,
+                              final currentUser = ref.read(authServiceProvider).currentUser;
+                              final userKey = currentUser?.uid ?? currentUser?.email ?? '';
+                              if (userKey.isNotEmpty) {
+                                await ref.read(parentServiceProvider).saveActiveWardPreference(
+                                  parentUidOrEmail: userKey,
+                                  wardRegNo: ward.regNo,
+                                );
+                              }
+
+                              if (!mounted) return;
+                              nav.pop();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: ClipOval(
+                                      child: _buildWardPhotoAvatar(
+                                        ward.photoUrl,
+                                        ward.avatarInitials,
+                                        size: 48,
+                                        isSelected: isSelected,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          ward.name,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          [
+                                            ward.regNo,
+                                            if (ward.department != '-' && ward.department.isNotEmpty) ward.department,
+                                            if (ward.currentSemester != '-' && ward.currentSemester.isNotEmpty) ward.currentSemester,
+                                            if (ward.currentYear != '-' && ward.currentYear.isNotEmpty) ward.currentYear,
+                                          ].join(' • '),
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      width: 26,
+                                      height: 26,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF2563EB),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         );
-                      }
-
-                      if (!mounted) return;
-                      nav.pop();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Active profile switched to ${ward.name}',
-                                style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: const Color(0xFF1E293B),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: ClipOval(
-                              child: _buildWardPhotoAvatar(
-                                ward.photoUrl,
-                                ward.avatarInitials,
-                                size: 48,
-                                isSelected: isSelected,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  ward.name,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  [
-                                    ward.regNo,
-                                    if (ward.department != '-' && ward.department.isNotEmpty) ward.department,
-                                    if (ward.currentSemester != '-' && ward.currentSemester.isNotEmpty) ward.currentSemester,
-                                    if (ward.currentYear != '-' && ward.currentYear.isNotEmpty) ward.currentYear,
-                                  ].join(' • '),
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF64748B),
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isSelected) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 26,
-                              height: 26,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF2563EB),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                      }).toList(),
                     ),
                   ),
-                );
-              }),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _showAddStudentWardDialog(context);
-                },
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18, color: Color(0xFF2563EB)),
-                label: Text(
-                  '+ Link Another Student Ward (Sibling)',
-                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
                 ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 46),
-                  side: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _showAddStudentWardDialog(context);
+                  },
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18, color: Color(0xFF2563EB)),
+                  label: Text(
+                    '+ Link Another Student Ward (Sibling)',
+                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 46),
+                    side: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1790,530 +1533,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> with Single
       },
     );
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 6B. RECENT UPDATES CARD (LIVE STREAMED NOTIFICATIONS)
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildRecentUpdatesCard(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) {
-        final notificationsState = ref.watch(notificationProvider);
-        final liveItems = notificationsState.items.take(4).toList();
-
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Recent Updates',
-                        style: GoogleFonts.manrope(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                      if (notificationsState.unreadCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${notificationsState.unreadCount} NEW',
-                            style: GoogleFonts.manrope(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  InkWell(
-                    onTap: () => showNotificationSheet(context),
-                    child: Text(
-                      'View All',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              if (liveItems.isNotEmpty)
-                ...liveItems.map((item) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildRecentUpdateRow(
-                      icon: item.icon,
-                      iconBg: item.iconBgColor,
-                      iconColor: item.iconColor,
-                      title: item.title,
-                      time: item.timeAgo,
-                      isUnread: item.isUnread,
-                      onTap: () => showNotificationSheet(context),
-                    ),
-                  );
-                })
-              else ...[
-                _buildRecentUpdateRow(
-                  icon: Icons.campaign_rounded,
-                  iconBg: const Color(0xFFFFF7ED),
-                  iconColor: const Color(0xFFEA580C),
-                  title: 'Internal marks published',
-                  time: 'Today, 10:30 AM',
-                  onTap: () => widget.onNavigateToTab?.call(2),
-                ),
-                const SizedBox(height: 12),
-                _buildRecentUpdateRow(
-                  icon: Icons.calendar_month_rounded,
-                  iconBg: const Color(0xFFF3E8FF),
-                  iconColor: const Color(0xFF7C3AED),
-                  title: 'Exam timetable updated',
-                  time: 'Yesterday, 04:15 PM',
-                  onTap: () => widget.onNavigateToTab?.call(5),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRecentUpdateRow({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String time,
-    required VoidCallback onTap,
-    bool isUnread = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: GoogleFonts.manrope(
-                          fontSize: 13,
-                          fontWeight: isUnread ? FontWeight.w900 : FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (isUnread) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 7. ACADEMIC PERFORMANCE TREND & INSIGHT CARD
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildAcademicPerformanceTrendSection(BuildContext context, bool isDesktop) {
-    final chartWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Academic Performance Trend',
-              style: GoogleFonts.manrope(
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedTrendMode,
-                  isDense: true,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
-                  items: const [
-                    DropdownMenuItem(value: 'CGPA', child: Text('CGPA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold))),
-                    DropdownMenuItem(value: 'SGPA', child: Text('SGPA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold))),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedTrendMode = val);
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Custom Smooth Bezier Trend Chart
-        SizedBox(
-          height: 160,
-          width: double.infinity,
-          child: CustomPaint(
-            painter: _AcademicTrendChartPainter(
-              values: _selectedTrendMode == 'CGPA'
-                  ? const [7.80, 8.12, 8.45, 8.72]
-                  : const [8.20, 8.50, 8.60, 8.90],
-              labels: const ['Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'],
-              lineColor: const Color(0xFF6366F1),
-              fillGradientStart: const Color(0xFF6366F1).withValues(alpha: 0.28),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final insightCard = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFBFBFE),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEDE9FE)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED), size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'Performance Insight',
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF7C3AED),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Alex\'s academic performance is consistently improving.',
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF475569),
-            ),
-          ),
-          const SizedBox(height: 4),
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Great job! Keep it up! ',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF6D28D9),
-                  ),
-                ),
-                const TextSpan(text: '💪', style: TextStyle(fontSize: 12)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          InkWell(
-            onTap: () => widget.onNavigateToTab?.call(2),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3E8FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFDDD6FE)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View Details',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF7C3AED),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF7C3AED)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: isDesktop
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(flex: 6, child: chartWidget),
-                const SizedBox(width: 20),
-                Expanded(flex: 4, child: insightCard),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                chartWidget,
-                const SizedBox(height: 16),
-                insightCard,
-              ],
-            ),
-    );
-  }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// CUSTOM PAINTER: SMOOTH BEZIER ACADEMIC TREND LINE CHART
-// ───────────────────────────────────────────────────────────────────────────
-class _AcademicTrendChartPainter extends CustomPainter {
-  final List<double> values;
-  final List<String> labels;
-  final Color lineColor;
-  final Color fillGradientStart;
 
-  _AcademicTrendChartPainter({
-    required this.values,
-    required this.labels,
-    required this.lineColor,
-    required this.fillGradientStart,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-
-    const double paddingLeft = 32.0;
-    const double paddingRight = 32.0;
-    const double paddingTop = 28.0;
-    const double paddingBottom = 26.0;
-
-    final double chartWidth = size.width - paddingLeft - paddingRight;
-    final double chartHeight = size.height - paddingTop - paddingBottom;
-
-    final double minVal = values.reduce(math.min) - 0.5;
-    final double maxVal = values.reduce(math.max) + 0.5;
-    final double range = (maxVal - minVal) <= 0 ? 1.0 : (maxVal - minVal);
-
-    // Compute coordinate points
-    final List<Offset> points = [];
-    for (int i = 0; i < values.length; i++) {
-      final double x = paddingLeft + (i * chartWidth / (values.length - 1));
-      final double normalizedY = (values[i] - minVal) / range;
-      final double y = paddingTop + chartHeight - (normalizedY * chartHeight);
-      points.add(Offset(x, y));
-    }
-
-    // Build smooth cubic Bezier path
-    final Path path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
-
-    for (int i = 0; i < points.length - 1; i++) {
-      final Offset p0 = i > 0 ? points[i - 1] : points[i];
-      final Offset p1 = points[i];
-      final Offset p2 = points[i + 1];
-      final Offset p3 = i < points.length - 2 ? points[i + 2] : p2;
-
-      final double cp1x = p1.dx + (p2.dx - p0.dx) / 6;
-      final double cp1y = p1.dy + (p2.dy - p0.dy) / 6;
-
-      final double cp2x = p2.dx - (p3.dx - p1.dx) / 6;
-      final double cp2y = p2.dy - (p3.dy - p1.dy) / 6;
-
-      path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
-    }
-
-    // Paint Area Gradient Fill underneath
-    final Path fillPath = Path.from(path);
-    fillPath.lineTo(points.last.dx, paddingTop + chartHeight);
-    fillPath.lineTo(points.first.dx, paddingTop + chartHeight);
-    fillPath.close();
-
-    final Paint fillPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [fillGradientStart, fillGradientStart.withValues(alpha: 0.0)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(0, paddingTop, size.width, chartHeight))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(fillPath, fillPaint);
-
-    // Paint Smooth Line Stroke
-    final Paint linePaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFF818CF8)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..strokeWidth = 3.2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas.drawPath(path, linePaint);
-
-    // Draw Data Point Nodes & Value Callouts
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
-
-      // Outer glow circle
-      canvas.drawCircle(
-        p,
-        6.5,
-        Paint()..color = const Color(0xFF6366F1).withValues(alpha: 0.25),
-      );
-
-      // Node ring
-      canvas.drawCircle(
-        p,
-        4.5,
-        Paint()
-          ..color = const Color(0xFF4F46E5)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5,
-      );
-
-      // White inner dot
-      canvas.drawCircle(
-        p,
-        3.0,
-        Paint()..color = Colors.white,
-      );
-
-      // Value label text above node
-      final textSpan = TextSpan(
-        text: values[i].toStringAsFixed(2),
-        style: GoogleFonts.manrope(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: const Color(0xFF0F172A),
-        ),
-      );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(p.dx - (textPainter.width / 2), p.dy - 20));
-
-      // X-Axis Semester Label below
-      final labelSpan = TextSpan(
-        text: labels[i],
-        style: GoogleFonts.manrope(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-        ),
-      );
-      final labelPainter = TextPainter(
-        text: labelSpan,
-        textDirection: TextDirection.ltr,
-      );
-      labelPainter.layout();
-      labelPainter.paint(canvas, Offset(p.dx - (labelPainter.width / 2), paddingTop + chartHeight + 8));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _AcademicTrendChartPainter oldDelegate) {
-    return oldDelegate.values != values || oldDelegate.lineColor != lineColor;
-  }
-}
 
 // FULL TAB VIEW FOR ATTENDANCE HISTORY (TAB 1)
 class ParentAttendanceDetailTab extends StatelessWidget {
@@ -2563,7 +1785,8 @@ class ParentAttendanceDetailTab extends StatelessWidget {
 }
 
 // FULL TAB VIEW FOR PERFORMANCE MARKS & CGPA (TAB 2)
-class ParentAcademicPerformanceTab extends StatelessWidget {
+// FULL INTERACTIVE TAB VIEW FOR PARENT ACADEMIC PERFORMANCE & INTERNAL MARKS (TAB 2)
+class ParentAcademicPerformanceTab extends ConsumerStatefulWidget {
   final Function(int index)? onNavigateToTab;
   final ParentStudentWard? selectedWard;
 
@@ -2574,113 +1797,585 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final ward = selectedWard;
-    final String cgpa = ward?.cgpa ?? '8.8';
-    final String wardName = ward?.name ?? 'Student';
-    final String wardDept = ward?.department ?? 'Department of Engineering';
-    final String currentSem = ward?.currentSemester ?? 'VI Semester';
+  ConsumerState<ParentAcademicPerformanceTab> createState() => _ParentAcademicPerformanceTabState();
+}
 
-    final List<Map<String, String>> currentSemSubjects = (ward != null && ward.subjectGrades.isNotEmpty)
-        ? ward.subjectGrades.map((sg) {
-            return {
-              'subject': '${sg.subjectName} (${sg.subjectCode})',
-              'marks': '${sg.grade.contains('O') ? '92' : (sg.grade.contains('A+') ? '86' : '82')}/100',
-              'grade': '${sg.grade} (${sg.grade.contains('O') ? 'Outstanding' : (sg.grade.contains('A+') ? 'Excellent' : 'Very Good')})',
-              'progress': sg.grade.contains('O') ? '0.92' : (sg.grade.contains('A+') ? '0.86' : '0.82'),
-            };
-          }).toList()
-        : [
-            {'subject': 'Core Algorithms & Data Structures (CS601)', 'marks': '94/100', 'grade': 'O (Outstanding)', 'progress': '0.94'},
-            {'subject': 'Database Management Systems (CS602)', 'marks': '88/100', 'grade': 'A+ (Excellent)', 'progress': '0.88'},
-            {'subject': 'Operating Systems & Architecture (CS603)', 'marks': '85/100', 'grade': 'A (Very Good)', 'progress': '0.85'},
-            {'subject': 'Computer Networks & Security (CS604)', 'marks': '90/100', 'grade': 'O (Outstanding)', 'progress': '0.90'},
-          ];
+class _ParentAcademicPerformanceTabState extends ConsumerState<ParentAcademicPerformanceTab> {
+  int _selectedSemIndex = 3; // Default to Semester 4 / current term
+  String _selectedInternalFilter = 'All'; // 'All', 'IA-1', 'IA-2', 'Model', 'Final'
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+  final List<String> _semesters = [
+    'Semester 1',
+    'Semester 2',
+    'Semester 3',
+    'Semester 4 (Current Term)',
+    'Semester 5',
+    'Semester 6',
+  ];
+
+  final List<Map<String, String>> _filterOptions = [
+    {'id': 'All', 'label': 'All Assessments', 'icon': 'dashboard'},
+    {'id': 'IA-1', 'label': 'IA-1 (50 Marks)', 'icon': 'quiz'},
+    {'id': 'IA-2', 'label': 'IA-2 (50 Marks)', 'icon': 'assignment'},
+    {'id': 'Model', 'label': 'Model Exam (100M)', 'icon': 'school'},
+    {'id': 'Final', 'label': 'Total Internal (60M)', 'icon': 'verified'},
+  ];
+
+  List<Map<String, dynamic>> _getInternalSubjectData(int semIdx, ParentStudentWard? ward) {
+    // Return detailed internal assessment data with staff evaluation & conversions
+    switch (semIdx) {
+      case 0: // Semester 1
+        return [
+          {
+            'code': 'MA3151',
+            'name': 'Matrices and Calculus',
+            'faculty': 'Dr. K. Srinivasan (Maths)',
+            'ia1': '46 / 50',
+            'ia1Conv': '13.8 / 15',
+            'ia1Initial': '46 / 50',
+            'hasIa1Retest': false,
+            'ia2': '44 / 50',
+            'ia2Conv': '13.2 / 15',
+            'ia2Initial': '44 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '90 / 100',
+            'modelConv': '18.0 / 20',
+            'modelInitial': '90 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.5 / 10',
+            'totalInternal': '54.5 / 60',
+            'percent': 0.91,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Excellent command over linear algebra and calculus applications.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'PH3151',
+            'name': 'Engineering Physics',
+            'faculty': 'Dr. M. Lakshmi (Physics)',
+            'ia1': '42 / 50',
+            'ia1Conv': '12.6 / 15',
+            'ia1Initial': '42 / 50',
+            'hasIa1Retest': false,
+            'ia2': '43 / 50',
+            'ia2Conv': '12.9 / 15',
+            'ia2Initial': '43 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '84 / 100',
+            'modelConv': '16.8 / 20',
+            'modelInitial': '84 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.0 / 10',
+            'totalInternal': '51.3 / 60',
+            'percent': 0.855,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Good experimental skills and theory comprehension.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CY3151',
+            'name': 'Engineering Chemistry',
+            'faculty': 'Dr. P. Rajeshwari (Chemistry)',
+            'ia1': '45 / 50',
+            'ia1Conv': '13.5 / 15',
+            'ia1Initial': '45 / 50',
+            'hasIa1Retest': false,
+            'ia2': '46 / 50',
+            'ia2Conv': '13.8 / 15',
+            'ia2Initial': '46 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '88 / 100',
+            'modelConv': '17.6 / 20',
+            'modelInitial': '88 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.5 / 10',
+            'totalInternal': '54.4 / 60',
+            'percent': 0.906,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Active participant in lab experiments and quizzes.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'GE3151',
+            'name': 'Problem Solving and Python Programming',
+            'faculty': 'Prof. Anitha Subramanian (CSE)',
+            'ia1': '48 / 50',
+            'ia1Conv': '14.4 / 15',
+            'ia1Initial': '48 / 50',
+            'hasIa1Retest': false,
+            'ia2': '49 / 50',
+            'ia2Conv': '14.7 / 15',
+            'ia2Initial': '49 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '96 / 100',
+            'modelConv': '19.2 / 20',
+            'modelInitial': '96 / 100',
+            'hasModelRetest': false,
+            'attAssign': '10.0 / 10',
+            'totalInternal': '58.3 / 60',
+            'percent': 0.972,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Top performer in algorithm logic and clean Python coding.',
+            'status': 'Finalized by Faculty',
+          },
+        ];
+      case 1: // Semester 2
+        return [
+          {
+            'code': 'MA3251',
+            'name': 'Statistics and Numerical Methods',
+            'faculty': 'Dr. K. Srinivasan (Maths)',
+            'ia1': '42 / 50',
+            'ia1Conv': '12.6 / 15',
+            'ia1Initial': '42 / 50',
+            'hasIa1Retest': false,
+            'ia2': '43 / 50',
+            'ia2Conv': '12.9 / 15',
+            'ia2Initial': '43 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '82 / 100',
+            'modelConv': '16.4 / 20',
+            'modelInitial': '82 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.0 / 10',
+            'totalInternal': '50.9 / 60',
+            'percent': 0.848,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Good understanding of probability distributions.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3251',
+            'name': 'Programming in C',
+            'faculty': 'Prof. V. Rajesh (CSE)',
+            'ia1': '48 / 50',
+            'ia1Conv': '14.4 / 15',
+            'ia1Initial': '48 / 50',
+            'hasIa1Retest': false,
+            'ia2': '47 / 50',
+            'ia2Conv': '14.1 / 15',
+            'ia2Initial': '47 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '94 / 100',
+            'modelConv': '18.8 / 20',
+            'modelInitial': '94 / 100',
+            'hasModelRetest': false,
+            'attAssign': '10.0 / 10',
+            'totalInternal': '57.3 / 60',
+            'percent': 0.955,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Mastered pointer operations and memory structures in C.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'GE3251',
+            'name': 'Engineering Graphics',
+            'faculty': 'Prof. M. Selvam (Mech)',
+            'ia1': '38 / 50',
+            'ia1Conv': '11.4 / 15',
+            'ia1Initial': '20 / 50',
+            'ia1Retest': '38 / 50',
+            'ia1RetestStatus': 'Retest Cleared (+18 Marks)',
+            'hasIa1Retest': true,
+            'ia2': '40 / 50',
+            'ia2Conv': '12.0 / 15',
+            'ia2Initial': '40 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '78 / 100',
+            'modelConv': '15.6 / 20',
+            'modelInitial': '78 / 100',
+            'hasModelRetest': false,
+            'attAssign': '8.5 / 10',
+            'totalInternal': '47.5 / 60',
+            'percent': 0.792,
+            'grade': 'A (Very Good)',
+            'remarks': 'Significant improvement after drafting re-test.',
+            'status': 'Finalized by Faculty',
+          },
+        ];
+      case 2: // Semester 3
+        return [
+          {
+            'code': 'MA3354',
+            'name': 'Discrete Mathematics',
+            'faculty': 'Dr. G. Balachandran (Maths)',
+            'ia1': '45 / 50',
+            'ia1Conv': '13.5 / 15',
+            'ia1Initial': '45 / 50',
+            'hasIa1Retest': false,
+            'ia2': '46 / 50',
+            'ia2Conv': '13.8 / 15',
+            'ia2Initial': '46 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '88 / 100',
+            'modelConv': '17.6 / 20',
+            'modelInitial': '88 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.5 / 10',
+            'totalInternal': '54.4 / 60',
+            'percent': 0.906,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Strong logical reasoning in graph theory and combinatorics.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3301',
+            'name': 'Data Structures',
+            'faculty': 'Dr. S. Ramanathan (CSE)',
+            'ia1': '48 / 50',
+            'ia1Conv': '14.4 / 15',
+            'ia1Initial': '48 / 50',
+            'hasIa1Retest': false,
+            'ia2': '49 / 50',
+            'ia2Conv': '14.7 / 15',
+            'ia2Initial': '49 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '95 / 100',
+            'modelConv': '19.0 / 20',
+            'modelInitial': '95 / 100',
+            'hasModelRetest': false,
+            'attAssign': '10.0 / 10',
+            'totalInternal': '58.1 / 60',
+            'percent': 0.968,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Exceptional in tree balancing and dynamic programming.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3391',
+            'name': 'Object Oriented Programming',
+            'faculty': 'Dr. V. Rajesh (CSE)',
+            'ia1': '44 / 50',
+            'ia1Conv': '13.2 / 15',
+            'ia1Initial': '44 / 50',
+            'hasIa1Retest': false,
+            'ia2': '46 / 50',
+            'ia2Conv': '13.8 / 15',
+            'ia2Initial': '46 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '86 / 100',
+            'modelConv': '17.2 / 20',
+            'modelInitial': '86 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.5 / 10',
+            'totalInternal': '53.7 / 60',
+            'percent': 0.895,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Clean Java architecture and polymorphism implementation.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3351',
+            'name': 'Digital Principles & Comp Org',
+            'faculty': 'Prof. Anitha Subramanian (ECE)',
+            'ia1': '42 / 50',
+            'ia1Conv': '12.6 / 15',
+            'ia1Initial': '15 / 50',
+            'ia1Retest': '42 / 50',
+            'ia1RetestStatus': 'Retest Cleared (+27 Marks)',
+            'hasIa1Retest': true,
+            'ia2': '44 / 50',
+            'ia2Conv': '13.2 / 15',
+            'ia2Initial': '44 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '80 / 100',
+            'modelConv': '16.0 / 20',
+            'modelInitial': '80 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.0 / 10',
+            'totalInternal': '50.8 / 60',
+            'percent': 0.846,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Substantial improvement after clearing the flip-flop retest.',
+            'status': 'Finalized by Faculty',
+          },
+        ];
+      case 3: // Semester 4 (Active Current Term)
+      default:
+        return [
+          {
+            'code': 'CS3401',
+            'name': 'Design & Analysis of Algorithms',
+            'faculty': 'Dr. S. Ramanathan (CSE)',
+            'ia1': '44 / 50',
+            'ia1Conv': '13.2 / 15',
+            'ia1Initial': '20 / 50',
+            'ia1Retest': '44 / 50',
+            'ia1RetestStatus': 'Retest Cleared (+24 Marks Improved)',
+            'hasIa1Retest': true,
+            'ia2': '46 / 50',
+            'ia2Conv': '13.8 / 15',
+            'ia2Initial': '46 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '92 / 100',
+            'modelConv': '18.4 / 20',
+            'modelInitial': '92 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.8 / 10',
+            'totalInternal': '55.2 / 60',
+            'percent': 0.92,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Demonstrated remarkable comeback in graph algorithms after initial test.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3492',
+            'name': 'Database Management Systems',
+            'faculty': 'Prof. K. Sundaram (CSE)',
+            'ia1': '42 / 50',
+            'ia1Conv': '12.6 / 15',
+            'ia1Initial': '42 / 50',
+            'hasIa1Retest': false,
+            'ia2': '45 / 50',
+            'ia2Conv': '13.5 / 15',
+            'ia2Initial': '45 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '88 / 100',
+            'modelConv': '17.6 / 20',
+            'modelInitial': '88 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.2 / 10',
+            'totalInternal': '52.9 / 60',
+            'percent': 0.881,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Strong SQL query optimization skills and normal forms mastery.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3451',
+            'name': 'Operating Systems',
+            'faculty': 'Dr. V. Rajesh (CSE)',
+            'ia1': '41 / 50',
+            'ia1Conv': '12.3 / 15',
+            'ia1Initial': '41 / 50',
+            'hasIa1Retest': false,
+            'ia2': '43 / 50',
+            'ia2Conv': '12.9 / 15',
+            'ia2Initial': '43 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '85 / 100',
+            'modelConv': '17.0 / 20',
+            'modelInitial': '85 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.0 / 10',
+            'totalInternal': '51.2 / 60',
+            'percent': 0.853,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Proficient with Linux thread synchronization and semaphore logic.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'CS3491',
+            'name': 'Computer Networks',
+            'faculty': 'Dr. Anitha Subramanian (CSE)',
+            'ia1': '45 / 50',
+            'ia1Conv': '13.5 / 15',
+            'ia1Initial': '45 / 50',
+            'hasIa1Retest': false,
+            'ia2': '47 / 50',
+            'ia2Conv': '14.1 / 15',
+            'ia2Initial': '47 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '90 / 100',
+            'modelConv': '18.0 / 20',
+            'modelInitial': '90 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.6 / 10',
+            'totalInternal': '55.2 / 60',
+            'percent': 0.92,
+            'grade': 'O (Outstanding)',
+            'remarks': 'Excellent packet capture analysis in Wireshark and socket programming.',
+            'status': 'Finalized by Faculty',
+          },
+          {
+            'code': 'GE3451',
+            'name': 'Environmental Sciences & Sustainability',
+            'faculty': 'Dr. P. Rajeshwari (Science)',
+            'ia1': '43 / 50',
+            'ia1Conv': '12.9 / 15',
+            'ia1Initial': '43 / 50',
+            'hasIa1Retest': false,
+            'ia2': '44 / 50',
+            'ia2Conv': '13.2 / 15',
+            'ia2Initial': '44 / 50',
+            'hasIa2Retest': false,
+            'modelExam': '86 / 100',
+            'modelConv': '17.2 / 20',
+            'modelInitial': '86 / 100',
+            'hasModelRetest': false,
+            'attAssign': '9.0 / 10',
+            'totalInternal': '52.3 / 60',
+            'percent': 0.871,
+            'grade': 'A+ (Excellent)',
+            'remarks': 'Punctual with sustainability case study submissions.',
+            'status': 'Finalized by Faculty',
+          },
+        ];
+    }
+  }
+
+  void _showSubjectDetailModal(BuildContext context, Map<String, dynamic> subject) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildSubjectDetailSheet(ctx, subject),
+    );
+  }
+
+  Widget _buildSubjectDetailSheet(BuildContext context, Map<String, dynamic> sub) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () {
-                  if (onNavigateToTab != null) onNavigateToTab!(0);
-                },
+          // Drag handle
+          Center(
+            child: Container(
+              width: 44,
+              height: 4.5,
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(3),
               ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.menu_book_rounded, color: Color(0xFF2563EB), size: 26),
+              ),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  'Academic Performance & Progress',
-                  style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${sub['code']} - ${sub['name']}',
+                      style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Faculty: ${sub['faculty']}',
+                      style: GoogleFonts.manrope(fontSize: 12.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Header Card
+          // Total Score Banner
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)]),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              gradient: const LinearGradient(colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)]),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('CUMULATIVE GRADE POINT AVERAGE', style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-                      Text(cgpa, style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
-                      Text('$wardName • $wardDept', style: GoogleFonts.manrope(fontSize: 12, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(14)),
-                      child: Text(ward?.academicStatus ?? 'Good Standing', style: GoogleFonts.manrope(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('${ward?.currentYear ?? 'III Year'} • $currentSem', style: GoogleFonts.manrope(color: Colors.white70, fontSize: 11)),
+                    Text('TOTAL INTERNAL SCORE', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70)),
+                    const SizedBox(height: 2),
+                    Text(sub['totalInternal'], style: GoogleFonts.manrope(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
                   ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    sub['grade'],
+                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 20),
 
-          const SizedBox(height: 24),
-          Text('Subject-wise Progress & Marks', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('Assessment Breakdown & Rubric', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
           const SizedBox(height: 12),
 
-          _buildSemesterCard('$currentSem (Current Semester)', cgpa, 'A+ Grade', currentSemSubjects),
-          const SizedBox(height: 90),
+          _buildRubricRow('Internal Assessment 1 (IA-1)', sub['ia1'], sub['ia1Conv'], sub['hasIa1Retest'] == true ? sub['ia1RetestStatus'] : null),
+          _buildRubricRow('Internal Assessment 2 (IA-2)', sub['ia2'], sub['ia2Conv'], sub['hasIa2Retest'] == true ? sub['ia2RetestStatus'] : null),
+          _buildRubricRow('Model Examination', sub['modelExam'], sub['modelConv'], sub['hasModelRetest'] == true ? sub['modelRetestStatus'] : null),
+          _buildRubricRow('Attendance & Assignments', sub['attAssign'], sub['attAssign'], null),
+
+          const SizedBox(height: 16),
+          // Faculty Remarks
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.format_quote_rounded, color: Color(0xFF2563EB), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Faculty Evaluation Notes:', style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF334155))),
+                      const SizedBox(height: 2),
+                      Text(sub['remarks'], style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF475569))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text('Close Assessment Breakdown', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSemesterCard(String title, String sgpa, String overall, List<Map<String, String>> subs) {
+  Widget _buildRubricRow(String title, String rawScore, String convertedScore, String? badge) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2689,47 +2384,509 @@ class ParentAcademicPerformanceTab extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(title, style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                child: Text(title, style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('SGPA: $sgpa', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(convertedScore, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB))),
+                  Text('Raw: $rawScore', style: GoogleFonts.manrope(fontSize: 10.5, color: const Color(0xFF64748B))),
+                ],
               ),
             ],
           ),
-          const Divider(height: 20),
-          ...subs.map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+          if (badge != null) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1FAE5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(badge, style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ward = widget.selectedWard;
+    final String cgpa = (ward?.cgpa != null && ward!.cgpa.isNotEmpty && ward.cgpa != '-') ? ward.cgpa : '8.78';
+    final String wardName = (ward?.name != null && ward!.name.isNotEmpty && !ward.name.startsWith('Student ')) ? ward.name : 'Arun Kumar';
+    final String wardDept = (ward?.department != null && ward!.department.isNotEmpty && ward.department != '-') ? ward.department : 'Computer Science & Engineering';
+    final String currentSem = (ward?.currentSemester != null && ward!.currentSemester.isNotEmpty && ward.currentSemester != '-') ? ward.currentSemester : 'Semester 4';
+    final String academicStanding = (ward?.academicStatus != null && ward!.academicStatus.isNotEmpty && ward.academicStatus != '-') ? ward.academicStatus : 'First Class with Distinction';
+
+    final subjects = _getInternalSubjectData(_selectedSemIndex, ward);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Navigation Header Bar
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                    onPressed: () {
+                      if (widget.onNavigateToTab != null) {
+                        widget.onNavigateToTab!(0);
+                      } else if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
+                    },
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Academic Performance & Progress',
+                          style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Internal Assessment Scores & Faculty Evaluations',
+                          style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── 1. HERO CGPA & PERFORMANCE CARD ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF3B82F6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(s['subject']!, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'CUMULATIVE GRADE POINT AVERAGE',
+                              style: GoogleFonts.manrope(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              cgpa,
+                              style: GoogleFonts.manrope(fontSize: 38, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text('${s['marks']} (${s['grade']})', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF2563EB))),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AcademicStandingDialog(
+                                studentName: wardName,
+                                registerNum: ward?.regNo ?? '23CSE1042',
+                                academicStatus: academicStanding,
+                                onNavigateToTab: widget.onNavigateToTab,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 14),
+                                const SizedBox(width: 5),
+                                Text(
+                                  academicStanding,
+                                  style: GoogleFonts.manrope(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    AppLinearProgressBar(
-                      lineHeight: 6.0,
-                      percent: double.tryParse(s['progress'] ?? '0.8') ?? 0.8,
-                      backgroundColor: const Color(0xFFF1F5F9),
-                      progressColor: const Color(0xFF2563EB),
-                      borderRadius: 3.0,
+                    const SizedBox(height: 8),
+                    Text(
+                      '$wardName • ${ward?.regNo ?? '23CSE1042'}',
+                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    Text(
+                      '$wardDept • ${ward?.currentYear ?? 'III Year'} • $currentSem',
+                      style: GoogleFonts.manrope(fontSize: 11.5, color: Colors.white70),
+                    ),
+                    const Divider(color: Colors.white24, height: 24),
+
+                    // Metrics Strip
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildMetricPill('Current SGPA', '8.90', Icons.analytics_outlined),
+                        _buildMetricPill('Credits Completed', '92 / 160', Icons.stars_rounded),
+                        _buildMetricPill('Standing', 'Top 5%', Icons.trending_up_rounded),
+                      ],
                     ),
                   ],
                 ),
-              )),
+              ),
+              const SizedBox(height: 20),
+
+              // ── 2. SEMESTER SELECTOR PILLS ──
+              Text('Academic Semesters', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_semesters.length, (idx) {
+                    final isSelected = _selectedSemIndex == idx;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedSemIndex = idx;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Text(
+                          _semesters[idx],
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? Colors.white : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── 3. ASSESSMENT FILTER TOGGLE CHIPS ──
+              Text('Assessment Component Filter', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _filterOptions.map((f) {
+                    final isSelected = _selectedInternalFilter == f['id'];
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedInternalFilter = f['id']!;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Text(
+                          f['label']!,
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? Colors.white : const Color(0xFF334155),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── 4. SUBJECT-WISE INTERNAL PERFORMANCE LIST ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Subject-wise Internal Marks', style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Text(
+                      '${subjects.length} Subjects Evaluated',
+                      style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              ...subjects.map((sub) => _buildSubjectCard(context, sub)),
+
+              const SizedBox(height: 20),
+
+              // ── 5. PERFORMANCE INSIGHTS & ACTIONS ──
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF059669), size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Text('Advisor Academic Assessment', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '• Highest score in Algorithms & Data Structures (94%) with distinction standing.\n• All Internal Assessments (IA-1, IA-2, and Model) are completely cleared with zero active backlogs.\n• Eligible for Autonomous End-Semester COE University Examination.',
+                      style: GoogleFonts.manrope(fontSize: 12, height: 1.5, color: const Color(0xFF475569)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 90),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricPill(String title, String val, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: Colors.white70),
+            const SizedBox(width: 4),
+            Text(title, style: GoogleFonts.manrope(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(val, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+      ],
+    );
+  }
+
+  Widget _buildSubjectCard(BuildContext context, Map<String, dynamic> sub) {
+    String displayMark = sub['totalInternal'];
+    String subLabel = 'Total Internal (/60)';
+
+    if (_selectedInternalFilter == 'IA-1') {
+      displayMark = '${sub['ia1']} (Conv: ${sub['ia1Conv']})';
+      subLabel = 'IA-1 Score';
+    } else if (_selectedInternalFilter == 'IA-2') {
+      displayMark = '${sub['ia2']} (Conv: ${sub['ia2Conv']})';
+      subLabel = 'IA-2 Score';
+    } else if (_selectedInternalFilter == 'Model') {
+      displayMark = '${sub['modelExam']} (Conv: ${sub['modelConv']})';
+      subLabel = 'Model Exam Score';
+    }
+
+    final double percent = (sub['percent'] as num?)?.toDouble() ?? 0.85;
+    final Color progressColor = percent >= 0.9
+        ? const Color(0xFF10B981)
+        : (percent >= 0.75 ? const Color(0xFF2563EB) : const Color(0xFFF59E0B));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showSubjectDetailModal(context, sub),
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${sub['code']} - ${sub['name']}',
+                            style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Faculty: ${sub['faculty']}',
+                            style: GoogleFonts.manrope(fontSize: 11.5, color: const Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          displayMark,
+                          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: progressColor),
+                        ),
+                        Text(
+                          subLabel,
+                          style: GoogleFonts.manrope(fontSize: 10, color: const Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Linear Progress Bar
+                AppLinearProgressBar(
+                  lineHeight: 6.5,
+                  percent: percent.clamp(0.0, 1.0),
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  progressColor: progressColor,
+                  borderRadius: 3.5,
+                ),
+                const SizedBox(height: 10),
+
+                // Breakdown Chips Strip
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildMiniChip('IA-1: ${sub['ia1Conv']}', sub['hasIa1Retest'] == true),
+                    _buildMiniChip('IA-2: ${sub['ia2Conv']}', sub['hasIa2Retest'] == true),
+                    _buildMiniChip('Model: ${sub['modelConv']}', sub['hasModelRetest'] == true),
+                    _buildMiniChip('Att: ${sub['attAssign']}', false),
+                  ],
+                ),
+
+                if (sub['hasIa1Retest'] == true || sub['hasIa2Retest'] == true || sub['hasModelRetest'] == true) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFA7F3D0), width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          sub['ia1RetestStatus'] ?? sub['ia2RetestStatus'] ?? sub['modelRetestStatus'] ?? 'Retest Cleared',
+                          style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniChip(String label, bool isRetest) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isRetest ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isRetest ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.manrope(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: isRetest ? const Color(0xFF059669) : const Color(0xFF475569),
+        ),
       ),
     );
   }

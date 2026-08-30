@@ -9,6 +9,7 @@ class ParentStudentWard {
   final String yearSection;
   final String currentYear;
   final String currentSemester;
+  final String batch;
   final String? photoUrl;
   final String? fatherPhotoUrl;
   final String? motherPhotoUrl;
@@ -39,6 +40,7 @@ class ParentStudentWard {
     required this.yearSection,
     required this.currentYear,
     required this.currentSemester,
+    this.batch = '2023 - 2027',
     this.photoUrl,
     this.fatherPhotoUrl,
     this.motherPhotoUrl,
@@ -70,6 +72,7 @@ class ParentStudentWard {
     String? yearSection,
     String? currentYear,
     String? currentSemester,
+    String? batch,
     String? photoUrl,
     String? fatherPhotoUrl,
     String? motherPhotoUrl,
@@ -100,6 +103,7 @@ class ParentStudentWard {
       yearSection: yearSection ?? this.yearSection,
       currentYear: currentYear ?? this.currentYear,
       currentSemester: currentSemester ?? this.currentSemester,
+      batch: batch ?? this.batch,
       photoUrl: photoUrl ?? this.photoUrl,
       fatherPhotoUrl: fatherPhotoUrl ?? this.fatherPhotoUrl,
       motherPhotoUrl: motherPhotoUrl ?? this.motherPhotoUrl,

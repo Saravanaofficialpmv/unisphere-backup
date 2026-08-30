@@ -304,6 +304,7 @@ class DatabaseSeeder {
         final profileDoc = {
           'studentUid': st.userId,
           'registerNumber': st.registerNumber,
+          'batch': '2023 - 2027',
           'completionStatus': 'completed',
           'completionPercentage': 100,
           'personal': {
@@ -311,6 +312,7 @@ class DatabaseSeeder {
             'registerNumber': st.registerNumber,
             'department': st.departmentName,
             'collegeEmail': 'saravanapmvofficial@gmail.com',
+            'batch': '2023 - 2027',
             'gender': 'Male',
             'bloodGroup': 'O+',
             'dob': '15/05/2005',

@@ -39,6 +39,8 @@ import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/widgets/student/student_membership_modal.dart';
 
 import 'package:unisphere/widgets/common/recent_photos_section.dart';
+import 'package:unisphere/widgets/common/recent_updates_card.dart';
+import 'package:unisphere/widgets/common/latest_photo_gallery_card.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/cgpa_details_screen.dart';
 import 'package:unisphere/screens/features/academic_schedule_detail_screen.dart';
@@ -538,6 +540,28 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                       _buildProfileConnectionBanner(context),
                       const SizedBox(height: 16),
                       _buildQuickActions(),
+
+                      const SizedBox(height: 20),
+
+                      // Latest Department & Campus Photo Gallery (Advisor & HOD Updates - Fitted Images)
+                      LatestPhotoGalleryCard(
+                        onViewAllPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const FullPhotoGalleryScreen()),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Live Streamed Recent Updates Card (Matching New UI Theme)
+                      RecentUpdatesCard(
+                        onNavigateToTab: widget.onNavigateToTab,
+                        onViewAll: () => showNotificationSheet(
+                          context,
+                          onNavigateToTab: widget.onNavigateToTab,
+                        ),
+                      ),
 
                       const SizedBox(height: 24),
                       _buildSectionHeader(

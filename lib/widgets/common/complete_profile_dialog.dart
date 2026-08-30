@@ -34,6 +34,7 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
   late final TextEditingController _regNoController;
   late final TextEditingController _phoneController;
   late final TextEditingController _sectionController;
+  late final TextEditingController _batchController;
   late String _selectedDept;
   String _selectedSemester = 'Semester 6 (3rd Year)';
   bool _isSaving = false;
@@ -56,6 +57,7 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
     _regNoController = TextEditingController(text: meta['registerNumber'] ?? 'RA2111003010001');
     _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '+91 98765 43210');
     _sectionController = TextEditingController(text: meta['section'] ?? 'Sec A');
+    _batchController = TextEditingController(text: meta['batch'] ?? '2023 - 2027');
 
     final deptVal = meta['department']?.toString() ?? '';
     _selectedDept = AppDepartments.list.firstWhere(
@@ -72,6 +74,7 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
     _regNoController.dispose();
     _phoneController.dispose();
     _sectionController.dispose();
+    _batchController.dispose();
     super.dispose();
   }
 
@@ -86,6 +89,7 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
       updatedMeta['registerNumber'] = _regNoController.text.trim();
       updatedMeta['department'] = _selectedDept;
       updatedMeta['section'] = _sectionController.text.trim();
+      updatedMeta['batch'] = _batchController.text.trim();
       updatedMeta['semester'] = _selectedSemester;
       updatedMeta['completedAt'] = DateTime.now().toIso8601String();
 
@@ -521,6 +525,18 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Academic Batch Year (From - To) Field
+                    _buildFieldLabel('Academic Batch Year (From - To)', Icons.calendar_month_outlined),
+                    TextFormField(
+                      controller: _batchController,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                      decoration: _buildInputDecoration(
+                        hintText: 'e.g. 2023 - 2027',
+                        prefixIcon: Icons.calendar_month_outlined,
+                      ),
                     ),
                     const SizedBox(height: 16),
 

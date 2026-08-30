@@ -588,6 +588,13 @@ class FirebaseAuthService implements AuthService {
 
       if (user.role == UserRole.student && regNo != null && regNo.isNotEmpty) {
         final photo = cleanPhoto ?? '';
+        final batch = meta['batch']?.toString() ??
+            (year != null && (year.contains('2nd') || year.contains('II Year'))
+                ? '2024 - 2028'
+                : (year != null && (year.contains('4th') || year.contains('IV Year'))
+                    ? '2022 - 2026'
+                    : '2023 - 2027'));
+
         final studentDoc = {
           'userId': user.uid,
           'uid': user.uid,
@@ -604,6 +611,7 @@ class FirebaseAuthService implements AuthService {
           'currentYear': year ?? '',
           'semester': sem ?? '',
           'currentSemester': sem ?? '',
+          'batch': batch,
           'profileImageUrl': photo,
           'photoUrl': photo,
           'passportPhotoUrl': photo,
@@ -619,12 +627,14 @@ class FirebaseAuthService implements AuthService {
         final profileDoc = {
           'studentUid': user.uid,
           'registerNumber': regNo,
+          'batch': batch,
           'photoUrl': photo,
           'profileImageUrl': photo,
           'personal': {
             'fullName': user.fullName,
             'email': user.email,
             'phone': user.phone,
+            'batch': batch,
             'photoUrl': photo,
             'passportPhotoUrl': photo,
           },

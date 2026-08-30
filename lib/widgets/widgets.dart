@@ -25,6 +25,7 @@ export 'student/student_profile_completion_sheet.dart';
 export 'student/student_profile_edit_request_modal.dart';
 export 'student/student_membership_modal.dart';
 export 'student/student_full_detail_modal.dart';
+export 'student/student_reference_card.dart';
 
 // Parent Domain Widgets
 export 'parent/parent_floating_nav_bar.dart';

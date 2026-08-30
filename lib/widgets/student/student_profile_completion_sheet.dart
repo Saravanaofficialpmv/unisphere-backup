@@ -44,6 +44,8 @@ class _StudentProfileCompletionSheetState
   final _regNoController = TextEditingController();
   final _deptController = TextEditingController();
   final _emailController = TextEditingController();
+  final _batchFromYearController = TextEditingController(text: '2023');
+  final _batchToYearController = TextEditingController(text: '2027');
   String? _dob;
   String? _gender;
   String? _bloodGroup;
@@ -241,6 +243,14 @@ class _StudentProfileCompletionSheetState
     _regNoController.text = meta['registerNumber'] ?? '';
     _deptController.text = meta['department'] ?? 'Computer Science';
     _emailController.text = user.email;
+    final batchStr = meta['batch']?.toString() ?? '2023 - 2027';
+    if (batchStr.contains('-')) {
+      final parts = batchStr.split('-');
+      if (parts.length >= 2) {
+        _batchFromYearController.text = parts[0].trim();
+        _batchToYearController.text = parts[1].trim();
+      }
+    }
     _studentPhotoUrl = user.profileImageUrl ?? meta['passportPhotoUrl'] ?? meta['photoUrl'];
     final parentsMeta = meta['parents'] as Map<String, dynamic>? ?? {};
     if (parentsMeta['parentAnnualIncome'] != null || parentsMeta['annualIncome'] != null) {
@@ -251,6 +261,18 @@ class _StudentProfileCompletionSheetState
     final draft = await ref.read(firebaseFirestoreServiceProvider).getStudentProfileDraft(user.uid);
     if (draft != null && mounted) {
       setState(() {
+        if (draft['batch'] != null) {
+          final bStr = draft['batch'].toString();
+          if (bStr.contains('-')) {
+            final p = bStr.split('-');
+            if (p.length >= 2) {
+              _batchFromYearController.text = p[0].trim();
+              _batchToYearController.text = p[1].trim();
+            }
+          }
+        }
+        if (draft['batchFrom'] != null) _batchFromYearController.text = draft['batchFrom'].toString();
+        if (draft['batchTo'] != null) _batchToYearController.text = draft['batchTo'].toString();
         if (draft['dob'] != null) _dob = draft['dob'];
         if (draft['primaryMobile'] != null) _primaryMobileController.text = draft['primaryMobile'];
         if (draft['permLine1'] != null) _permLine1Controller.text = draft['permLine1'];
@@ -301,6 +323,98 @@ class _StudentProfileCompletionSheetState
         }
         _calculateEducationPercentages();
       });
+    } else {
+      // Fallback: load existing submitted/saved profile from database
+      final savedProfile = await ref.read(firebaseFirestoreServiceProvider).getFullStudentProfile(user.uid) ??
+          (_regNoController.text.trim().isNotEmpty
+              ? await ref.read(firebaseFirestoreServiceProvider).getFullStudentProfile(_regNoController.text.trim())
+              : null);
+
+      if (savedProfile != null && mounted) {
+        setState(() {
+          final personal = savedProfile['personal'] as Map<String, dynamic>? ?? {};
+          final contact = savedProfile['contact'] as Map<String, dynamic>? ?? {};
+          final parents = savedProfile['parents'] as Map<String, dynamic>? ?? {};
+          final education = savedProfile['education'] as Map<String, dynamic>? ?? {};
+          final living = savedProfile['living'] as Map<String, dynamic>? ?? {};
+          final transport = savedProfile['transport'] as Map<String, dynamic>? ?? {};
+
+          final bStr = (personal['batch'] ?? savedProfile['batch'])?.toString() ?? '';
+          if (bStr.contains('-')) {
+            final p = bStr.split('-');
+            if (p.length >= 2) {
+              _batchFromYearController.text = p[0].trim();
+              _batchToYearController.text = p[1].trim();
+            }
+          }
+
+          if (personal['dateOfBirth'] != null) _dob = personal['dateOfBirth'];
+          if (personal['gender'] != null) _gender = personal['gender'];
+          if (personal['bloodGroup'] != null) _bloodGroup = personal['bloodGroup'];
+          if (personal['religion'] != null) _religion = personal['religion'];
+          if (personal['community'] != null) _community = personal['community'];
+          if (personal['caste'] != null) _casteController.text = personal['caste'];
+          if (personal['motherTongue'] != null) _motherTongue = personal['motherTongue'];
+          if (personal['isFirstGraduate'] != null) _isFirstGraduate = personal['isFirstGraduate'] == true;
+          if (personal['isDifferentlyAbled'] != null) _isDifferentlyAbled = personal['isDifferentlyAbled'] == true;
+          if (personal['disabilityDetails'] != null) _disabilityController.text = personal['disabilityDetails'];
+
+          if (contact['primaryMobile'] != null) _primaryMobileController.text = contact['primaryMobile'];
+          if (contact['alternateMobile'] != null) _alternateMobileController.text = contact['alternateMobile'];
+          if (contact['personalEmail'] != null) _personalEmailController.text = contact['personalEmail'];
+          if (contact['emergencyContactName'] != null) _emergencyNameController.text = contact['emergencyContactName'];
+          if (contact['emergencyContactRelationship'] != null) _emergencyRelation = contact['emergencyContactRelationship'];
+          if (contact['emergencyContactNumber'] != null) _emergencyPhoneController.text = contact['emergencyContactNumber'];
+
+          final perm = contact['permanentAddress'] as Map<String, dynamic>? ?? {};
+          if (perm['addressLine1'] != null) _permLine1Controller.text = perm['addressLine1'];
+          if (perm['city'] != null) _permCityController.text = perm['city'];
+          if (perm['state'] != null) _permStateController.text = perm['state'];
+          if (perm['pincode'] != null) _permPincodeController.text = perm['pincode'];
+
+          final father = parents['father'] as Map<String, dynamic>? ?? {};
+          if (father['name'] != null) _fatherNameController.text = father['name'];
+          if (father['mobileNumber'] != null) _fatherPhoneController.text = father['mobileNumber'];
+          if (father['qualification'] != null) _fatherQual = father['qualification'];
+          if (father['occupation'] != null) _fatherOccupationController.text = father['occupation'];
+          if (father['annualIncome'] != null) _fatherIncome = father['annualIncome'];
+
+          final mother = parents['mother'] as Map<String, dynamic>? ?? {};
+          if (mother['name'] != null) _motherNameController.text = mother['name'];
+          if (mother['mobileNumber'] != null) _motherPhoneController.text = mother['mobileNumber'];
+          if (mother['qualification'] != null) _motherQual = mother['qualification'];
+          if (mother['occupation'] != null) _motherOccupationController.text = mother['occupation'];
+          if (mother['annualIncome'] != null) _motherIncome = mother['annualIncome'];
+
+          final tenth = education['tenth'] as Map<String, dynamic>? ?? {};
+          if (tenth['institutionName'] != null) _tenthSchoolController.text = tenth['institutionName'];
+          if (tenth['marksObtained'] != null) _tenthObtainedController.text = tenth['marksObtained'].toString();
+
+          final twelfth = education['twelfth'] as Map<String, dynamic>? ?? {};
+          if (twelfth['institutionName'] != null) _twelfthSchoolController.text = twelfth['institutionName'];
+          if (twelfth['marksObtained'] != null) _twelfthObtainedController.text = twelfth['marksObtained'].toString();
+
+          final livingDetails = living['details'] as Map<String, dynamic>? ?? living;
+          if (livingDetails['pgName'] != null) _pgNameController.text = livingDetails['pgName'].toString();
+          if (livingDetails['pgAddress'] != null) _pgAddressController.text = livingDetails['pgAddress'].toString();
+          if (livingDetails['rentedAddress'] != null) _rentedAddressController.text = livingDetails['rentedAddress'].toString();
+          if (livingDetails['roommates'] != null) _roommatesController.text = livingDetails['roommates'].toString();
+
+          final transportDetails = transport['details'] as Map<String, dynamic>? ?? transport;
+          if (transportDetails['boardingPoint'] != null) _boardingPointController.text = transportDetails['boardingPoint'].toString();
+          if (transportDetails['busStop'] != null) _busStopController.text = transportDetails['busStop'].toString();
+
+          if (savedProfile['documents'] != null && savedProfile['documents'] is List) {
+            _uploadedDocuments.clear();
+            for (var d in (savedProfile['documents'] as List)) {
+              if (d is Map<String, dynamic>) {
+                _uploadedDocuments.add(StudentDocument.fromMap(d));
+              }
+            }
+          }
+          _calculateEducationPercentages();
+        });
+      }
     }
   }
 
@@ -350,6 +464,9 @@ class _StudentProfileCompletionSheetState
 
     setState(() => _isSavingDraft = true);
     await ref.read(firebaseFirestoreServiceProvider).saveStudentProfileDraft(user.uid, {
+      'batch': '${_batchFromYearController.text.trim()} - ${_batchToYearController.text.trim()}',
+      'batchFrom': _batchFromYearController.text.trim(),
+      'batchTo': _batchToYearController.text.trim(),
       'dob': _dob,
       'primaryMobile': _primaryMobileController.text,
       'permLine1': _permLine1Controller.text,
@@ -608,6 +725,7 @@ class _StudentProfileCompletionSheetState
         registerNumber: _regNoController.text.trim(),
         department: _deptController.text.trim(),
         collegeEmail: _emailController.text.trim(),
+        batch: '${_batchFromYearController.text.trim()} - ${_batchToYearController.text.trim()}',
         profilePhotoUrl: _studentPhotoUrl,
         dateOfBirth: _dob,
         gender: _gender ?? 'Male',
@@ -1595,6 +1713,88 @@ class _StudentProfileCompletionSheetState
         ),
         const SizedBox(height: 12),
         _buildReadOnlyField('College Email', _emailController.text, Icons.email_rounded),
+        const SizedBox(height: 14),
+
+        // Academic Batch Year (From - To) Information
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.school_rounded, size: 16, color: Color(0xFF2563EB)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Academic Batch Year *',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Batch: ${_batchFromYearController.text.trim().isEmpty ? '2023' : _batchFromYearController.text.trim()} - ${_batchToYearController.text.trim().isEmpty ? '2027' : _batchToYearController.text.trim()}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _batchFromYearController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'From Year (Admission)',
+                        hintText: '2023',
+                        labelStyle: const TextStyle(fontSize: 11.5),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFF2563EB)),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _batchToYearController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'To Year (Graduation)',
+                        hintText: '2027',
+                        labelStyle: const TextStyle(fontSize: 11.5),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.event_available_rounded, size: 16, color: Color(0xFF10B981)),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 12),

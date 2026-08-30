@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,6 +14,7 @@ import 'package:unisphere/services/parent_service.dart';
 import 'package:unisphere/services/storage_service.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
+import 'package:unisphere/widgets/student/student_reference_card.dart';
 
 class ParentProfileScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -788,177 +790,86 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   }
 
   Widget _buildSlidableWardsCarousel(BuildContext context, List<ParentStudentWard> wards) {
-    if (wards.length == 1) {
-      return _buildWardCard(context, wards.first, isSlidable: false);
-    }
+    final activeIndex = _activeWardSlideIndex < wards.length ? _activeWardSlideIndex : 0;
+    final selectedWard = wards[activeIndex];
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: 148,
-          child: PageView.builder(
-            controller: _wardPageController,
-            physics: const BouncingScrollPhysics(),
-            itemCount: wards.length,
-            onPageChanged: (idx) {
-              setState(() => _activeWardSlideIndex = idx);
-            },
-            itemBuilder: (ctx, idx) {
-              final ward = wards[idx];
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: _buildWardCard(context, ward, isSlidable: true),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            wards.length,
-            (i) => AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: _activeWardSlideIndex == i ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: _activeWardSlideIndex == i ? const Color(0xFF4F46E5) : const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(3),
-              ),
+        if (wards.length > 1) ...[
+          Container(
+            padding: const EdgeInsets.all(4),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: List.generate(wards.length, (idx) {
+                final isSelected = idx == activeIndex;
+                final ward = wards[idx];
+                return Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _activeWardSlideIndex = idx);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.person_rounded,
+                            size: 14,
+                            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              ward.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
+        ],
+        StudentReferenceCard(
+          ward: selectedWard,
         ),
       ],
     );
   }
 
-  Widget _buildWardCard(BuildContext context, ParentStudentWard ward, {bool isSlidable = false}) {
-    return Container(
-      margin: EdgeInsets.only(bottom: isSlidable ? 0 : 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              // Ward Avatar
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
-                ),
-                child: ClipOval(
-                  child: (ward.photoUrl != null && ward.photoUrl!.isNotEmpty)
-                      ? Image.network(
-                          ward.photoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildWardInitial(ward),
-                        )
-                      : _buildWardInitial(ward),
-                ),
-              ),
-              const SizedBox(width: 14),
 
-              // Student Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ward.name,
-                      style: GoogleFonts.manrope(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${ward.regNo}  •  ${ward.department}',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF64748B),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${ward.currentYear}  •  ${ward.currentSemester}',
-                      style: GoogleFonts.manrope(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF4F46E5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.check_circle_outline_rounded, size: 15, color: Color(0xFF10B981)),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Attendance: ${(ward.attendancePercent * 100).toStringAsFixed(1)}%',
-                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.auto_graph_rounded, size: 15, color: Color(0xFF6366F1)),
-                  const SizedBox(width: 5),
-                  Text(
-                    'CGPA: ${ward.cgpa}',
-                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWardInitial(ParentStudentWard ward) {
-    return Container(
-      color: const Color(0xFF2563EB),
-      child: Center(
-        child: Text(
-          ward.avatarInitials,
-          style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 16),
-        ),
-      ),
-    );
-  }
 
   Widget _buildGuardianInfoCard() {
     return Container(

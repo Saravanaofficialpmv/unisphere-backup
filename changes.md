@@ -4,7 +4,48 @@ This document tracks all latest features, architectural enhancements, UI/UX chan
 
 ---
 
-## 📌 Latest Release & Updates — August 28, 2026
+## 📌 Latest Release & Updates — August 29, 2026
+
+---
+
+### 1. 🔔 Modern UI Theme Adoption: Reusable Recent Updates Card (`RecentUpdatesCard`)
+- **New Reusable Widget**: Created [`lib/widgets/common/recent_updates_card.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/common/recent_updates_card.dart).
+- **Design Language Modernization**:
+  - Upgraded container to squircle card with rounded corners (r: 24), subtle slate border (`0xFFE2E8F0`), and multi-layer soft drop shadow (`Color(0x080F172A)` + `Color(0x04000000)`).
+  - Pinned header featuring royal indigo bolt accent badge (`AppColors.primarySubtle`), bold `GoogleFonts.manrope` title, and gradient red pill badge (`#EF4444` -> `#DC2626`) with glowing pulsing indicator dot.
+  - Interactive "View All" link with directional micro-chevron and seamless bottom sheet modal opener (`showNotificationSheet`).
+  - Curated semantic category squircles (42x42px, r: 13) with high-contrast pastel palettes:
+    - **Finance / Fees**: Amber tint (`0xFFFEF3C7`) + Amber icon (`0xFFD97706`) + `Icons.account_balance_wallet_rounded`
+    - **Attendance & Shortage Alerts**: Coral tint (`0xFFFEE2E2`) + Red icon (`0xFFDC2626`) + `Icons.calendar_month_rounded`
+    - **Academics & Marks**: Indigo tint (`0xFFDBEAFE`) + Royal blue icon (`0xFF2563EB`) + `Icons.school_rounded`
+    - **Exams & Timetables**: Violet tint (`0xFFEDE9FE`) + Purple icon (`0xFF7C3AED`) + `Icons.description_rounded`
+    - **Career & Placements**: Emerald tint (`0xFFD1FAE5`) + Green icon (`0xFF059669`) + `Icons.work_rounded`
+    - **Events & Fests**: Rose tint (`0xFFFCE7F3`) + Pink icon (`0xFFDB2777`) + `Icons.emoji_events_rounded`
+  - Dual-column metadata hierarchy featuring category pill tags, relative timestamps (`1h ago`, `8h ago`), glowing unread status dots, and slate navigation chevrons.
+- **Cross-Dashboard Integration**:
+  - Replaced inline implementation in [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart).
+  - Adopted `RecentUpdatesCard` into the home feed of [`lib/screens/student/student_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/student/student_dashboard.dart).
+- **Test Suite**:
+  - Created [`test/recent_updates_card_test.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/test/recent_updates_card_test.dart) covering header rendering, live notification streams, unread count pills, item tap callbacks, and empty fallback states (3/3 passing).
+
+---
+
+### 2. 📸 Latest Photo Gallery (Advisor & HOD Updates) with Fitted Images (`LatestPhotoGalleryCard`)
+- **New Reusable Widget**: Created [`lib/widgets/common/latest_photo_gallery_card.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/widgets/common/latest_photo_gallery_card.dart).
+- **Key Capabilities & Visuals**:
+  - **Fitted Images (`BoxFit.contain`)**: Ensures 100% of each photograph is completely visible without any cropping or edge clipping inside a curved cinematic frame (`r: 18`, dark slate backdrop `#0F172A`).
+  - **Single Latest Upload Spotlight**: Automatically watches published albums and spotlights the newest album/photos uploaded by Class Advisors and HODs, replacing older entries whenever a new upload is published.
+  - **Uploader Attribution**: Displays uploader name (`album.createdByName` / `HOD / Class Advisor Update`), department name, and relative event timestamp.
+  - **Interactive Lightbox & Swipe**: Supports swipe gestures across photos of the latest album with counter badge (`1 / N`), pinch-to-zoom `LightboxViewer`, and "Open Album" button leading to `AlbumDetailsScreen`.
+- **Dashboard Placements**:
+  - Positioned directly below the 5 Quick Launchers in [`lib/screens/parent/parent_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/parent/parent_dashboard.dart).
+  - Positioned below Quick Actions in [`lib/screens/student/student_dashboard.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/lib/screens/student/student_dashboard.dart).
+- **Test Suite**:
+  - Created [`test/latest_photo_gallery_card_test.dart`](file:///Users/saravana/Downloads/unisphere-main-v2/test/latest_photo_gallery_card_test.dart) covering header rendering, `BoxFit.contain` image fitting verification, latest album replacement logic, and empty fallback states (3/3 passing).
+
+---
+
+## 📌 Previous Release — August 28, 2026
 
 ---
 
