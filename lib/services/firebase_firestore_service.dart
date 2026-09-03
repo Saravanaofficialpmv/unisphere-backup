@@ -33,6 +33,10 @@ final allSubmissionsStreamProvider = StreamProvider.autoDispose<List<SubmissionM
   return ref.watch(firebaseFirestoreServiceProvider).getAllSubmissions();
 });
 
+final allMarksStreamProvider = StreamProvider.autoDispose<List<MarkModel>>((ref) {
+  return ref.watch(firebaseFirestoreServiceProvider).getAllMarksStream();
+});
+
 class FirebaseFirestoreService implements SupabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final MockSupabaseService _fallbackMock = MockSupabaseService();
@@ -198,6 +202,24 @@ class FirebaseFirestoreService implements SupabaseService {
           .handleError((error) => _fallbackMock.getMarks(studentUid));
     } catch (e) {
       return _fallbackMock.getMarks(studentUid);
+    }
+  }
+
+  Stream<List<MarkModel>> getAllMarksStream() {
+    try {
+      return _firestore.collection('marks').snapshots().map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return MarkModel.fromMap(data);
+        }).toList();
+      }).handleError((error) {
+        debugPrint('Firestore getAllMarksStream error: $error');
+        return <MarkModel>[];
+      });
+    } catch (e) {
+      debugPrint('Firestore getAllMarksStream exception: $e');
+      return Stream.value(<MarkModel>[]);
     }
   }
 
@@ -1095,4 +1117,745 @@ class FirebaseFirestoreService implements SupabaseService {
       debugPrint('Firestore rejectStudentProfileByHod error: $e');
     }
   }
+
+  // ==========================================
+  // REAL-TIME ACADEMIC PERFORMANCE & MARKS UPLOADING
+  // ==========================================
+
+  /// Upload or update real-time academic performance & marks for a specific student and semester
+  Future<bool> uploadStudentAcademicPerformance({
+    required String regNo,
+    String? studentName,
+    String? department,
+    String? currentYear,
+    String? currentSemester,
+    String? cgpa,
+    String? standing,
+    required int semesterIndex,
+    required List<Map<String, dynamic>> subjects,
+    String? sgpa,
+    String? creditsCompleted,
+    String? totalCredits,
+  }) async {
+    try {
+      final cleanReg = regNo.trim().toUpperCase();
+      if (cleanReg.isEmpty) return false;
+
+      final nowStr = DateTime.now().toIso8601String();
+      final docRef = _firestore.collection('academic_performance').doc(cleanReg);
+      final existingDoc = await docRef.get();
+      final existingData = existingDoc.data() ?? {};
+
+      Map<String, dynamic> existingSemesters = {};
+      if (existingData['semesters'] is Map) {
+        existingSemesters = Map<String, dynamic>.from(existingData['semesters'] as Map);
+      }
+
+      final semKey = 'sem_$semesterIndex';
+      existingSemesters[semKey] = {
+        'semesterIndex': semesterIndex,
+        'semesterName': 'Semester ${semesterIndex + 1}',
+        'sgpa': sgpa ?? existingSemesters[semKey]?['sgpa'] ?? '9.02',
+        'creditsCompleted': creditsCompleted ?? existingSemesters[semKey]?['creditsCompleted'] ?? '${24 * (semesterIndex + 1)} / 160',
+        'totalCredits': totalCredits ?? '160',
+        'subjects': subjects,
+        'updatedAt': nowStr,
+      };
+
+      final dataToSave = {
+        'regNo': cleanReg,
+        'studentName': studentName ?? existingData['studentName'] ?? 'Arun Kumar',
+        'department': department ?? existingData['department'] ?? 'Artificial Intelligence & Data Science',
+        'currentYear': currentYear ?? existingData['currentYear'] ?? 'III Year',
+        'currentSemester': currentSemester ?? existingData['currentSemester'] ?? 'Semester 6',
+        'cgpa': cgpa ?? existingData['cgpa'] ?? '8.78',
+        'standing': standing ?? existingData['standing'] ?? 'Top 5%',
+        'semesters': existingSemesters,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastSyncedAt': nowStr,
+      };
+
+      await docRef.set(dataToSave, SetOptions(merge: true));
+
+      // Also mirror to lowercase doc if different
+      if (cleanReg != regNo.trim().toLowerCase()) {
+        await _firestore.collection('academic_performance').doc(regNo.trim().toLowerCase()).set(dataToSave, SetOptions(merge: true));
+      }
+
+      // Sync summary metrics to student_profiles collection
+      await _firestore.collection('student_profiles').doc(cleanReg).set({
+        'cgpa': cgpa ?? existingData['cgpa'] ?? '8.78',
+        'academicStatus': standing ?? existingData['standing'] ?? 'First Class with Distinction',
+        'departmentName': department ?? existingData['department'],
+        'department': department ?? existingData['department'],
+        'fullName': studentName ?? existingData['studentName'],
+        'name': studentName ?? existingData['studentName'],
+        'semester': currentSemester ?? existingData['currentSemester'],
+        'currentYear': currentYear ?? existingData['currentYear'],
+        'lastAcademicSync': nowStr,
+      }, SetOptions(merge: true));
+
+      // Update individual subject entries in 'marks' collection for individual querying
+      for (final sub in subjects) {
+        final subCode = (sub['code'] ?? 'SUB').toString();
+        final subName = (sub['name'] ?? 'Course').toString();
+        final markDocId = 'mark_${cleanReg}_${subCode}_sem$semesterIndex'.toLowerCase();
+
+        final totInt = double.tryParse((sub['totalInternal'] ?? '').toString().split('/')[0].trim()) ?? 0;
+
+        await _firestore.collection('marks').doc(markDocId).set({
+          'student_uid': cleanReg,
+          'register_number': cleanReg,
+          'subject_code': subCode,
+          'subject_name': subName,
+          'faculty': sub['faculty'],
+          'semester': semesterIndex + 1,
+          'ia1': sub['ia1'],
+          'ia1Conv': sub['ia1Conv'],
+          'hasIa1Retest': sub['hasIa1Retest'] ?? false,
+          'ia1Retest': sub['ia1Retest'],
+          'ia1RetestStatus': sub['ia1RetestStatus'],
+          'ia2': sub['ia2'],
+          'ia2Conv': sub['ia2Conv'],
+          'hasIa2Retest': sub['hasIa2Retest'] ?? false,
+          'ia2Retest': sub['ia2Retest'],
+          'ia2RetestStatus': sub['ia2RetestStatus'],
+          'modelExam': sub['modelExam'],
+          'modelConv': sub['modelConv'],
+          'attAssign': sub['attAssign'],
+          'totalInternal': sub['totalInternal'],
+          'obtained_marks': totInt.toInt(),
+          'total_marks': 60,
+          'percent': sub['percent'] ?? (totInt / 60.0),
+          'grade': sub['grade'] ?? 'O',
+          'remarks': sub['remarks'],
+          'status': sub['status'] ?? 'Live Verified in Firebase',
+          'updated_at': nowStr,
+        }, SetOptions(merge: true));
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Firestore uploadStudentAcademicPerformance error: $e');
+      return false;
+    }
+  }
+
+  /// Watch real-time stream of academic performance for a student
+  Stream<Map<String, dynamic>?> watchStudentAcademicPerformanceStream(String regNo) {
+    try {
+      final cleanReg = regNo.trim().toUpperCase();
+      if (cleanReg.isEmpty) return Stream.value(null);
+
+      return _firestore.collection('academic_performance').doc(cleanReg).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        final data = snapshot.data()!;
+        data['id'] = snapshot.id;
+        return data;
+      });
+    } catch (e) {
+      debugPrint('Firestore watchStudentAcademicPerformanceStream error: $e');
+      return Stream.value(null);
+    }
+  }
+
+  /// Get one-time student academic performance document
+  Future<Map<String, dynamic>?> getStudentAcademicPerformance(String regNo) async {
+    try {
+      final cleanReg = regNo.trim().toUpperCase();
+      if (cleanReg.isEmpty) return null;
+
+      final doc = await _firestore.collection('academic_performance').doc(cleanReg).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        data['id'] = doc.id;
+        return data;
+      }
+
+      // Fallback query by regNo or studentId
+      final q = await _firestore.collection('academic_performance').where('regNo', isEqualTo: cleanReg).limit(1).get();
+      if (q.docs.isNotEmpty) {
+        final data = q.docs.first.data();
+        data['id'] = q.docs.first.id;
+        return data;
+      }
+    } catch (e) {
+      debugPrint('Firestore getStudentAcademicPerformance error: $e');
+    }
+    return null;
+  }
+
+  /// Seed initial full academic performance dataset for student in Firestore
+  Future<bool> seedStudentAcademicPerformanceToFirebase({
+    String regNo = '922523243079',
+    String studentName = 'Arun Kumar',
+    String department = 'Artificial Intelligence & Data Science',
+    String currentYear = 'III Year',
+    String currentSemester = 'Semester 6',
+    String cgpa = '8.78',
+    String standing = 'Top 5%',
+  }) async {
+    try {
+      final cleanReg = regNo.trim().toUpperCase();
+      final nowStr = DateTime.now().toIso8601String();
+
+      // Complete realistic semester 1 to 6 subjects
+      final Map<String, dynamic> semesters = {
+        'sem_0': {
+          'semesterIndex': 0,
+          'semesterName': 'Semester 1',
+          'sgpa': '8.85',
+          'creditsCompleted': '24 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'MA3151',
+              'name': 'Matrices and Calculus',
+              'faculty': 'Dr. K. Srinivasan (Maths)',
+              'ia1': '46 / 50',
+              'ia1Conv': '13.8 / 15',
+              'ia1Initial': '46 / 50',
+              'hasIa1Retest': false,
+              'ia2': '44 / 50',
+              'ia2Conv': '13.2 / 15',
+              'ia2Initial': '44 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '90 / 100',
+              'modelConv': '18.0 / 20',
+              'modelInitial': '90 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.5 / 10',
+              'totalInternal': '54.5 / 60',
+              'percent': 0.91,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Excellent command over linear algebra and calculus applications.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'PH3151',
+              'name': 'Engineering Physics',
+              'faculty': 'Dr. M. Lakshmi (Physics)',
+              'ia1': '42 / 50',
+              'ia1Conv': '12.6 / 15',
+              'ia1Initial': '42 / 50',
+              'hasIa1Retest': false,
+              'ia2': '43 / 50',
+              'ia2Conv': '12.9 / 15',
+              'ia2Initial': '43 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '84 / 100',
+              'modelConv': '16.8 / 20',
+              'modelInitial': '84 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.0 / 10',
+              'totalInternal': '51.3 / 60',
+              'percent': 0.855,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Good experimental skills and theory comprehension.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'CY3151',
+              'name': 'Engineering Chemistry',
+              'faculty': 'Dr. P. Rajeshwari (Chemistry)',
+              'ia1': '45 / 50',
+              'ia1Conv': '13.5 / 15',
+              'ia1Initial': '45 / 50',
+              'hasIa1Retest': false,
+              'ia2': '46 / 50',
+              'ia2Conv': '13.8 / 15',
+              'ia2Initial': '46 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '88 / 100',
+              'modelConv': '17.6 / 20',
+              'modelInitial': '88 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.4 / 10',
+              'totalInternal': '54.3 / 60',
+              'percent': 0.905,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Consistent high scores in electrochemistry and polymer modules.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'GE3151',
+              'name': 'Problem Solving and Python Programming',
+              'faculty': 'Prof. K. Sundaram (CSE)',
+              'ia1': '48 / 50',
+              'ia1Conv': '14.4 / 15',
+              'ia1Initial': '48 / 50',
+              'hasIa1Retest': false,
+              'ia2': '49 / 50',
+              'ia2Conv': '14.7 / 15',
+              'ia2Initial': '49 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '96 / 100',
+              'modelConv': '19.2 / 20',
+              'modelInitial': '96 / 100',
+              'hasModelRetest': false,
+              'attAssign': '10.0 / 10',
+              'totalInternal': '58.3 / 60',
+              'percent': 0.972,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Top performer in Python algorithmic coding and automation scripts.',
+              'status': 'Finalized by Faculty',
+            },
+          ],
+        },
+        'sem_1': {
+          'semesterIndex': 1,
+          'semesterName': 'Semester 2',
+          'sgpa': '8.65',
+          'creditsCompleted': '48 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'MA3251',
+              'name': 'Statistics and Numerical Methods',
+              'faculty': 'Dr. K. Srinivasan (Maths)',
+              'ia1': '43 / 50',
+              'ia1Conv': '12.9 / 15',
+              'ia1Initial': '43 / 50',
+              'hasIa1Retest': false,
+              'ia2': '44 / 50',
+              'ia2Conv': '13.2 / 15',
+              'ia2Initial': '44 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '86 / 100',
+              'modelConv': '17.2 / 20',
+              'modelInitial': '86 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.2 / 10',
+              'totalInternal': '52.5 / 60',
+              'percent': 0.875,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Strong analytical problem solving in curve fitting and interpolation.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'CS3251',
+              'name': 'Programming in C',
+              'faculty': 'Dr. S. Ramanathan (CSE)',
+              'ia1': '47 / 50',
+              'ia1Conv': '14.1 / 15',
+              'ia1Initial': '47 / 50',
+              'hasIa1Retest': false,
+              'ia2': '48 / 50',
+              'ia2Conv': '14.4 / 15',
+              'ia2Initial': '48 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '94 / 100',
+              'modelConv': '18.8 / 20',
+              'modelInitial': '94 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.8 / 10',
+              'totalInternal': '57.1 / 60',
+              'percent': 0.952,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Excellent command over dynamic memory allocation and pointer arithmetic.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'EC3251',
+              'name': 'Basic Electrical and Electronics Engineering',
+              'faculty': 'Prof. N. Mohan (ECE)',
+              'ia1': '41 / 50',
+              'ia1Conv': '12.3 / 15',
+              'ia1Initial': '41 / 50',
+              'hasIa1Retest': false,
+              'ia2': '42 / 50',
+              'ia2Conv': '12.6 / 15',
+              'ia2Initial': '42 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '82 / 100',
+              'modelConv': '16.4 / 20',
+              'modelInitial': '82 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.0 / 10',
+              'totalInternal': '50.3 / 60',
+              'percent': 0.838,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Active participant in circuit analysis and breadboard prototyping.',
+              'status': 'Finalized by Faculty',
+            },
+          ],
+        },
+        'sem_2': {
+          'semesterIndex': 2,
+          'semesterName': 'Semester 3',
+          'sgpa': '8.92',
+          'creditsCompleted': '70 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'MA3354',
+              'name': 'Discrete Mathematics',
+              'faculty': 'Dr. K. Srinivasan (Maths)',
+              'ia1': '45 / 50',
+              'ia1Conv': '13.5 / 15',
+              'ia1Initial': '45 / 50',
+              'hasIa1Retest': false,
+              'ia2': '47 / 50',
+              'ia2Conv': '14.1 / 15',
+              'ia2Initial': '47 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '90 / 100',
+              'modelConv': '18.0 / 20',
+              'modelInitial': '90 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.5 / 10',
+              'totalInternal': '55.1 / 60',
+              'percent': 0.918,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Mastery of combinatorics, predicate calculus, and recurrence relations.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'CS3351',
+              'name': 'Digital Principles & Computer Organization',
+              'faculty': 'Dr. V. Rajesh (CSE)',
+              'ia1': '44 / 50',
+              'ia1Conv': '13.2 / 15',
+              'ia1Initial': '44 / 50',
+              'hasIa1Retest': false,
+              'ia2': '45 / 50',
+              'ia2Conv': '13.5 / 15',
+              'ia2Initial': '45 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '89 / 100',
+              'modelConv': '17.8 / 20',
+              'modelInitial': '89 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.4 / 10',
+              'totalInternal': '53.9 / 60',
+              'percent': 0.898,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Solid understanding of CPU pipelining and logic gate minimization.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'CS3352',
+              'name': 'Foundations of Data Science',
+              'faculty': 'Dr. Anitha Subramanian (AI&DS)',
+              'ia1': '46 / 50',
+              'ia1Conv': '13.8 / 15',
+              'ia1Initial': '46 / 50',
+              'hasIa1Retest': false,
+              'ia2': '48 / 50',
+              'ia2Conv': '14.4 / 15',
+              'ia2Initial': '48 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '92 / 100',
+              'modelConv': '18.4 / 20',
+              'modelInitial': '92 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.7 / 10',
+              'totalInternal': '56.3 / 60',
+              'percent': 0.938,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Impressive data exploration projects using Pandas, NumPy, and Seaborn.',
+              'status': 'Finalized by Faculty',
+            },
+            {
+              'code': 'CS3391',
+              'name': 'Object Oriented Programming with Java',
+              'faculty': 'Prof. K. Sundaram (CSE)',
+              'ia1': '48 / 50',
+              'ia1Conv': '14.4 / 15',
+              'ia1Initial': '48 / 50',
+              'hasIa1Retest': false,
+              'ia2': '49 / 50',
+              'ia2Conv': '14.7 / 15',
+              'ia2Initial': '49 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '95 / 100',
+              'modelConv': '19.0 / 20',
+              'modelInitial': '95 / 100',
+              'hasModelRetest': false,
+              'attAssign': '10.0 / 10',
+              'totalInternal': '58.1 / 60',
+              'percent': 0.968,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Exceptional implementation of design patterns and multi-threaded applications.',
+              'status': 'Finalized by Faculty',
+            },
+          ],
+        },
+        'sem_3': {
+          'semesterIndex': 3,
+          'semesterName': 'Semester 4',
+          'sgpa': '9.02',
+          'creditsCompleted': '92 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'CS3401',
+              'name': 'Design & Analysis of Algorithms',
+              'faculty': 'Dr. S. Ramanathan (CSE)',
+              'ia1': '44 / 50',
+              'ia1Conv': '13.2 / 15',
+              'ia1Initial': '20 / 50',
+              'ia1Retest': '44 / 50',
+              'ia1RetestStatus': 'Retest Cleared (+24 Marks Improved)',
+              'hasIa1Retest': true,
+              'ia2': '46 / 50',
+              'ia2Conv': '13.8 / 15',
+              'ia2Initial': '46 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '92 / 100',
+              'modelConv': '18.4 / 20',
+              'modelInitial': '92 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.8 / 10',
+              'totalInternal': '55.2 / 60',
+              'percent': 0.92,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Demonstrated remarkable comeback in graph algorithms after initial test.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'CS3492',
+              'name': 'Database Management Systems',
+              'faculty': 'Prof. K. Sundaram (CSE)',
+              'ia1': '42 / 50',
+              'ia1Conv': '12.6 / 15',
+              'ia1Initial': '42 / 50',
+              'hasIa1Retest': false,
+              'ia2': '45 / 50',
+              'ia2Conv': '13.5 / 15',
+              'ia2Initial': '45 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '88 / 100',
+              'modelConv': '17.6 / 20',
+              'modelInitial': '88 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.2 / 10',
+              'totalInternal': '52.9 / 60',
+              'percent': 0.881,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Strong SQL query optimization skills and normal forms mastery.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'CS3451',
+              'name': 'Operating Systems',
+              'faculty': 'Dr. V. Rajesh (CSE)',
+              'ia1': '41 / 50',
+              'ia1Conv': '12.3 / 15',
+              'ia1Initial': '41 / 50',
+              'hasIa1Retest': false,
+              'ia2': '43 / 50',
+              'ia2Conv': '12.9 / 15',
+              'ia2Initial': '43 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '85 / 100',
+              'modelConv': '17.0 / 20',
+              'modelInitial': '85 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.0 / 10',
+              'totalInternal': '51.2 / 60',
+              'percent': 0.853,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Proficient with Linux thread synchronization and semaphore logic.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'CS3491',
+              'name': 'Computer Networks',
+              'faculty': 'Dr. Anitha Subramanian (CSE)',
+              'ia1': '45 / 50',
+              'ia1Conv': '13.5 / 15',
+              'ia1Initial': '45 / 50',
+              'hasIa1Retest': false,
+              'ia2': '47 / 50',
+              'ia2Conv': '14.1 / 15',
+              'ia2Initial': '47 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '90 / 100',
+              'modelConv': '18.0 / 20',
+              'modelInitial': '90 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.6 / 10',
+              'totalInternal': '55.2 / 60',
+              'percent': 0.92,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Excellent packet capture analysis in Wireshark and socket programming.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'GE3451',
+              'name': 'Environmental Sciences & Sustainability',
+              'faculty': 'Dr. P. Rajeshwari (Science)',
+              'ia1': '43 / 50',
+              'ia1Conv': '12.9 / 15',
+              'ia1Initial': '43 / 50',
+              'hasIa1Retest': false,
+              'ia2': '44 / 50',
+              'ia2Conv': '13.2 / 15',
+              'ia2Initial': '44 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '86 / 100',
+              'modelConv': '17.2 / 20',
+              'modelInitial': '86 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.0 / 10',
+              'totalInternal': '52.3 / 60',
+              'percent': 0.871,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Punctual with sustainability case study submissions.',
+              'status': 'Live Verified in Firebase',
+            },
+          ],
+        },
+        'sem_4': {
+          'semesterIndex': 4,
+          'semesterName': 'Semester 5',
+          'sgpa': '8.95',
+          'creditsCompleted': '116 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'AI3501',
+              'name': 'Deep Learning & Neural Networks',
+              'faculty': 'Dr. Anitha Subramanian (AI&DS)',
+              'ia1': '46 / 50',
+              'ia1Conv': '13.8 / 15',
+              'ia1Initial': '46 / 50',
+              'hasIa1Retest': false,
+              'ia2': '47 / 50',
+              'ia2Conv': '14.1 / 15',
+              'ia2Initial': '47 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '91 / 100',
+              'modelConv': '18.2 / 20',
+              'modelInitial': '91 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.6 / 10',
+              'totalInternal': '55.7 / 60',
+              'percent': 0.928,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Excellent CNN backpropagation implementation in PyTorch.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'CS3591',
+              'name': 'Computer Vision',
+              'faculty': 'Dr. S. Ramanathan (CSE)',
+              'ia1': '44 / 50',
+              'ia1Conv': '13.2 / 15',
+              'ia1Initial': '44 / 50',
+              'hasIa1Retest': false,
+              'ia2': '45 / 50',
+              'ia2Conv': '13.5 / 15',
+              'ia2Initial': '45 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '88 / 100',
+              'modelConv': '17.6 / 20',
+              'modelInitial': '88 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.4 / 10',
+              'totalInternal': '53.7 / 60',
+              'percent': 0.895,
+              'grade': 'A+ (Excellent)',
+              'remarks': 'Strong real-time edge detection and OpenCV project work.',
+              'status': 'Live Verified in Firebase',
+            },
+          ],
+        },
+        'sem_5': {
+          'semesterIndex': 5,
+          'semesterName': 'Semester 6',
+          'sgpa': '9.10',
+          'creditsCompleted': '140 / 160',
+          'totalCredits': '160',
+          'subjects': [
+            {
+              'code': 'CS3601',
+              'name': 'Cloud Computing & Serverless',
+              'faculty': 'Dr. V. Rajesh (CSE)',
+              'ia1': '45 / 50',
+              'ia1Conv': '13.5 / 15',
+              'ia1Initial': '45 / 50',
+              'hasIa1Retest': false,
+              'ia2': '46 / 50',
+              'ia2Conv': '13.8 / 15',
+              'ia2Initial': '46 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '90 / 100',
+              'modelConv': '18.0 / 20',
+              'modelInitial': '90 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.6 / 10',
+              'totalInternal': '54.9 / 60',
+              'percent': 0.915,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Proficient with Docker container orchestration and cloud architecture.',
+              'status': 'Live Verified in Firebase',
+            },
+            {
+              'code': 'CS3602',
+              'name': 'Software Engineering & DevOps',
+              'faculty': 'Prof. K. Sundaram (CSE)',
+              'ia1': '46 / 50',
+              'ia1Conv': '13.8 / 15',
+              'ia1Initial': '46 / 50',
+              'hasIa1Retest': false,
+              'ia2': '47 / 50',
+              'ia2Conv': '14.1 / 15',
+              'ia2Initial': '47 / 50',
+              'hasIa2Retest': false,
+              'modelExam': '92 / 100',
+              'modelConv': '18.4 / 20',
+              'modelInitial': '92 / 100',
+              'hasModelRetest': false,
+              'attAssign': '9.7 / 10',
+              'totalInternal': '56.0 / 60',
+              'percent': 0.933,
+              'grade': 'O (Outstanding)',
+              'remarks': 'Clean CI/CD automated pipeline scripting and agile sprint planning.',
+              'status': 'Live Verified in Firebase',
+            },
+          ],
+        },
+      };
+
+      final dataDoc = {
+        'regNo': cleanReg,
+        'studentName': studentName,
+        'department': department,
+        'currentYear': currentYear,
+        'currentSemester': currentSemester,
+        'cgpa': cgpa,
+        'standing': standing,
+        'semesters': semesters,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastSyncedAt': nowStr,
+      };
+
+      await _firestore.collection('academic_performance').doc(cleanReg).set(dataDoc, SetOptions(merge: true));
+      await _firestore.collection('academic_performance').doc(cleanReg.toLowerCase()).set(dataDoc, SetOptions(merge: true));
+
+      // Also update student_profiles
+      await _firestore.collection('student_profiles').doc(cleanReg).set({
+        'registerNumber': cleanReg,
+        'fullName': studentName,
+        'name': studentName,
+        'department': department,
+        'departmentName': department,
+        'currentYear': currentYear,
+        'semester': currentSemester,
+        'cgpa': cgpa,
+        'academicStatus': standing,
+        'lastAcademicSync': nowStr,
+      }, SetOptions(merge: true));
+
+      return true;
+    } catch (e) {
+      debugPrint('Firestore seedStudentAcademicPerformanceToFirebase error: $e');
+      return false;
+    }
+  }
 }
+

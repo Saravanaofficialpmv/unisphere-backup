@@ -21,6 +21,7 @@ import 'package:unisphere/models/submission_model.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/models/academic_schedule_model.dart';
 import 'package:unisphere/models/syllabus_model.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
 
 
 /// DatabaseSeeder populates Cloud Firestore with complete, real sample data across all 17 app collections for development, demo testing & production setup.
@@ -1695,7 +1696,28 @@ class DatabaseSeeder {
           .doc(initialSchedule.id)
           .set(initialSchedule.toMap(), SetOptions(merge: true));
 
-      debugPrint('✅ UniSphere Complete Database Seeding Succeeded across 19 Collections!');
+      // 20. Seed Real-Time Academic Performance & Marks for Student
+      await FirebaseFirestoreService().seedStudentAcademicPerformanceToFirebase(
+        regNo: '922523243079',
+        studentName: 'Arun Kumar',
+        department: 'Artificial Intelligence & Data Science',
+        currentYear: 'III Year',
+        currentSemester: 'Semester 6',
+        cgpa: '8.78',
+        standing: 'Top 5%',
+      );
+
+      await FirebaseFirestoreService().seedStudentAcademicPerformanceToFirebase(
+        regNo: 'DEMO-STU',
+        studentName: 'Alex Johnson',
+        department: 'Computer Science & Engineering',
+        currentYear: 'III Year',
+        currentSemester: 'Semester 6',
+        cgpa: '8.92',
+        standing: 'First Class with Distinction',
+      );
+
+      debugPrint('✅ UniSphere Complete Database Seeding Succeeded across 20 Collections including real-time academic performance!');
       return true;
 
     } catch (e) {

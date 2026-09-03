@@ -15,6 +15,8 @@ class StaffModel {
   final bool isHod;
   final bool isAdvisor;
   final String? advisorSection;
+  final String? advisorClassId;
+  final String? advisorAcademicYear;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -35,9 +37,67 @@ class StaffModel {
     this.isHod = false,
     this.isAdvisor = false,
     this.advisorSection,
+    this.advisorClassId,
+    this.advisorAcademicYear,
     this.createdAt,
     this.updatedAt,
   });
+
+  bool get isClassAdvisor => isAdvisor && (advisorSection != null || advisorClassId != null);
+  String get name => fullName;
+  bool get hasAdvisorPrivileges => isAdvisor || isHod;
+
+  String get roleTitle => isAdvisor
+      ? (advisorSection != null && advisorSection!.isNotEmpty
+          ? 'Class Advisor ($advisorSection)'
+          : 'Class Advisor')
+      : 'Teaching Faculty';
+
+  StaffModel copyWith({
+    String? userId,
+    String? employeeId,
+    String? fullName,
+    String? departmentId,
+    String? departmentName,
+    String? designation,
+    String? specialization,
+    String? photoPath,
+    List<String>? assignedClasses,
+    List<String>? assignedSubjects,
+    String? qualification,
+    int? experienceYears,
+    String? officeLocation,
+    bool? isHod,
+    bool? isAdvisor,
+    String? advisorSection,
+    String? advisorClassId,
+    String? advisorAcademicYear,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return StaffModel(
+      userId: userId ?? this.userId,
+      employeeId: employeeId ?? this.employeeId,
+      fullName: fullName ?? this.fullName,
+      departmentId: departmentId ?? this.departmentId,
+      departmentName: departmentName ?? this.departmentName,
+      designation: designation ?? this.designation,
+      specialization: specialization ?? this.specialization,
+      photoPath: photoPath ?? this.photoPath,
+      assignedClasses: assignedClasses ?? this.assignedClasses,
+      assignedSubjects: assignedSubjects ?? this.assignedSubjects,
+      qualification: qualification ?? this.qualification,
+      experienceYears: experienceYears ?? this.experienceYears,
+      officeLocation: officeLocation ?? this.officeLocation,
+      isHod: isHod ?? this.isHod,
+      isAdvisor: isAdvisor ?? this.isAdvisor,
+      advisorSection: advisorSection ?? this.advisorSection,
+      advisorClassId: advisorClassId ?? this.advisorClassId,
+      advisorAcademicYear: advisorAcademicYear ?? this.advisorAcademicYear,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   factory StaffModel.fromMap(Map<String, dynamic> map, String id) {
     DateTime? parseDate(dynamic val) {
@@ -61,8 +121,10 @@ class StaffModel {
       experienceYears: (map['experienceYears'] ?? map['experience_years'] ?? 0) as int,
       officeLocation: map['officeLocation'] ?? map['office_location'],
       isHod: map['isHod'] ?? map['is_hod'] ?? false,
-      isAdvisor: map['isAdvisor'] ?? map['is_advisor'] ?? false,
-      advisorSection: map['advisorSection'] ?? map['advisor_section'],
+      isAdvisor: map['isAdvisor'] ?? map['is_advisor'] ?? map['isClassAdvisor'] ?? false,
+      advisorSection: map['advisorSection'] ?? map['advisor_section'] ?? map['advisorClass'],
+      advisorClassId: map['advisorClassId'] ?? map['advisor_class_id'],
+      advisorAcademicYear: map['advisorAcademicYear'] ?? map['advisor_academic_year'] ?? '2025–26',
       createdAt: parseDate(map['createdAt'] ?? map['created_at']),
       updatedAt: parseDate(map['updatedAt'] ?? map['updated_at']),
     );
@@ -94,60 +156,16 @@ class StaffModel {
       'isHod': isHod,
       'is_hod': isHod,
       'isAdvisor': isAdvisor,
+      'is_advisor': isAdvisor,
+      'isClassAdvisor': isClassAdvisor,
       'advisorSection': advisorSection,
       'advisor_section': advisorSection,
+      'advisorClassId': advisorClassId,
+      'advisor_class_id': advisorClassId,
+      'advisorAcademicYear': advisorAcademicYear,
+      'advisor_academic_year': advisorAcademicYear,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
-  }
-
-  bool get hasAdvisorPrivileges => isAdvisor || isHod;
-
-  String get roleTitle => isAdvisor
-      ? (advisorSection != null && advisorSection!.isNotEmpty
-          ? 'Class Advisor ($advisorSection)'
-          : 'Class Advisor')
-      : 'Teaching Faculty';
-
-  StaffModel copyWith({
-    String? userId,
-    String? employeeId,
-    String? fullName,
-    String? departmentId,
-    String? departmentName,
-    String? designation,
-    String? specialization,
-    String? photoPath,
-    List<String>? assignedClasses,
-    List<String>? assignedSubjects,
-    String? qualification,
-    int? experienceYears,
-    String? officeLocation,
-    bool? isHod,
-    bool? isAdvisor,
-    String? advisorSection,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return StaffModel(
-      userId: userId ?? this.userId,
-      employeeId: employeeId ?? this.employeeId,
-      fullName: fullName ?? this.fullName,
-      departmentId: departmentId ?? this.departmentId,
-      departmentName: departmentName ?? this.departmentName,
-      designation: designation ?? this.designation,
-      specialization: specialization ?? this.specialization,
-      photoPath: photoPath ?? this.photoPath,
-      assignedClasses: assignedClasses ?? this.assignedClasses,
-      assignedSubjects: assignedSubjects ?? this.assignedSubjects,
-      qualification: qualification ?? this.qualification,
-      experienceYears: experienceYears ?? this.experienceYears,
-      officeLocation: officeLocation ?? this.officeLocation,
-      isHod: isHod ?? this.isHod,
-      isAdvisor: isAdvisor ?? this.isAdvisor,
-      advisorSection: advisorSection ?? this.advisorSection,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
   }
 }

@@ -186,6 +186,53 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // 12. ACADEMIC RECORDS & INTERNAL MARKS (MULTI-TENANT HIERARCHY)
+    // ──────────────────────────────────────────────────────────────────────────
+    match /institutions/{institutionId}/students/{studentId}/academic_records/{recordId} {
+      // Students can read their own records, Parents can read, Staff/HOD/Admin can read
+      allow read: if isSignedIn() && (
+        isOwner(studentId) ||
+        isStaff() ||
+        getUserRole() == 'parent'
+      );
+      // Only Faculty, Staff, HOD, and Admin can write or update academic marks
+      allow create, update, delete: if isStaff() || isHOD() || isAdmin();
+    }
+
+    match /academic_performance/{studentId} {
+      allow read: if isSignedIn() && (
+        isOwner(studentId) ||
+        isStaff() ||
+        getUserRole() == 'parent'
+      );
+      allow create, update, delete: if isStaff() || isHOD() || isAdmin();
+    }
+
+    match /marks/{markId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isStaff() || isHOD() || isAdmin();
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isStaff() || isHOD() || isAdmin();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 13. STAFF & STAFF ASSIGNMENTS COLLECTIONS
+    // ──────────────────────────────────────────────────────────────────────────
+    match /staff/{staffId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(staffId) || isHOD() || isAdmin();
+      allow delete: if isAdmin() || isHOD();
+    }
+
+    match /staffAssignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isHOD() || isAdmin();
+    }
+
     // Default Fallback: Authenticated access required
     match /{document=**} {
       allow read, write: if isSignedIn();

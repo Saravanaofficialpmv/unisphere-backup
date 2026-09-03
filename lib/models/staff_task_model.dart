@@ -41,6 +41,7 @@ class StaffTaskModel {
     this.attachmentUrl,
   });
 
+  bool get isCompleted => status.toLowerCase() == 'completed';
   double get submissionRate => studentsAssigned > 0 ? (submissions / studentsAssigned) * 100 : 0.0;
 
   StaffTaskModel copyWith({
@@ -76,6 +77,61 @@ class StaffTaskModel {
       instructions: instructions,
       attachmentUrl: attachmentUrl,
     );
+  }
+
+  factory StaffTaskModel.fromMap(Map<String, dynamic> map, String id) {
+    return StaffTaskModel(
+      id: id,
+      title: map['title'] ?? 'Task',
+      subject: map['subject'] ?? 'General',
+      description: map['description'] ?? '',
+      assignedBy: map['assignedBy'] ?? map['assigned_by'] ?? 'Staff',
+      assignedDate: map['assignedDate'] ?? map['assigned_date'] ?? 'Today',
+      dueDate: map['dueDate'] ?? map['due_date'] ?? 'Due Soon',
+      year: map['year'] ?? 'III Year',
+      department: map['department'] ?? 'CSE',
+      section: map['section'] ?? 'A',
+      studentsAssigned: (map['studentsAssigned'] ?? map['students_assigned'] ?? 0) as int,
+      submissions: (map['submissions'] ?? 0) as int,
+      pending: (map['pending'] ?? 0) as int,
+      maxMarks: (map['maxMarks'] ?? map['max_marks'] ?? 20) as int,
+      priority: map['priority'] ?? 'Medium',
+      status: map['status'] ?? (map['isCompleted'] == true ? 'Completed' : 'Active'),
+      taskType: map['taskType'] ?? map['task_type'] ?? 'Task',
+      instructions: map['instructions'],
+      attachmentUrl: map['attachmentUrl'] ?? map['attachment_url'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'subject': subject,
+      'description': description,
+      'assignedBy': assignedBy,
+      'assigned_by': assignedBy,
+      'assignedDate': assignedDate,
+      'assigned_date': assignedDate,
+      'dueDate': dueDate,
+      'due_date': dueDate,
+      'year': year,
+      'department': department,
+      'section': section,
+      'studentsAssigned': studentsAssigned,
+      'students_assigned': studentsAssigned,
+      'submissions': submissions,
+      'pending': pending,
+      'maxMarks': maxMarks,
+      'max_marks': maxMarks,
+      'priority': priority,
+      'status': status,
+      'isCompleted': isCompleted,
+      'taskType': taskType,
+      'task_type': taskType,
+      'instructions': instructions,
+      'attachmentUrl': attachmentUrl,
+    };
   }
 
   static List<StaffTaskModel> get defaultTasks => [

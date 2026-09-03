@@ -43,6 +43,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   bool _circularAlerts = true;
 
   List<ParentStudentWard> _wards = [];
+  StreamSubscription<List<ParentStudentWard>>? _profileWardsSub;
   int _activeWardSlideIndex = 0;
   late final PageController _wardPageController;
 
@@ -62,6 +63,25 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   Future<void> _loadWards() async {
     final user = ref.read(authServiceProvider).currentUser;
     if (user != null) {
+      _profileWardsSub?.cancel();
+      _profileWardsSub = ref.read(parentServiceProvider).watchParentWards(user.uid, currentUser: user).listen((liveWards) {
+        if (mounted) {
+          setState(() {
+            _wards = liveWards;
+            if (_customPhotoPath == null && (user.profileImageUrl == null || user.profileImageUrl!.isEmpty)) {
+              final resolvedPhoto = ref.read(parentServiceProvider).resolveParentPhotoFromWards(
+                relationship: user.metadata?['relationship'] ?? _relationship,
+                wards: liveWards,
+                currentParentPhoto: user.profileImageUrl,
+              );
+              if (resolvedPhoto != null) {
+                _customPhotoPath = resolvedPhoto;
+              }
+            }
+          });
+        }
+      });
+
       final wards = await ref.read(parentServiceProvider).getStudentWardsForParent(user.uid, currentUser: user);
       if (mounted) {
         setState(() {
@@ -83,6 +103,7 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
 
   @override
   void dispose() {
+    _profileWardsSub?.cancel();
     _wardPageController.dispose();
     _phoneController.dispose();
     _emergencyPhoneController.dispose();
