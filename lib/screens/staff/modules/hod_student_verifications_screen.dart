@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 final hodVerificationsStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   return ref.watch(firebaseFirestoreServiceProvider).getPendingHodVerificationsStream();
@@ -53,48 +54,67 @@ class _HodStudentVerificationsScreenState extends ConsumerState<HodStudentVerifi
 
           // Profiles List
           Expanded(
-            child: verificationsAsync.when(
-              loading: () => const Center(child: Loader(label: 'Loading student verifications...')),
-              error: (err, stack) => Center(child: Text('Error loading profiles: $err')),
-              data: (profiles) {
-                final filtered = profiles.where((p) {
-                  final vStatus = p['verificationStatus']?.toString() ?? p['completionStatus']?.toString() ?? 'pending_hod';
-                  if (_selectedFilter == 'all') return true;
-                  if (_selectedFilter == 'pending_hod') {
-                    return vStatus == 'pending_hod' || vStatus == 'submitted' || vStatus == 'pending';
-                  }
-                  return vStatus == _selectedFilter;
-                }).toList();
+            child: AppLiquidPullToRefresh(
+              gifAsset: 'assets/tibsy-dp.gif',
+              onRefresh: () async {
+                ref.invalidate(hodVerificationsStreamProvider);
+                await Future.delayed(const Duration(milliseconds: 1000));
+              },
+              child: verificationsAsync.when(
+                loading: () => const Center(child: Loader(label: 'Loading student verifications...')),
+                error: (err, stack) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  child: SizedBox(
+                    height: 300,
+                    child: Center(child: Text('Error loading profiles: $err')),
+                  ),
+                ),
+                data: (profiles) {
+                  final filtered = profiles.where((p) {
+                    final vStatus = p['verificationStatus']?.toString() ?? p['completionStatus']?.toString() ?? 'pending_hod';
+                    if (_selectedFilter == 'all') return true;
+                    if (_selectedFilter == 'pending_hod') {
+                      return vStatus == 'pending_hod' || vStatus == 'submitted' || vStatus == 'pending';
+                    }
+                    return vStatus == _selectedFilter;
+                  }).toList();
 
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.verified_user_rounded, size: 64, color: Color(0xFFCBD5E1)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No student profiles in "$_selectedFilter" queue',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF64748B)),
+                  if (filtered.isEmpty) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      child: SizedBox(
+                        height: 350,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.verified_user_rounded, size: 64, color: Color(0xFFCBD5E1)),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No student profiles in "$_selectedFilter" queue',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  );
-                }
+                      ),
+                    );
+                  }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, idx) {
-                    final item = filtered[idx];
-                    final studentUid = item['studentUid']?.toString() ?? docId(item);
-                    final personal = item['personal'] as Map<String, dynamic>? ?? {};
-                    final name = personal['fullName']?.toString() ?? item['studentName']?.toString() ?? 'Student';
-                    final regNo = personal['registerNumber']?.toString() ?? item['registerNumber']?.toString() ?? 'N/A';
-                    final dept = personal['department']?.toString() ?? item['department']?.toString() ?? 'Department';
-                    final email = personal['collegeEmail']?.toString() ?? item['collegeEmail']?.toString() ?? '';
-                    final photoUrl = personal['profilePhotoUrl']?.toString();
-                    final vStatus = item['verificationStatus']?.toString() ?? 'pending_hod';
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, idx) {
+                      final item = filtered[idx];
+                      final studentUid = item['studentUid']?.toString() ?? docId(item);
+                      final personal = item['personal'] as Map<String, dynamic>? ?? {};
+                      final name = personal['fullName']?.toString() ?? item['studentName']?.toString() ?? 'Student';
+                      final regNo = personal['registerNumber']?.toString() ?? item['registerNumber']?.toString() ?? 'N/A';
+                      final dept = personal['department']?.toString() ?? item['department']?.toString() ?? 'Department';
+                      final email = personal['collegeEmail']?.toString() ?? item['collegeEmail']?.toString() ?? '';
+                      final photoUrl = personal['profilePhotoUrl']?.toString();
+                      final vStatus = item['verificationStatus']?.toString() ?? 'pending_hod';
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
@@ -213,6 +233,7 @@ class _HodStudentVerificationsScreenState extends ConsumerState<HodStudentVerifi
                 );
               },
             ),
+          ),
           ),
         ],
       ),

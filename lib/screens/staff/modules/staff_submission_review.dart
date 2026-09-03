@@ -3,6 +3,7 @@ import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/submission_model.dart';
 import 'package:unisphere/services/assignment_service.dart';
 import 'package:unisphere/widgets/common/apple_glass_card.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffSubmissionReview extends StatefulWidget {
   const StaffSubmissionReview({super.key});
@@ -43,8 +44,15 @@ class _StaffSubmissionReviewState extends State<StaffSubmissionReview> {
 
     return Container(
       color: Colors.white,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+      child: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          setState(() {});
+          await Future.delayed(const Duration(milliseconds: 1000));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -129,6 +137,7 @@ class _StaffSubmissionReviewState extends State<StaffSubmissionReview> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

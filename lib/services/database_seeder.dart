@@ -65,7 +65,7 @@ class DatabaseSeeder {
         UserModel(
           uid: 'DEMO-STF',
           email: 'staff@unisphere.edu',
-          fullName: 'Prof. Sarah Jenkins',
+          fullName: 'Dr. K. Tharani Kumar',
           role: UserRole.staff,
           metadata: {
             'department': 'Computer Science & Engineering',

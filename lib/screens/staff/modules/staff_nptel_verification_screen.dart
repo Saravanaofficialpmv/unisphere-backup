@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:unisphere/models/nptel_certificate_model.dart';
 import 'package:unisphere/services/nptel_service.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffNptelVerificationScreen extends StatefulWidget {
   const StaffNptelVerificationScreen({super.key});
@@ -121,8 +122,15 @@ class _StaffNptelVerificationScreenState extends State<StaffNptelVerificationScr
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          setState(() {});
+          await Future.delayed(const Duration(milliseconds: 1000));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -182,6 +190,7 @@ class _StaffNptelVerificationScreenState extends State<StaffNptelVerificationScr
               ),
           ],
         ),
+      ),
       ),
     );
   }

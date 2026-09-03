@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/hackathon_registration_model.dart';
 import 'package:unisphere/controllers/hackathon_registration_controller.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class AdvisorHackathonVerificationScreen extends ConsumerStatefulWidget {
   const AdvisorHackathonVerificationScreen({super.key});
@@ -178,8 +179,15 @@ class _AdvisorHackathonVerificationScreenState extends ConsumerState<AdvisorHack
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          ref.invalidate(hackathonRegistrationProvider);
+          await Future.delayed(const Duration(milliseconds: 1000));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -352,6 +360,7 @@ class _AdvisorHackathonVerificationScreenState extends ConsumerState<AdvisorHack
               ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -94,10 +94,60 @@ class StaffModel {
       'isHod': isHod,
       'is_hod': isHod,
       'isAdvisor': isAdvisor,
-      'is_advisor': isAdvisor,
       'advisorSection': advisorSection,
+      'advisor_section': advisorSection,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
+  }
+
+  bool get hasAdvisorPrivileges => isAdvisor || isHod;
+
+  String get roleTitle => isAdvisor
+      ? (advisorSection != null && advisorSection!.isNotEmpty
+          ? 'Class Advisor ($advisorSection)'
+          : 'Class Advisor')
+      : 'Teaching Faculty';
+
+  StaffModel copyWith({
+    String? userId,
+    String? employeeId,
+    String? fullName,
+    String? departmentId,
+    String? departmentName,
+    String? designation,
+    String? specialization,
+    String? photoPath,
+    List<String>? assignedClasses,
+    List<String>? assignedSubjects,
+    String? qualification,
+    int? experienceYears,
+    String? officeLocation,
+    bool? isHod,
+    bool? isAdvisor,
+    String? advisorSection,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return StaffModel(
+      userId: userId ?? this.userId,
+      employeeId: employeeId ?? this.employeeId,
+      fullName: fullName ?? this.fullName,
+      departmentId: departmentId ?? this.departmentId,
+      departmentName: departmentName ?? this.departmentName,
+      designation: designation ?? this.designation,
+      specialization: specialization ?? this.specialization,
+      photoPath: photoPath ?? this.photoPath,
+      assignedClasses: assignedClasses ?? this.assignedClasses,
+      assignedSubjects: assignedSubjects ?? this.assignedSubjects,
+      qualification: qualification ?? this.qualification,
+      experienceYears: experienceYears ?? this.experienceYears,
+      officeLocation: officeLocation ?? this.officeLocation,
+      isHod: isHod ?? this.isHod,
+      isAdvisor: isAdvisor ?? this.isAdvisor,
+      advisorSection: advisorSection ?? this.advisorSection,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }

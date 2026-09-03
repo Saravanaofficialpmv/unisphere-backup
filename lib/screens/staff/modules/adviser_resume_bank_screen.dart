@@ -5,6 +5,7 @@ import 'package:unisphere/services/resume_service.dart';
 import 'package:unisphere/widgets/resume/resume_completeness_card.dart';
 import 'package:unisphere/widgets/resume/resume_document_view.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class AdviserResumeBankScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -181,7 +182,14 @@ class _AdviserResumeBankScreenState extends ConsumerState<AdviserResumeBankScree
           ),
         ],
       ),
-      body: isDesktop ? _buildDesktopLayout(filteredStudents) : _buildMobileLayout(filteredStudents),
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          ref.invalidate(resumeServiceProvider);
+          await _loadStudentResume(_selectedStudentId);
+        },
+        child: isDesktop ? _buildDesktopLayout(filteredStudents) : _buildMobileLayout(filteredStudents),
+      ),
     );
   }
 

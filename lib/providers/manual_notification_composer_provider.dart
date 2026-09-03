@@ -219,7 +219,7 @@ class ManualNotificationComposerNotifier
       RecipientAudienceItem(uid: 'STU-002', name: 'Priya Sharma', role: 'student', department: 'Computer Science', details: 'Roll: 22CS02 | Sec B | Att: 88.0%'),
       RecipientAudienceItem(uid: 'STU-003', name: 'Karthik Raja', role: 'student', department: 'Information Technology', details: 'Roll: 22IT05 | Sec A | Att: 69.2%'),
       RecipientAudienceItem(uid: 'DEMO-PRT', name: 'Rajesh Kumar (Parent)', role: 'parent', department: 'Computer Science', details: 'Ward: Alex Johnson'),
-      RecipientAudienceItem(uid: 'DEMO-STF', name: 'Demo Staff (Faculty)', role: 'staff', department: 'Computer Science', details: 'Assistant Professor'),
+      RecipientAudienceItem(uid: 'DEMO-STF', name: 'Dr. K. Tharani Kumar (Faculty)', role: 'staff', department: 'Computer Science', details: 'Assistant Professor'),
       RecipientAudienceItem(uid: 'DEMO-HOD', name: 'Dr. R. Kumar (HOD)', role: 'hod', department: 'Computer Science', details: 'Head of Department'),
     ];
 

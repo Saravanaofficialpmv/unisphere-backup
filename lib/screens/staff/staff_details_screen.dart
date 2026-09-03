@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/staff_details_model.dart';
 import 'package:unisphere/models/staff_task_model.dart';
+import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/auth_service.dart';
-import 'package:unisphere/services/user_session_service.dart';
+import 'package:unisphere/services/staff_service.dart';
+import 'package:unisphere/services/supabase_service.dart';
+import 'package:unisphere/services/academic_schedule_service.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
+import 'package:unisphere/providers/notification_provider.dart';
+import 'package:unisphere/providers/gallery_provider.dart';
+import 'package:unisphere/providers/attendance_system_provider.dart';
+import 'package:unisphere/providers/academic_schedule_provider.dart';
+import 'package:unisphere/controllers/question_paper_controller.dart';
+import 'package:unisphere/controllers/hackathon_registration_controller.dart';
+import 'package:unisphere/screens/staff/modules/hod_student_verifications_screen.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffDetailsScreen extends ConsumerStatefulWidget {
   final StaffDetailsModel? staffMember;
@@ -23,7 +36,9 @@ class StaffDetailsScreen extends ConsumerStatefulWidget {
 
 class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   late StaffDetailsModel _staff;
-  bool _isLoading = false;
+  bool _isRefreshing = false;
+  int _refreshEpoch = 0;
+  DateTime? _lastRefreshedAt;
   int _activeNavTab =
       0; // 0: Overview, 1: Profile, 2: Courses, 3: Tasks, 4: Attendance, 5: Documents
 
@@ -75,31 +90,47 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     },
   ];
 
-  bool _isReturningUser = true;
-
   @override
   void initState() {
     super.initState();
     _staff = widget.staffMember ?? StaffDetailsModel.defaultTharaniKumar;
-    _checkUserSession();
+    _loadStaffData();
   }
 
-  Future<void> _checkUserSession() async {
+  Future<void> _loadStaffData() async {
     try {
-      final currentUser = ref.read(authServiceProvider).currentUser;
+      final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
       final uid = currentUser?.uid ?? '';
-      final sessionService = ref.read(userSessionServiceProvider);
-      final isReturning = await sessionService.isReturningUser(uid);
-      if (mounted) {
-        setState(() {
-          _isReturningUser = isReturning;
-        });
-      }
-      if (!isReturning && uid.isNotEmpty) {
-        await sessionService.markUserSessionSeen(uid);
+      if (uid.isNotEmpty) {
+        final staffDoc = await ref.read(staffServiceProvider).getStaffByUid(uid);
+        if (mounted && staffDoc != null) {
+          setState(() {
+            _staff = _staff.copyWith(
+              id: staffDoc.employeeId.isNotEmpty ? staffDoc.employeeId : _staff.id,
+              name: staffDoc.fullName.isNotEmpty ? staffDoc.fullName : _staff.name,
+              designation: staffDoc.designation.isNotEmpty ? staffDoc.designation : _staff.designation,
+              department: staffDoc.departmentName.isNotEmpty ? staffDoc.departmentName : _staff.department,
+              qualification: staffDoc.qualification ?? _staff.qualification,
+              specialization: staffDoc.specialization.isNotEmpty ? staffDoc.specialization : _staff.specialization,
+              experience: staffDoc.experienceYears > 0 ? '${staffDoc.experienceYears} Years' : _staff.experience,
+              photoUrl: (staffDoc.photoPath != null && staffDoc.photoPath!.isNotEmpty) ? staffDoc.photoPath! : (currentUser?.profileImageUrl ?? _staff.photoUrl),
+              email: (currentUser?.email != null && currentUser!.email.isNotEmpty) ? currentUser.email : _staff.email,
+              phone: (currentUser?.phoneNumber != null && currentUser!.phoneNumber!.isNotEmpty) ? currentUser.phoneNumber! : _staff.phone,
+            );
+          });
+        } else if (mounted && currentUser != null) {
+          setState(() {
+            _staff = _staff.copyWith(
+              name: currentUser.name.isNotEmpty ? currentUser.name : _staff.name,
+              email: currentUser.email.isNotEmpty ? currentUser.email : _staff.email,
+              phone: (currentUser.phoneNumber != null && currentUser.phoneNumber!.isNotEmpty) ? currentUser.phoneNumber! : _staff.phone,
+              photoUrl: (currentUser.profileImageUrl != null && currentUser.profileImageUrl!.isNotEmpty) ? currentUser.profileImageUrl! : _staff.photoUrl,
+            );
+          });
+        }
       }
     } catch (e) {
-      debugPrint('Error checking staff details user session: $e');
+      debugPrint('StaffDetailsScreen _loadStaffData error: $e');
     }
   }
 
@@ -110,14 +141,53 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   }
 
   Future<void> _refreshData() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() => _isLoading = false);
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      final startTime = DateTime.now();
+
+      // Invalidate all core app and staff-specific Riverpod providers
+      ref.invalidate(currentUserProvider);
+      ref.invalidate(staffServiceProvider);
+      ref.invalidate(allTimetablesStreamProvider);
+      ref.invalidate(notificationProvider);
+      ref.invalidate(announcementsStreamProvider);
+      ref.invalidate(assignmentsStreamProvider);
+      ref.invalidate(hodVerificationsStreamProvider);
+      ref.invalidate(questionPaperControllerProvider);
+      ref.invalidate(hackathonRegistrationProvider);
+      ref.invalidate(recentPublishedAlbumsProvider);
+      ref.invalidate(allPublishedAlbumsProvider);
+      ref.invalidate(academicScheduleServiceProvider);
+      ref.invalidate(userAcademicScheduleProvider);
+      ref.invalidate(attendanceSystemProvider);
+      ref.invalidate(allStudentsStreamProvider);
+
+      // Reload staff live data from Firestore / Supabase / Auth
+      await _loadStaffData();
+
+      if (mounted) {
+        setState(() {
+          _refreshEpoch++;
+          _lastRefreshedAt = DateTime.now();
+        });
+      }
+
+      // Ensure full animation cycle completes for smooth, delightful visual timing
+      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+      if (elapsed < 1200) {
+        await Future.delayed(Duration(milliseconds: 1200 - elapsed));
+      }
+    } catch (e) {
+      debugPrint('Staff realtime refresh error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+        HapticFeedback.lightImpact();
+      }
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -125,19 +195,18 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: RefreshIndicator(
+      body: AppLiquidPullToRefresh(
         onRefresh: _refreshData,
-        color: const Color(0xFF2563EB),
-        child: _isLoading
-            ? _buildSkeletonLoading(isMobile)
-            : _buildMainContent(isMobile),
+        gifAsset: 'assets/tibsy-dp.gif',
+        child: _buildMainContent(isMobile),
       ),
     );
   }
 
   Widget _buildMainContent(bool isMobile) {
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
+      key: ValueKey('staff_details_scroll_$_refreshEpoch'),
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: EdgeInsets.all(isMobile ? 14 : 20),
       child: Center(
         child: ConstrainedBox(
@@ -146,15 +215,11 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_activeNavTab == 0) ...[
-                // 1. Greeting Hero Banner
-                _buildGreetingBanner(isMobile),
-                const SizedBox(height: 16),
-
-                // 2. Staff Header Profile Card (Image 1 layout)
+                // 1. Staff Header Profile Card
                 _buildStaffProfileCard(isMobile),
                 const SizedBox(height: 16),
 
-                // 3. Metric Counter Cards
+                // 2. Metric Counter Cards
                 _buildMetricCounterCards(isMobile),
                 const SizedBox(height: 16),
 
@@ -219,124 +284,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     );
   }
 
-  // ── 1. GREETING HERO BANNER ─────────────────────────────────────────────
-  Widget _buildGreetingBanner(bool isMobile) {
-    final hour = DateTime.now().hour;
-    final timeOfDay = hour < 12
-        ? 'Good Morning! ☀️'
-        : (hour < 17 ? 'Good Afternoon! ☀️' : 'Good Evening! 🌙');
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 18 : 24,
-        vertical: isMobile ? 18 : 22,
-      ),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF4C1D95)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF312E81).withValues(alpha: 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  timeOfDay,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _staff.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _isReturningUser
-                      ? 'Welcome back! Have a\nproductive and successful day.'
-                      : 'Welcome! Have a\nproductive and successful day.',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFFE0E7FF),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: isMobile ? 110 : 145,
-            height: isMobile ? 95 : 110,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/images/hero_purple_teacher.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.laptop_chromebook_rounded,
-                      size: 44,
-                      color: Colors.white,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── 2. REDESIGNED STAFF PROFILE CARD (IMAGE 1) ──────────────────────────
+  // ── 1. REDESIGNED STAFF PROFILE CARD ────────────────────────────────────
   Widget _buildStaffProfileCard(bool isMobile) {
     return Container(
       width: double.infinity,
@@ -393,13 +341,50 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      _staff.designation,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6366F1),
-                      ),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          _staff.designation,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF6366F1),
+                          ),
+                        ),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final staffAsync = ref.watch(currentStaffProfileStreamProvider);
+                            final currentUser = ref.watch(currentUserProvider).value;
+                            final isAdvisor = staffAsync.value?.isAdvisor ?? (currentUser?.role == UserRole.advisor);
+                            final section = staffAsync.value?.advisorSection;
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isAdvisor ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isAdvisor ? const Color(0xFFDDD6FE) : const Color(0xFFCBD5E1),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                isAdvisor
+                                    ? (section != null && section.isNotEmpty ? '🎓 Advisor ($section)' : '🎓 Class Advisor')
+                                    : '👨‍🏫 Faculty',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: isAdvisor ? const Color(0xFF7C3AED) : const Color(0xFF475569),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Row(
@@ -426,40 +411,82 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                   ],
                 ),
               ),
-              InkWell(
-                onTap: () {
-                  setState(() => _activeNavTab = 1);
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      setState(() => _activeNavTab = 1);
+                    },
                     borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View Profile',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF6366F1),
+                            ),
+                          ),
+                          SizedBox(width: 3),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 15,
+                            color: Color(0xFF6366F1),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View Profile',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF6366F1),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFA7F3D0),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5.5,
+                          height: 5.5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: Color(0xFF6366F1),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          _lastRefreshedAt != null
+                              ? 'Synced ${DateTime.now().difference(_lastRefreshedAt!).inMinutes == 0 ? 'just now' : '${DateTime.now().difference(_lastRefreshedAt!).inMinutes}m ago'}'
+                              : 'Live Synced',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF065F46),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -720,7 +747,11 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
 
   // ── 3. QUICK ACTIONS GRID ──────────────────────────────────────────────
   Widget _buildQuickActions(bool isMobile) {
-    final actions = [
+    final staffAsync = ref.watch(currentStaffProfileStreamProvider);
+    final currentUser = ref.watch(currentUserProvider).value;
+    final isAdvisor = staffAsync.value?.isAdvisor ?? (currentUser?.role == UserRole.advisor);
+
+    final List<Map<String, dynamic>> allActions = [
       {
         'label': 'Take Attendance',
         'icon': Icons.how_to_reg_rounded,
@@ -729,6 +760,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFBFDBFE),
         'sidebarIndex': 12,
         'tab': 4,
+        'requiresAdvisor': false,
       },
       {
         'label': 'Give Assignment',
@@ -738,6 +770,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFDDD6FE),
         'sidebarIndex': 1,
         'tab': 3,
+        'requiresAdvisor': false,
       },
       {
         'label': 'Review Work',
@@ -747,6 +780,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFBBF7D0),
         'sidebarIndex': 2,
         'tab': 3,
+        'requiresAdvisor': false,
       },
       {
         'label': 'Upload Marks',
@@ -756,6 +790,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFFED7AA),
         'sidebarIndex': 9,
         'tab': 3,
+        'requiresAdvisor': false,
       },
       {
         'label': 'Student Directory',
@@ -765,6 +800,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFBAE6FD),
         'sidebarIndex': 3,
         'tab': 2,
+        'requiresAdvisor': true,
       },
       {
         'label': 'Resume Bank',
@@ -774,6 +810,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFFDE68A),
         'sidebarIndex': 4,
         'tab': 3,
+        'requiresAdvisor': true,
       },
       {
         'label': 'Announcements',
@@ -783,6 +820,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFFECDD3),
         'sidebarIndex': 15,
         'tab': 5,
+        'requiresAdvisor': false,
       },
       {
         'label': 'Library Access',
@@ -792,8 +830,11 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         'borderColor': const Color(0xFFC7D2FE),
         'sidebarIndex': 16,
         'tab': 5,
+        'requiresAdvisor': false,
       },
     ];
+
+    final actions = allActions.where((a) => a['requiresAdvisor'] == false || isAdvisor).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3676,31 +3717,6 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  Widget _buildSkeletonLoading(bool isMobile) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 14 : 24),
-      child: Column(
-        children: [
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        ],
       ),
     );
   }

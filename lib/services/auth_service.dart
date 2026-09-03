@@ -97,7 +97,7 @@ class SupabaseAuthService implements AuthService {
       return;
     }
     if (lowerEmail == 'staff@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-STF', email: email, fullName: 'Demo Staff', role: UserRole.staff);
+      _mockUser = UserModel(uid: 'DEMO-STF', email: email, fullName: 'Dr. K. Tharani Kumar', role: UserRole.staff);
       _currentUser = _mockUser;
       _stateController.add(_mockUser);
       return;

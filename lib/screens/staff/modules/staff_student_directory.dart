@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
 import 'package:unisphere/widgets/student/student_full_detail_modal.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffStudentDirectory extends ConsumerStatefulWidget {
   const StaffStudentDirectory({super.key});
@@ -186,8 +187,15 @@ class _StaffStudentDirectoryState extends ConsumerState<StaffStudentDirectory> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          ref.invalidate(allStudentsStreamProvider);
+          await Future.delayed(const Duration(milliseconds: 1000));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -226,6 +234,7 @@ class _StaffStudentDirectoryState extends ConsumerState<StaffStudentDirectory> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

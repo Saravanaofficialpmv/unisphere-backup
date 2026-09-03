@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffMarksUploadModule extends StatefulWidget {
   const StaffMarksUploadModule({super.key});
@@ -291,8 +292,15 @@ class _StaffMarksUploadModuleState extends State<StaffMarksUploadModule> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return AppLiquidPullToRefresh(
+      gifAsset: 'assets/tibsy-dp.gif',
+      onRefresh: () async {
+        setState(() {});
+        await Future.delayed(const Duration(milliseconds: 1000));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -641,6 +649,7 @@ class _StaffMarksUploadModuleState extends State<StaffMarksUploadModule> {
           ],
         ],
       ),
+    ),
     );
   }
 }

@@ -2,9 +2,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/models/user_model.dart';
+import 'package:unisphere/models/staff_model.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/staff_service.dart';
 import 'package:unisphere/services/user_session_service.dart';
+import 'package:unisphere/services/supabase_service.dart';
+import 'package:unisphere/services/academic_schedule_service.dart';
+import 'package:unisphere/providers/academic_schedule_provider.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
+import 'package:unisphere/providers/notification_provider.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 import 'package:unisphere/screens/staff/modules/staff_assignment_creation.dart';
 import 'package:unisphere/screens/staff/modules/staff_submission_review.dart';
@@ -17,7 +26,6 @@ import 'package:unisphere/screens/staff/modules/hod_student_verifications_screen
 import 'package:unisphere/screens/staff/modules/advisor_hackathon_verification_screen.dart';
 
 import 'package:unisphere/widgets/common/main_sidebar.dart';
-import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/notification_bell_button.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
@@ -30,6 +38,21 @@ import 'package:unisphere/screens/staff/staff_details_screen.dart';
 import 'package:unisphere/screens/hod/modules/hod_syllabus_management_screen.dart';
 import 'package:unisphere/screens/profile/profile_screen.dart';
 import 'package:unisphere/core/theme/app_animations.dart';
+
+String _resolveStaffName(StaffModel? profile, UserModel? user) {
+  final profileName = profile?.fullName.trim();
+  if (profileName != null && profileName.isNotEmpty && profileName != 'Demo Staff' && profileName != 'Staff Member') {
+    return profileName;
+  }
+  final userName = user?.name.trim();
+  if (userName != null && userName.isNotEmpty && userName != 'Demo Staff' && userName != 'User') {
+    return userName;
+  }
+  if (profileName != null && profileName.isNotEmpty) {
+    return profileName;
+  }
+  return 'Dr. K. Tharani Kumar';
+}
 
 class StaffDashboard extends ConsumerStatefulWidget {
   const StaffDashboard({super.key});
@@ -53,87 +76,134 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
     });
   }
 
-  late final List<SidebarItem> _sidebarItems = [
-    SidebarItem(label: 'Staff Home', icon: Icons.dashboard_outlined),
-    SidebarItem(label: 'Syllabus Management', icon: Icons.auto_stories_outlined),
-    SidebarItem(label: 'Give Assignment', icon: Icons.assignment_outlined),
-    SidebarItem(
-      label: 'Review Submissions',
-      icon: Icons.rate_review_outlined,
-      badge: '12',
-    ),
-    SidebarItem(
-      label: 'Student Directory',
-      icon: Icons.people_outline,
-      badge: 'NEW',
-    ),
-    SidebarItem(
-      label: 'Resume Bank',
-      icon: Icons.description_outlined,
-      badge: '45',
-    ),
-    SidebarItem(
-      label: 'Profile Edit Requests',
-      icon: Icons.edit_note_rounded,
-      badge: '5',
-    ),
-    SidebarItem(
-      label: 'Student Approvals',
-      icon: Icons.verified_user_outlined,
-      badge: '3',
-    ),
-    SidebarItem(
-      label: 'NPTEL Verification',
-      icon: Icons.workspace_premium_outlined,
-      badge: '8',
-    ),
-    SidebarItem(
-      label: 'Hackathon Approvals',
-      icon: Icons.emoji_events_outlined,
-      badge: '2',
-    ),
-    SidebarItem(label: 'Upload Marks', icon: Icons.grade_outlined),
-    SidebarItem(label: 'My Profile', icon: Icons.person_outline),
-    SidebarItem(
-      label: 'Academic Schedule',
-      icon: Icons.calendar_month_outlined,
-    ),
-    SidebarItem(label: 'DIVIDER', icon: Icons.minimize),
-    SidebarItem(label: 'Take Attendance', icon: Icons.how_to_reg_outlined),
-    SidebarItem(
-      label: 'Question Paper Upload',
-      icon: Icons.upload_file_outlined,
-    ),
-    SidebarItem(
-      label: 'Campus Photo Gallery',
-      icon: Icons.collections_outlined,
-      badge: 'Gallery',
-    ),
-    SidebarItem(label: 'Announcements', icon: Icons.campaign_outlined),
-    SidebarItem(label: 'Library Access', icon: Icons.local_library_outlined),
-  ];
+  List<_StaffModuleTab> _buildAllModuleTabs() {
+    return [
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Staff Home', icon: Icons.dashboard_outlined),
+        screen: StaffDetailsScreen(key: _staffDetailsKey, onBack: () => _handleNavigation(0)),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Syllabus Management', icon: Icons.auto_stories_outlined),
+        screen: const HodSyllabusManagementScreen(),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Give Assignment', icon: Icons.assignment_outlined),
+        screen: StaffAssignmentCreation(onCreated: () => _handleNavigation(3)),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Review Submissions',
+          icon: Icons.rate_review_outlined,
+          badge: '12',
+        ),
+        screen: const StaffSubmissionReview(),
+      ),
 
-  late final List<Widget> _screens = [
-    StaffDetailsScreen(key: _staffDetailsKey, onBack: () => _handleNavigation(0)),
-    const HodSyllabusManagementScreen(),
-    StaffAssignmentCreation(onCreated: () => _handleNavigation(3)),
-    const StaffSubmissionReview(),
-    const StaffStudentDirectory(),
-    AdviserResumeBankScreen(onBack: _handleBackNavigation),
-    const ClassAdvisorEditRequestsScreen(),
-    const HodStudentVerificationsScreen(),
-    const StaffNptelVerificationScreen(),
-    const AdvisorHackathonVerificationScreen(),
-    const StaffMarksUploadModule(),
-    ProfileScreen(onBack: _handleBackNavigation),
-    AcademicScheduleDetailScreen(onBack: _handleBackNavigation),
-    const SizedBox.shrink(), // Divider
-    const StaffAttendanceMarkingModule(),
-    StaffQuestionPaperUploadScreen(onBack: _handleBackNavigation),
-    FullPhotoGalleryScreen(onBack: _handleBackNavigation),
-    StudentAnnouncementsScreen(onBack: _handleBackNavigation),
-    StudentLibraryScreen(onBack: _handleBackNavigation),
-  ];
+      // ── SPECIAL ADVISOR MODULES (Gated to Class Advisors assigned by HOD) ──
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Student Directory',
+          icon: Icons.people_outline,
+          badge: 'ADVISOR',
+        ),
+        screen: const StaffStudentDirectory(),
+        requiresAdvisor: true,
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Resume Bank',
+          icon: Icons.description_outlined,
+          badge: 'ADVISOR',
+        ),
+        screen: AdviserResumeBankScreen(onBack: _handleBackNavigation),
+        requiresAdvisor: true,
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Profile Edit Requests',
+          icon: Icons.edit_note_rounded,
+          badge: 'ADVISOR',
+        ),
+        screen: const ClassAdvisorEditRequestsScreen(),
+        requiresAdvisor: true,
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Student Approvals',
+          icon: Icons.verified_user_outlined,
+          badge: 'ADVISOR',
+        ),
+        screen: const HodStudentVerificationsScreen(),
+        requiresAdvisor: true,
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'NPTEL Verification',
+          icon: Icons.workspace_premium_outlined,
+          badge: 'ADVISOR',
+        ),
+        screen: const StaffNptelVerificationScreen(),
+        requiresAdvisor: true,
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Hackathon Approvals',
+          icon: Icons.emoji_events_outlined,
+          badge: 'ADVISOR',
+        ),
+        screen: const AdvisorHackathonVerificationScreen(),
+        requiresAdvisor: true,
+      ),
+
+      // ── STANDARD TEACHING MODULES (Available to All Staff) ──
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Upload Marks', icon: Icons.grade_outlined),
+        screen: const StaffMarksUploadModule(),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'My Profile', icon: Icons.person_outline),
+        screen: ProfileScreen(onBack: _handleBackNavigation),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Academic Schedule',
+          icon: Icons.calendar_month_outlined,
+        ),
+        screen: AcademicScheduleDetailScreen(onBack: _handleBackNavigation),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'DIVIDER', icon: Icons.minimize),
+        screen: const SizedBox.shrink(),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Take Attendance', icon: Icons.how_to_reg_outlined),
+        screen: const StaffAttendanceMarkingModule(),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Question Paper Upload',
+          icon: Icons.upload_file_outlined,
+        ),
+        screen: StaffQuestionPaperUploadScreen(onBack: _handleBackNavigation),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(
+          label: 'Campus Photo Gallery',
+          icon: Icons.collections_outlined,
+          badge: 'Gallery',
+        ),
+        screen: FullPhotoGalleryScreen(onBack: _handleBackNavigation),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        screen: StudentAnnouncementsScreen(onBack: _handleBackNavigation),
+      ),
+      _StaffModuleTab(
+        sidebarItem: SidebarItem(label: 'Library Access', icon: Icons.local_library_outlined),
+        screen: StudentLibraryScreen(onBack: _handleBackNavigation),
+      ),
+    ];
+  }
 
   void _handleNavigation(int index, {bool isBack = false}) {
     if (_innerNavigatorKey.currentState?.canPop() ?? false) {
@@ -171,6 +241,27 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
 
+    final currentUser =
+        ref.watch(currentUserProvider).value ??
+        ref.watch(authServiceProvider).currentUser;
+    final staffProfileAsync = ref.watch(currentStaffProfileStreamProvider);
+    final staffProfile = staffProfileAsync.value;
+    final staffName = _resolveStaffName(staffProfile, currentUser);
+
+    final isAdvisor = staffProfile?.isAdvisor ?? (currentUser?.role == UserRole.advisor);
+    final advisorSection = staffProfile?.advisorSection;
+
+    final allTabs = _buildAllModuleTabs();
+    final activeTabs = allTabs.where((t) => !t.requiresAdvisor || isAdvisor).toList();
+    final sidebarItems = activeTabs.map((t) => t.sidebarItem).toList();
+    final screens = activeTabs.map((t) => t.screen).toList();
+    final safeIndex = _currentIndex < screens.length ? _currentIndex : 0;
+
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good Morning! ☀️'
+        : (hour < 17 ? 'Good Afternoon! ☀️' : 'Good Evening! 🌙');
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -180,7 +271,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
-        drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
+        drawer: isDesktop ? null : Drawer(child: _buildSidebar(sidebarItems)),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0.5,
@@ -189,7 +280,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           leading: Builder(
             builder: (context) => IconButton(
               icon: Icon(
-                _currentIndex == 0 && !(_innerNavigatorKey.currentState?.canPop() ?? false)
+                safeIndex == 0 && !(_innerNavigatorKey.currentState?.canPop() ?? false)
                     ? Icons.menu_rounded
                     : Icons.arrow_back_ios_new_rounded,
                 color: const Color(0xFF1E293B),
@@ -198,7 +289,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
               onPressed: () {
                 if (_innerNavigatorKey.currentState?.canPop() ?? false) {
                   _innerNavigatorKey.currentState?.pop();
-                } else if (_currentIndex != 0) {
+                } else if (safeIndex != 0) {
                   _handleBackNavigation();
                 } else {
                   _scaffoldKey.currentState?.openDrawer();
@@ -206,44 +297,64 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
               },
             ),
           ),
-          title: _currentIndex == 0
-              ? Row(
+          title: safeIndex == 0
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildVsbLogo(),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'VSB COLLEGE',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: 0.3,
+                    Row(
+                      children: [
+                        Text(
+                          greeting,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6366F1),
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: isAdvisor ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isAdvisor ? const Color(0xFFDDD6FE) : const Color(0xFFE2E8F0),
+                              width: 0.8,
                             ),
                           ),
-                          Text(
-                            'Faculty Management System',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Text(
+                            isAdvisor
+                                ? (advisorSection != null && advisorSection.isNotEmpty
+                                    ? 'Advisor ($advisorSection)'
+                                    : 'Class Advisor')
+                                : 'Teaching Faculty',
                             style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 10.5,
-                              color: Colors.black.withValues(alpha: 0.55),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: isAdvisor ? const Color(0xFF7C3AED) : const Color(0xFF64748B),
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      staffName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16.5,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ],
                 )
               : Text(
-                  _sidebarItems[_currentIndex].label,
+                  sidebarItems[safeIndex].label,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -251,53 +362,27 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   ),
                 ),
           actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.school_rounded,
-                color: AppColors.primary,
-                size: 22,
-              ),
-              tooltip: 'Department Vision & POs',
-              onPressed: () => showDepartmentVisionSheet(context),
-            ),
-            NotificationBellButton(
-              unreadCount: 3,
-              onTap: () => showNotificationSheet(context),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _handleNavigation(11), // Open profile
-              child: Container(
-                margin: const EdgeInsets.only(right: 14),
-                child: CircleAvatar(
-                  radius: 17,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: const CircleAvatar(
-                    radius: 15,
-                    backgroundImage: NetworkImage(
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-                    ),
-                  ),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: NotificationBellButton(
+                unreadCount: 3,
+                onTap: () => showNotificationSheet(context),
               ),
             ),
           ],
         ),
         body: Row(
           children: [
-            if (isDesktop) _buildSidebar(),
+            if (isDesktop) _buildSidebar(sidebarItems),
             Expanded(
               child: ClipRect(
                 child: Navigator(
                   key: _innerNavigatorKey,
                   onGenerateRoute: (settings) {
-                    final activeScreen =
-                        _screens[_currentIndex < _screens.length
-                            ? _currentIndex
-                            : 0];
+                    final activeScreen = screens[safeIndex];
                     return MaterialPageRoute(
                       builder: (_) => FadeSlideTransition(
-                        transitionKey: ValueKey('staff_tab_$_currentIndex'),
+                        transitionKey: ValueKey('staff_tab_$safeIndex'),
                         child: activeScreen,
                       ),
                     );
@@ -311,59 +396,38 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
     );
   }
 
-  Widget _buildVsbLogo() {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF800000), // Burgundy maroon background
-        border: Border.all(
-          color: const Color(0xFFD4AF37),
-          width: 2,
-        ), // Gold outer ring
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        'VSB',
-        style: TextStyle(
-          color: Color(0xFFFFD700), // Gold text
-          fontWeight: FontWeight.w900,
-          fontSize: 10,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
+  Widget _buildSidebar(List<SidebarItem> items) {
     final currentUser =
         ref.watch(currentUserProvider).value ??
         ref.watch(authServiceProvider).currentUser;
-    final userName =
-        (currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
-        ? currentUser.name
-        : 'Dr. John Smith';
+    final staffProfileAsync = ref.watch(currentStaffProfileStreamProvider);
+    final staffProfile = staffProfileAsync.value;
+    final userName = _resolveStaffName(staffProfile, currentUser);
     final userEmail =
         (currentUser?.email != null && currentUser!.email.trim().isNotEmpty)
         ? currentUser.email
-        : 'staff@unisphere.edu';
+        : 'tharani.kumar@vsbec.edu.in';
 
     return MainSidebar(
-      selectedIndex: _currentIndex,
+      selectedIndex: _currentIndex < items.length ? _currentIndex : 0,
       onDestinationSelected: _handleNavigation,
-      items: _sidebarItems,
+      items: items,
       userName: userName,
       userEmail: userEmail,
     );
   }
+}
+
+class _StaffModuleTab {
+  final SidebarItem sidebarItem;
+  final Widget screen;
+  final bool requiresAdvisor;
+
+  const _StaffModuleTab({
+    required this.sidebarItem,
+    required this.screen,
+    this.requiresAdvisor = false,
+  });
 }
 
 class StaffHomeScreen extends ConsumerStatefulWidget {
@@ -408,26 +472,39 @@ class _StaffHomeScreenState extends ConsumerState<StaffHomeScreen> {
     final currentUser =
         ref.watch(currentUserProvider).value ??
         ref.watch(authServiceProvider).currentUser;
-    final staffName =
-        (currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
-        ? currentUser.name
-        : 'Dr. John Smith';
+    final staffProfileAsync = ref.watch(currentStaffProfileStreamProvider);
+    final staffProfile = staffProfileAsync.value;
+    final staffName = _resolveStaffName(staffProfile, currentUser);
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 28,
-        vertical: isMobile ? 16 : 24,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Hero Purple Gradient Welcome Banner
-              _buildWelcomeCard(staffName, isMobile),
-              const SizedBox(height: 20),
+    return AppLiquidPullToRefresh(
+      gifAsset: 'assets/tibsy-dp.gif',
+      onRefresh: () async {
+        ref.invalidate(currentUserProvider);
+        ref.invalidate(staffServiceProvider);
+        ref.invalidate(allTimetablesStreamProvider);
+        ref.invalidate(notificationProvider);
+        ref.invalidate(announcementsStreamProvider);
+        ref.invalidate(assignmentsStreamProvider);
+        ref.invalidate(academicScheduleServiceProvider);
+        ref.invalidate(userAcademicScheduleProvider);
+        ref.invalidate(allStudentsStreamProvider);
+        await Future.delayed(const Duration(milliseconds: 1200));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 28,
+          vertical: isMobile ? 16 : 24,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Hero Purple Gradient Welcome Banner
+                _buildWelcomeCard(staffName, isMobile),
+                const SizedBox(height: 20),
 
               // 2. Metrics Statistics Grid (6 Stat Cards)
               _buildMetricsGrid(isMobile),
@@ -452,6 +529,7 @@ class _StaffHomeScreenState extends ConsumerState<StaffHomeScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

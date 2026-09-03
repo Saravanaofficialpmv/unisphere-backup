@@ -1,125 +1,131 @@
 import 'package:flutter/material.dart';
-import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unisphere/models/staff_model.dart';
+import 'package:unisphere/services/staff_service.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
+import 'package:unisphere/widgets/common/custom_loader.dart';
 
-class HodStaffManagement extends StatefulWidget {
+class HodStaffManagement extends ConsumerStatefulWidget {
   const HodStaffManagement({super.key});
 
   @override
-  State<HodStaffManagement> createState() => _HodStaffManagementState();
+  ConsumerState<HodStaffManagement> createState() => _HodStaffManagementState();
 }
 
-class _HodStaffManagementState extends State<HodStaffManagement> {
+class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
   String _searchQuery = '';
   String _selectedDesignation = 'All';
-  String _selectedStatus = 'All';
+  String _selectedRoleFilter = 'All'; // 'All', 'Advisors', 'Teaching Faculty'
 
-  final List<Map<String, dynamic>> _facultyList = [
-    {
-      'name': 'Dr. S. Meenakshi',
-      'id': 'FAC-CSE-001',
-      'designation': 'Professor',
-      'department': 'CSE',
-      'subjects': ['Distributed Systems', 'Cloud Computing'],
-      'phone': '+91 98765 43210',
-      'email': 'meenakshi.s@unisphere.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'On Duty',
-      'experience': '14 Years',
-      'workload': '16 hrs/week',
-      'rating': '4.9',
-      'photo': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-    },
-    {
-      'name': 'Prof. Rajesh Kumar',
-      'id': 'FAC-CSE-004',
-      'designation': 'Associate Professor',
-      'department': 'CSE',
-      'subjects': ['Data Structures', 'Algorithms'],
-      'phone': '+91 98765 11223',
-      'email': 'rajesh.k@unisphere.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '9 Years',
-      'workload': '18 hrs/week',
-      'rating': '4.7',
-      'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    },
-    {
-      'name': 'Dr. Anita Roy',
-      'id': 'FAC-CSE-008',
-      'designation': 'Assistant Professor',
-      'department': 'CSE',
-      'subjects': ['Machine Learning', 'AI Fundamentals'],
-      'phone': '+91 98765 88990',
-      'email': 'anita.roy@unisphere.edu',
-      'attendance': 'On Leave',
-      'leaveStatus': 'Casual Leave Approved',
-      'experience': '6 Years',
-      'workload': '14 hrs/week',
-      'rating': '4.8',
-      'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-    },
-    {
-      'name': 'Prof. Vikram Sharma',
-      'id': 'FAC-CSE-012',
-      'designation': 'Assistant Professor',
-      'department': 'CSE',
-      'subjects': ['Database Management', 'SQL Labs'],
-      'phone': '+91 98765 44332',
-      'email': 'vikram.s@unisphere.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '5 Years',
-      'workload': '20 hrs/week',
-      'rating': '4.6',
-      'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    },
+  final List<StaffModel> _defaultMockStaff = [
+    StaffModel(
+      userId: 'DEMO-STF',
+      employeeId: 'FAC-CSE-001',
+      fullName: 'Dr. S. Meenakshi',
+      departmentId: 'DEPT-CSE',
+      departmentName: 'Computer Science',
+      designation: 'Professor',
+      specialization: 'Distributed Systems & Cloud',
+      photoPath: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+      assignedClasses: ['CS-A', 'CS-B'],
+      assignedSubjects: ['Distributed Systems', 'Cloud Computing'],
+      experienceYears: 14,
+      isAdvisor: true,
+      advisorSection: 'CS-A',
+    ),
+    StaffModel(
+      userId: 'STF-DR-VANCE',
+      employeeId: 'FAC-CSE-004',
+      fullName: 'Dr. Robert Vance',
+      departmentId: 'DEPT-CSE',
+      departmentName: 'Computer Science',
+      designation: 'Associate Professor',
+      specialization: 'Data Structures & Algorithms',
+      photoPath: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      assignedClasses: ['CS-A'],
+      assignedSubjects: ['Data Structures', 'Algorithms'],
+      experienceYears: 9,
+      isAdvisor: true,
+      advisorSection: 'CS-B',
+    ),
+    StaffModel(
+      userId: 'FAC-CSE-008',
+      employeeId: 'FAC-CSE-008',
+      fullName: 'Dr. Anita Roy',
+      departmentId: 'DEPT-CSE',
+      departmentName: 'Computer Science',
+      designation: 'Assistant Professor',
+      specialization: 'Machine Learning & AI',
+      photoPath: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
+      assignedClasses: ['CS-C'],
+      assignedSubjects: ['Machine Learning', 'AI Fundamentals'],
+      experienceYears: 6,
+      isAdvisor: false,
+      advisorSection: null,
+    ),
+    StaffModel(
+      userId: 'FAC-CSE-012',
+      employeeId: 'FAC-CSE-012',
+      fullName: 'Prof. Vikram Sharma',
+      departmentId: 'DEPT-CSE',
+      departmentName: 'Computer Science',
+      designation: 'Assistant Professor',
+      specialization: 'Database Management',
+      photoPath: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      assignedClasses: ['CS-B'],
+      assignedSubjects: ['Database Management', 'SQL Labs'],
+      experienceYears: 5,
+      isAdvisor: false,
+      advisorSection: null,
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final filteredStaff = _facultyList.where((faculty) {
-      final matchesSearch = faculty['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          faculty['id'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          faculty['subjects'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesDesignation = _selectedDesignation == 'All' || faculty['designation'] == _selectedDesignation;
-      final matchesStatus = _selectedStatus == 'All' || faculty['attendance'] == _selectedStatus;
-      return matchesSearch && matchesDesignation && matchesStatus;
-    }).toList();
+    final staffAsync = ref.watch(staffMembersStreamProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 20),
-            _buildSearchBar(),
-            const SizedBox(height: 16),
-            _buildFilterChips(),
-            const SizedBox(height: 24),
-            Text(
-              'FACULTY DIRECTORY (${filteredStaff.length})',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.1),
-            ),
-            const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredStaff.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final item = filteredStaff[index];
-                return _buildFacultyCard(context, item);
-              },
-            ),
-          ],
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          ref.invalidate(staffMembersStreamProvider);
+          await Future.delayed(const Duration(milliseconds: 1000));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 20),
+              _buildRoleAnalyticsSummary(staffAsync),
+              const SizedBox(height: 20),
+              _buildSearchBar(),
+              const SizedBox(height: 16),
+              _buildFilterChips(),
+              const SizedBox(height: 24),
+              staffAsync.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Loader(label: 'Loading faculty records...'),
+                  ),
+                ),
+                error: (err, _) => _buildStaffList(_defaultMockStaff),
+                data: (liveStaff) {
+                  // Merge live staff with default mock list if empty
+                  final allStaff = liveStaff.isNotEmpty ? liveStaff : _defaultMockStaff;
+                  return _buildStaffList(allStaff);
+                },
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
+        backgroundColor: const Color(0xFF2563EB),
         onPressed: () => _showAddFacultyModal(context),
         icon: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white),
         label: const Text('Add New Faculty', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
@@ -133,14 +139,90 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
       children: const [
         Text(
           'DEPARTMENT ADMINISTRATION',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.2),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 1.2),
         ),
         SizedBox(height: 4),
         Text(
-          'Staff & Faculty Management',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          'Staff & Role Management',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        SizedBox(height: 2),
+        Text(
+          'Assign staff as Class Advisors to grant Students Panel & verification permissions',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
         ),
       ],
+    );
+  }
+
+  Widget _buildRoleAnalyticsSummary(AsyncValue<List<StaffModel>> staffAsync) {
+    final list = staffAsync.value ?? _defaultMockStaff;
+    final total = list.length;
+    final advisors = list.where((s) => s.isAdvisor).length;
+    final teaching = total - advisors;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMetricCard('Total Faculty', '$total', const Color(0xFF2563EB), Icons.groups_rounded),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildMetricCard('Class Advisors', '$advisors', const Color(0xFF7C3AED), Icons.school_rounded),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildMetricCard('Teaching Faculty', '$teaching', const Color(0xFF059669), Icons.co_present_rounded),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard(String title, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color),
+                ),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -148,14 +230,17 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 5))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
       ),
       child: TextField(
         onChanged: (val) => setState(() => _searchQuery = val),
         decoration: const InputDecoration(
           hintText: 'Search faculty by name, ID, or subject...',
-          prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
+          prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF2563EB)),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
@@ -168,17 +253,19 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildFilterDropdown('Designation', _selectedDesignation, ['All', 'Professor', 'Associate Professor', 'Assistant Professor'], (val) {
-            setState(() => _selectedDesignation = val!);
-          }),
+          _buildFilterDropdown(
+            'Role Filter',
+            _selectedRoleFilter,
+            ['All', 'Class Advisors', 'Teaching Faculty'],
+            (val) => setState(() => _selectedRoleFilter = val!),
+          ),
           const SizedBox(width: 10),
-          _buildFilterDropdown('Status', _selectedStatus, ['All', 'Present', 'On Leave'], (val) {
-            setState(() => _selectedStatus = val!);
-          }),
-          const SizedBox(width: 10),
-          _buildFilterChip('Year Coordinator', false, () {}),
-          const SizedBox(width: 10),
-          _buildFilterChip('Class Advisor', false, () {}),
+          _buildFilterDropdown(
+            'Designation',
+            _selectedDesignation,
+            ['All', 'Professor', 'Associate Professor', 'Assistant Professor'],
+            (val) => setState(() => _selectedDesignation = val!),
+          ),
         ],
       ),
     );
@@ -189,14 +276,14 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary, size: 20),
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B), size: 18),
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
           onChanged: onChanged,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text('$label: $e'))).toList(),
         ),
@@ -204,33 +291,79 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+  Widget _buildStaffList(List<StaffModel> allStaff) {
+    final filtered = allStaff.where((s) {
+      final matchesSearch = s.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.employeeId.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.assignedSubjects.any((sub) => sub.toLowerCase().contains(_searchQuery.toLowerCase()));
+
+      final matchesDesignation = _selectedDesignation == 'All' || s.designation == _selectedDesignation;
+
+      final matchesRole = _selectedRoleFilter == 'All' ||
+          (_selectedRoleFilter == 'Class Advisors' && s.isAdvisor) ||
+          (_selectedRoleFilter == 'Teaching Faculty' && !s.isAdvisor);
+
+      return matchesSearch && matchesDesignation && matchesRole;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        alignment: Alignment.center,
+        child: Column(
+          children: const [
+            Icon(Icons.person_search_rounded, size: 54, color: Color(0xFFCBD5E1)),
+            SizedBox(height: 12),
+            Text(
+              'No faculty members found',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF64748B)),
+            ),
+          ],
         ),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.textPrimary),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'FACULTY DIRECTORY (${filtered.length})',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 1.1),
         ),
-      ),
+        const SizedBox(height: 14),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: filtered.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final item = filtered[index];
+            return _buildFacultyCard(context, item);
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildFacultyCard(BuildContext context, Map<String, dynamic> item) {
-    final isPresent = item['attendance'] == 'Present';
+  Widget _buildFacultyCard(BuildContext context, StaffModel staff) {
+    final hasAdvisorRole = staff.isAdvisor;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: hasAdvisorRole ? const Color(0xFFDDD6FE) : const Color(0xFFE2E8F0),
+          width: hasAdvisorRole ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,80 +371,139 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
           Row(
             children: [
               CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                backgroundImage: NetworkImage(item['photo']),
+                radius: 26,
+                backgroundColor: const Color(0xFFEFF6FF),
+                backgroundImage: staff.photoPath != null && staff.photoPath!.isNotEmpty
+                    ? NetworkImage(staff.photoPath!)
+                    : null,
+                child: staff.photoPath == null || staff.photoPath!.isEmpty
+                    ? const Icon(Icons.person_rounded, color: Color(0xFF2563EB), size: 28)
+                    : null,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          item['name'],
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isPresent ? AppColors.success.withValues(alpha: 0.12) : AppColors.error.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        Expanded(
                           child: Text(
-                            item['attendance'],
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPresent ? AppColors.success : AppColors.error),
+                            staff.fullName,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Role Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: hasAdvisorRole ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: hasAdvisorRole ? const Color(0xFFC4B5FD) : const Color(0xFFCBD5E1),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                hasAdvisorRole ? Icons.school_rounded : Icons.co_present_rounded,
+                                size: 12,
+                                color: hasAdvisorRole ? const Color(0xFF7C3AED) : const Color(0xFF475569),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                hasAdvisorRole
+                                    ? 'Advisor (${staff.advisorSection ?? "General"})'
+                                    : 'Teaching Faculty',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: hasAdvisorRole ? const Color(0xFF7C3AED) : const Color(0xFF475569),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item['designation']} • ${item['id']}',
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                      '${staff.designation} • ${staff.employeeId} • ${staff.departmentName}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: AppColors.divider),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: (item['subjects'] as List<String>).map((sub) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                child: Text(sub, style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 12),
+
+          // Handled Subjects Chips
+          if (staff.assignedSubjects.isNotEmpty) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: staff.assignedSubjects.map((sub) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    sub,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Action Buttons: Assign/Edit Role and View Details
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Permissions Info Indicator
               Row(
                 children: [
-                  const Icon(Icons.phone_outlined, size: 16, color: AppColors.textSecondary),
-                  const SizedBox(width: 6),
-                  Text(item['phone'], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Icon(
+                    hasAdvisorRole ? Icons.admin_panel_settings_rounded : Icons.lock_outline_rounded,
+                    size: 15,
+                    color: hasAdvisorRole ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    hasAdvisorRole ? 'Students Panel Unlocked' : 'Teaching Access Only',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: hasAdvisorRole ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                    ),
+                  ),
                 ],
               ),
+
+              // HOD Role Assignment Trigger Button
               ElevatedButton.icon(
-                onPressed: () => _showFacultyDetailsModal(context, item),
-                icon: const Icon(Icons.badge_outlined, size: 16),
-                label: const Text('View Profile'),
+                onPressed: () => _showAssignRoleModal(context, staff),
+                icon: const Icon(Icons.manage_accounts_rounded, size: 16),
+                label: Text(
+                  hasAdvisorRole ? 'Edit Advisor Role' : 'Assign Advisor Role',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: hasAdvisorRole ? const Color(0xFF7C3AED) : const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
               ),
             ],
@@ -321,186 +513,387 @@ class _HodStaffManagementState extends State<HodStaffManagement> {
     );
   }
 
-  void _showFacultyDetailsModal(BuildContext context, Map<String, dynamic> item) {
+  void _showAssignRoleModal(BuildContext context, StaffModel staff) {
+    bool isAdvisor = staff.isAdvisor;
+    String selectedSection = staff.advisorSection ?? 'CS-A';
+    bool isSaving = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DefaultTabController(
-          length: 8,
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.88,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 20,
+              bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+            ),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 12),
-                Container(width: 40, height: 5, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(10))),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      CircleAvatar(radius: 26, backgroundImage: NetworkImage(item['photo'])),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            Text('${item['designation']} (${item['id']})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                          ],
-                        ),
-                      ),
-                      IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
-                    ],
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const TabBar(
-                  isScrollable: true,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  indicatorColor: AppColors.primary,
-                  tabs: [
-                    Tab(text: 'Basic Info'),
-                    Tab(text: 'Teaching Schedule'),
-                    Tab(text: 'Attendance'),
-                    Tab(text: 'Assigned Subjects'),
-                    Tab(text: 'Workload'),
-                    Tab(text: 'Leave History'),
-                    Tab(text: 'Documents'),
-                    Tab(text: 'Performance'),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF7C3AED), size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Assign Faculty Role & Permissions',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            '${staff.fullName} (${staff.employeeId})',
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _buildInfoTab(item),
-                      const Center(child: Text('Weekly Class Timetable & Labs')),
-                      const Center(child: Text('98.4% Monthly Presence Record')),
-                      const Center(child: Text('Distributed Systems, Cloud Computing')),
-                      const Center(child: Text('16 Hours/Week Teaching Workload')),
-                      const Center(child: Text('Casual Leave: 2 Used / 12 Total')),
-                      const Center(child: Text('PhD Degree, Joining Order, ID Proof')),
-                      const Center(child: Text('Student Feedback Score: 4.9 / 5.0')),
-                    ],
+                const SizedBox(height: 20),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 16),
+
+                // Option 1: Standard Teaching Faculty
+                InkWell(
+                  onTap: () => setModalState(() => isAdvisor = false),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: !isAdvisor ? const Color(0xFFEFF6FF) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: !isAdvisor ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                        width: !isAdvisor ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          !isAdvisor ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                          color: !isAdvisor ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '👨‍🏫 Teaching Faculty (Regular Staff)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Core academic functions: syllabus, assignments, marks upload, attendance, schedule, question papers',
+                                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: AppColors.background,
-                    border: Border(top: BorderSide(color: AppColors.border)),
+                const SizedBox(height: 12),
+
+                // Option 2: Class Advisor
+                InkWell(
+                  onTap: () => setModalState(() => isAdvisor = true),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isAdvisor ? const Color(0xFFF5F3FF) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isAdvisor ? const Color(0xFF7C3AED) : const Color(0xFFE2E8F0),
+                        width: isAdvisor ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isAdvisor ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                              color: isAdvisor ? const Color(0xFF7C3AED) : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '🎓 Class Advisor (Special Control)',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Unlocks Students Panel: Student Directory, Resume Bank, Edit Requests, Approvals, & Hackathons',
+                                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isAdvisor) ...[
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: Color(0xFFEDE9FE)),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Text(
+                                'Assigned Section: ',
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                              ),
+                              const SizedBox(width: 10),
+                              DropdownButton<String>(
+                                value: selectedSection,
+                                underline: const SizedBox.shrink(),
+                                items: ['CS-A', 'CS-B', 'CS-C', 'AIML-A', 'IT-A', 'ECE-A']
+                                    .map((sec) => DropdownMenuItem(value: sec, child: Text(sec, style: const TextStyle(fontWeight: FontWeight.bold))))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setModalState(() => selectedSection = val);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit Faculty')),
-                      OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.menu_book_outlined, size: 16), label: const Text('Assign Subject')),
-                      OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.lock_reset_outlined, size: 16), label: const Text('Reset Password')),
-                      OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.download_rounded, size: 16), label: const Text('Generate Report')),
-                    ],
+                ),
+                const SizedBox(height: 24),
+
+                // Save Action Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            setModalState(() => isSaving = true);
+                            try {
+                              await ref.read(staffServiceProvider).assignStaffRole(
+                                    staffUid: staff.userId,
+                                    isAdvisor: isAdvisor,
+                                    advisorSection: isAdvisor ? selectedSection : null,
+                                  );
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isAdvisor
+                                          ? '✅ ${staff.fullName} is now Class Advisor for Section $selectedSection!'
+                                          : '✅ ${staff.fullName} set to Teaching Faculty.',
+                                    ),
+                                    backgroundColor: const Color(0xFF10B981),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              setModalState(() => isSaving = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error updating role: $e'),
+                                    backgroundColor: const Color(0xFFEF4444),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Save & Apply Role Permissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
               ],
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoTab(Map<String, dynamic> item) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildDetailTile(Icons.email_outlined, 'Email Address', item['email']),
-        _buildDetailTile(Icons.phone_outlined, 'Phone Number', item['phone']),
-        _buildDetailTile(Icons.work_outline, 'Experience', item['experience']),
-        _buildDetailTile(Icons.timer_outlined, 'Weekly Workload', item['workload']),
-        _buildDetailTile(Icons.star_outline, 'Performance Rating', '${item['rating']} / 5.0'),
-        _buildDetailTile(Icons.verified_user_outlined, 'Leave Status', item['leaveStatus']),
-      ],
-    );
-  }
-
-  Widget _buildDetailTile(IconData icon, String title, String val) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 20),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-              const SizedBox(height: 2),
-              Text(val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   void _showAddFacultyModal(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final desigCtrl = TextEditingController(text: 'Assistant Professor');
+    final subjectsCtrl = TextEditingController();
+    bool isAdvisor = false;
+    String advisorSection = 'CS-A';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                left: 20,
+                right: 20,
+                top: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Add New Faculty Member', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Add New Faculty Member', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Email Address',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: desigCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Designation',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: subjectsCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Subjects Handled (comma-separated)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Assign as Class Advisor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      subtitle: const Text('Grants access to Students Panel & verification modules', style: TextStyle(fontSize: 11.5)),
+                      value: isAdvisor,
+                      onChanged: (val) => setModalState(() => isAdvisor = val),
+                    ),
+                    if (isAdvisor) ...[
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: advisorSection,
+                        decoration: InputDecoration(
+                          labelText: 'Assigned Section',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        items: ['CS-A', 'CS-B', 'CS-C', 'AIML-A', 'IT-A', 'ECE-A']
+                            .map((sec) => DropdownMenuItem(value: sec, child: Text(sec)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => advisorSection = val);
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameCtrl.text.trim();
+                          if (name.isEmpty) return;
+
+                          final newStaff = StaffModel(
+                            userId: 'STAFF-${DateTime.now().millisecondsSinceEpoch}',
+                            employeeId: 'FAC-CSE-${DateTime.now().millisecond}',
+                            fullName: name,
+                            departmentId: 'DEPT-CSE',
+                            departmentName: 'Computer Science',
+                            designation: desigCtrl.text.trim(),
+                            specialization: subjectsCtrl.text.trim(),
+                            assignedClasses: [advisorSection],
+                            assignedSubjects: subjectsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                            isAdvisor: isAdvisor,
+                            advisorSection: isAdvisor ? advisorSection : null,
+                            createdAt: DateTime.now(),
+                          );
+
+                          await ref.read(staffServiceProvider).saveStaff(newStaff);
+
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Faculty Member $name Added Successfully!'),
+                                backgroundColor: const Color(0xFF10B981),
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: const Text('Save & Invite Faculty', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-                const SizedBox(height: 16),
-                TextField(decoration: InputDecoration(labelText: 'Full Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)))),
-                const SizedBox(height: 12),
-                TextField(decoration: InputDecoration(labelText: 'Email Address', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)))),
-                const SizedBox(height: 12),
-                TextField(decoration: InputDecoration(labelText: 'Designation (e.g. Assistant Professor)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)))),
-                const SizedBox(height: 12),
-                TextField(decoration: InputDecoration(labelText: 'Subjects Handled', border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)))),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Faculty Member Added Successfully!'), backgroundColor: AppColors.success));
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('Submit & Send Invitation', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

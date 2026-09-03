@@ -9,6 +9,7 @@ import 'package:unisphere/screens/student/modules/student_pyq_screen.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/widgets/common/unisphere_header_card.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffQuestionPaperUploadScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -747,37 +748,59 @@ class _StaffQuestionPaperUploadScreenState
     final staffId = currentUser?.uid ?? '';
     final papersAsync = ref.watch(staffUploadedPapersProvider(staffId));
 
-    return papersAsync.when(
-      loading: () => const Center(child: Loader(label: 'Loading question papers...')),
-      error: (err, _) => Center(child: Text('Error: $err')),
-      data: (papers) {
-        if (papers.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.folder_open_rounded, size: 48, color: Color(0xFF94A3B8)),
-                const SizedBox(height: 12),
-                const Text('No question papers uploaded yet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                const Text('Upload your subject question papers and question banks in Tab 1', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => _tabController.animateTo(0),
-                  child: const Text('Upload New Material'),
-                ),
-              ],
-            ),
-          );
+    return AppLiquidPullToRefresh(
+      gifAsset: 'assets/tibsy-dp.gif',
+      onRefresh: () async {
+        ref.invalidate(questionPaperControllerProvider);
+        if (staffId.isNotEmpty) {
+          ref.invalidate(staffUploadedPapersProvider(staffId));
         }
-
-        return ListView.separated(
-          padding: EdgeInsets.symmetric(
-            horizontal: isDesktop ? 32 : 16,
-            vertical: 20,
+        await Future.delayed(const Duration(milliseconds: 1000));
+      },
+      child: papersAsync.when(
+        loading: () => const Center(child: Loader(label: 'Loading question papers...')),
+        error: (err, _) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: 300,
+            child: Center(child: Text('Error: $err')),
           ),
-          itemCount: papers.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
+        ),
+        data: (papers) {
+          if (papers.isEmpty) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              child: SizedBox(
+                height: 350,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.folder_open_rounded, size: 48, color: Color(0xFF94A3B8)),
+                      const SizedBox(height: 12),
+                      const Text('No question papers uploaded yet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                      const SizedBox(height: 4),
+                      const Text('Upload your subject question papers and question banks in Tab 1', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => _tabController.animateTo(0),
+                        child: const Text('Upload New Material'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 32 : 16,
+              vertical: 20,
+            ),
+            itemCount: papers.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
             final paper = papers[index];
             final formattedDate = DateFormat('MMM dd, yyyy').format(paper.uploadedAt);
@@ -917,6 +940,7 @@ class _StaffQuestionPaperUploadScreenState
           },
         );
       },
+    ),
     );
   }
 

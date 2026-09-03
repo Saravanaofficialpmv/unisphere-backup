@@ -6,6 +6,7 @@ import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
 
 import 'package:unisphere/widgets/common/custom_loader.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class ClassAdvisorEditRequestsScreen extends ConsumerStatefulWidget {
   const ClassAdvisorEditRequestsScreen({super.key});
@@ -32,42 +33,56 @@ class _ClassAdvisorEditRequestsScreenState
         foregroundColor: const Color(0xFF0F172A),
         elevation: 0.5,
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: ref.watch(firebaseFirestoreServiceProvider).getProfileEditRequestsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: Loader(label: 'Loading edit requests...'));
-          }
-
-          final rawRequests = snapshot.data ?? [];
-          final requests = rawRequests
-              .map((r) => ProfileEditRequest.fromMap(r, r['requestId'] ?? ''))
-              .toList();
-
-          if (requests.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.assignment_turned_in_rounded, size: 54, color: Color(0xFF94A3B8)),
-                  SizedBox(height: 12),
-                  Text('No Pending Edit Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF475569))),
-                  SizedBox(height: 4),
-                  Text('All student profile edit requests have been reviewed.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: requests.length,
-            itemBuilder: (context, index) {
-              final req = requests[index];
-              return _buildRequestCard(req, user?.uid ?? 'STAFF-001');
-            },
-          );
+      body: AppLiquidPullToRefresh(
+        gifAsset: 'assets/tibsy-dp.gif',
+        onRefresh: () async {
+          ref.invalidate(firebaseFirestoreServiceProvider);
+          await Future.delayed(const Duration(milliseconds: 1000));
         },
+        child: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: ref.watch(firebaseFirestoreServiceProvider).getProfileEditRequestsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: Loader(label: 'Loading edit requests...'));
+            }
+
+            final rawRequests = snapshot.data ?? [];
+            final requests = rawRequests
+                .map((r) => ProfileEditRequest.fromMap(r, r['requestId'] ?? ''))
+                .toList();
+
+            if (requests.isEmpty) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.assignment_turned_in_rounded, size: 54, color: Color(0xFF94A3B8)),
+                        SizedBox(height: 12),
+                        Text('No Pending Edit Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF475569))),
+                        SizedBox(height: 4),
+                        Text('All student profile edit requests have been reviewed.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.all(16),
+              itemCount: requests.length,
+              itemBuilder: (context, index) {
+                final req = requests[index];
+                return _buildRequestCard(req, user?.uid ?? 'STAFF-001');
+              },
+            );
+          },
+        ),
       ),
     );
   }

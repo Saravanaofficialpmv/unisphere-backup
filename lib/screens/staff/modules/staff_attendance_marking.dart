@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/attendance_system_provider.dart';
+import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffAttendanceMarkingModule extends ConsumerStatefulWidget {
   const StaffAttendanceMarkingModule({super.key});
@@ -64,8 +65,15 @@ class _StaffAttendanceMarkingModuleState extends ConsumerState<StaffAttendanceMa
     final presentCount = _studentsList.where((s) => s['isPresent'] == true).length;
     final absentCount = _studentsList.length - presentCount;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return AppLiquidPullToRefresh(
+      gifAsset: 'assets/tibsy-dp.gif',
+      onRefresh: () async {
+        ref.invalidate(attendanceSystemProvider);
+        await Future.delayed(const Duration(milliseconds: 1000));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -282,6 +290,7 @@ class _StaffAttendanceMarkingModuleState extends ConsumerState<StaffAttendanceMa
           const SizedBox(height: 40),
         ],
       ),
+    ),
     );
   }
 }
