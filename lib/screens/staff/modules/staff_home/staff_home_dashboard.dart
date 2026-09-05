@@ -60,16 +60,16 @@ class StaffHomeDashboard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 1. Top Dark Navy Hero Card matching Mockup ──
+              // ── 1. Top Deep Blue / Navy Hero Card ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
-                      Color(0xFF1E1B4B),
-                      Color(0xFF2E1065),
-                      Color(0xFF3B0764),
+                      Color(0xFF0F172A), // Slate 900
+                      Color(0xFF1E3A8A), // Blue 900
+                      Color(0xFF1D4ED8), // Blue 700
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -77,7 +77,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2E1065).withValues(alpha: 0.25),
+                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.30),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -91,7 +91,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFFDDD6FE),
+                        color: const Color(0xFFDBEAFE),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -110,7 +110,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFFC4B5FD),
+                        color: const Color(0xFF93C5FD),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -185,7 +185,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Divider(height: 1, color: Color(0xFF4C1D95)),
+                    const Divider(height: 1, color: Color(0xFF1E40AF)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,7 +196,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFFC4B5FD),
+                              color: const Color(0xFFBFDBFE),
                               height: 1.25,
                             ),
                           ),
@@ -210,7 +210,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                             }
                           },
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFC4B5FD)),
+                            side: const BorderSide(color: Color(0xFF93C5FD)),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -241,10 +241,10 @@ class StaffHomeDashboard extends ConsumerWidget {
                       value: "3",
                       imageAsset: "assets/images/metric_classes_3d.jpg",
                       icon: Icons.menu_book_rounded,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: const Color(0xFF2563EB),
                       gradientColors: const [
-                        Color(0xFF6366F1),
-                        Color(0xFF8B5CF6),
+                        Color(0xFF2563EB),
+                        Color(0xFF3B82F6),
                       ],
                       onTap: () {
                         if (onNavigateToKey != null) {

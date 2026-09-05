@@ -23,7 +23,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'sublabel': 'Mark & Track',
         'icon': Icons.how_to_reg_rounded,
         'imageAsset': 'assets/images/quick_actions/action_attendance_3d.jpg',
-        'gradient': const [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+        'gradient': const [Color(0xFF2563EB), Color(0xFF3B82F6)],
         'navKey': StaffNavKey.attendance,
         'tabIndex': 14,
       },
@@ -68,7 +68,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'sublabel': 'Weekly Plan',
         'icon': Icons.calendar_month_rounded,
         'imageAsset': 'assets/images/quick_actions/action_timetable_3d.jpg',
-        'gradient': const [Color(0xFFA855F7), Color(0xFF7C3AED)],
+        'gradient': const [Color(0xFF0284C7), Color(0xFF38BDF8)],
         'navKey': StaffNavKey.timetable,
         'tabIndex': 12,
       },
@@ -88,7 +88,7 @@ class StaffQuickActionsSection extends StatelessWidget {
                   height: 14,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                      colors: [Color(0xFF1D4ED8), Color(0xFF2563EB)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -110,10 +110,10 @@ class StaffQuickActionsSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+                color: const Color(0xFF2563EB).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.15),
                   width: 1,
                 ),
               ),
@@ -124,7 +124,7 @@ class StaffQuickActionsSection extends StatelessWidget {
                     width: 5,
                     height: 5,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF4F46E5),
+                      color: Color(0xFF2563EB),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -134,7 +134,7 @@ class StaffQuickActionsSection extends StatelessWidget {
                     style: GoogleFonts.manrope(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF4F46E5),
+                      color: const Color(0xFF2563EB),
                       letterSpacing: 0.4,
                     ),
                   ),
