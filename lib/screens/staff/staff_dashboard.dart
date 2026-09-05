@@ -236,16 +236,16 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
       icon: Icons.upload_file_outlined,
     ));
 
+    activeNavKeys.add(StaffNavKey.syllabus);
+    sidebarItems.add(SidebarItem(
+      label: isAdvisor ? 'Syllabus Management' : 'Assigned Subjects & Classes',
+      icon: Icons.auto_stories_outlined,
+    ));
+
     activeNavKeys.add(StaffNavKey.studentDirectory);
     sidebarItems.add(SidebarItem(
       label: 'Faculty Student Directory',
       icon: Icons.people_outline,
-    ));
-
-    activeNavKeys.add(StaffNavKey.syllabus);
-    sidebarItems.add(SidebarItem(
-      label: 'Syllabus Management',
-      icon: Icons.auto_stories_outlined,
     ));
 
     activeNavKeys.add(StaffNavKey.announcements);
@@ -299,45 +299,15 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   onSwitchToTeachingMode: () => setState(() => _overrideTeachingMode = true),
                 )
               : StaffHomeDashboard(
-                  onNavigateToTab: (idx) {
-                    if (idx == 12) {
-                      _navigateToKey(StaffNavKey.timetable, activeNavKeys);
-                    } else if (idx == 3) {
-                      _navigateToKey(StaffNavKey.submissions, activeNavKeys);
-                    } else if (idx == 14) {
-                      _navigateToKey(StaffNavKey.attendance, activeNavKeys);
-                    } else if (idx == 10) {
-                      _navigateToKey(StaffNavKey.marks, activeNavKeys);
-                    } else if (idx == 2) {
-                      _navigateToKey(StaffNavKey.assignments, activeNavKeys);
-                    } else if (idx == 15) {
-                      _navigateToKey(StaffNavKey.questionPapers, activeNavKeys);
-                    } else {
-                      _handleNavigation(idx);
-                    }
-                  },
+                  onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+                  onNavigateToTab: (idx) => _handleNavigation(idx),
                   onSwitchToAdvisorMode: isAdvisor ? () => setState(() => _overrideTeachingMode = false) : null,
                 );
 
         case StaffNavKey.dashboard:
           return StaffHomeDashboard(
-            onNavigateToTab: (idx) {
-              if (idx == 12) {
-                _navigateToKey(StaffNavKey.timetable, activeNavKeys);
-              } else if (idx == 3) {
-                _navigateToKey(StaffNavKey.submissions, activeNavKeys);
-              } else if (idx == 14) {
-                _navigateToKey(StaffNavKey.attendance, activeNavKeys);
-              } else if (idx == 10) {
-                _navigateToKey(StaffNavKey.marks, activeNavKeys);
-              } else if (idx == 2) {
-                _navigateToKey(StaffNavKey.assignments, activeNavKeys);
-              } else if (idx == 15) {
-                _navigateToKey(StaffNavKey.questionPapers, activeNavKeys);
-              } else {
-                _handleNavigation(idx);
-              }
-            },
+            onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+            onNavigateToTab: (idx) => _handleNavigation(idx),
             onSwitchToAdvisorMode: isAdvisor ? () => setState(() => _overrideTeachingMode = false) : null,
           );
 

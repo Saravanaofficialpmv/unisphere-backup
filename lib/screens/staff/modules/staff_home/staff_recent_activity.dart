@@ -3,11 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffRecentActivitySection extends ConsumerWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
 
-  const StaffRecentActivitySection({super.key, this.onNavigateToTab});
+  const StaffRecentActivitySection({
+    super.key,
+    this.onNavigateToTab,
+    this.onNavigateToKey,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +37,11 @@ class StaffRecentActivitySection extends ConsumerWidget {
             ),
             InkWell(
               onTap: () {
-                onNavigateToTab?.call(0);
+                if (onNavigateToKey != null) {
+                  onNavigateToKey!(StaffNavKey.announcements);
+                } else {
+                  onNavigateToTab?.call(0);
+                }
               },
               borderRadius: BorderRadius.circular(6),
               child: Padding(
@@ -105,45 +115,64 @@ class StaffRecentActivitySection extends ConsumerWidget {
                 iconBg = const Color(0xFFFEF2F2);
               }
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: iconBg,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(icon, size: 16, color: iconColor),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item['title'] ?? '',
-                            style: GoogleFonts.manrope(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    if (type == 'marks') {
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.marks) : onNavigateToTab?.call(10);
+                    } else if (type == 'attendance') {
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.attendance) : onNavigateToTab?.call(14);
+                    } else if (type == 'assignment') {
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.assignments) : onNavigateToTab?.call(2);
+                    } else if (type == 'submission') {
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.submissions) : onNavigateToTab?.call(3);
+                    } else {
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.announcements) : onNavigateToTab?.call(0);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: iconBg,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item['timestamp'] ?? '',
-                            style: GoogleFonts.manrope(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
+                          child: Icon(icon, size: 16, color: iconColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['title'] ?? '',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item['timestamp'] ?? '',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               );
             },

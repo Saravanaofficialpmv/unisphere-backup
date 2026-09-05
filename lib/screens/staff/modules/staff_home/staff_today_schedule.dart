@@ -4,14 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_schedule_card.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffTodayScheduleSection extends ConsumerWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
   final VoidCallback? onTakeAttendancePressed;
 
   const StaffTodayScheduleSection({
     super.key,
     this.onNavigateToTab,
+    this.onNavigateToKey,
     this.onTakeAttendancePressed,
   });
 
@@ -38,7 +41,9 @@ class StaffTodayScheduleSection extends ConsumerWidget {
             ),
             InkWell(
               onTap: () {
-                if (onNavigateToTab != null) {
+                if (onNavigateToKey != null) {
+                  onNavigateToKey!(StaffNavKey.timetable);
+                } else if (onNavigateToTab != null) {
                   onNavigateToTab!(12); // Academic Schedule tab in sidebar
                 }
               },
@@ -109,6 +114,8 @@ class StaffTodayScheduleSection extends ConsumerWidget {
                 onTakeAttendance: () {
                   if (onTakeAttendancePressed != null) {
                     onTakeAttendancePressed!();
+                  } else if (onNavigateToKey != null) {
+                    onNavigateToKey!(StaffNavKey.attendance);
                   } else if (onNavigateToTab != null) {
                     onNavigateToTab!(14); // Take Attendance module
                   }
@@ -124,7 +131,9 @@ class StaffTodayScheduleSection extends ConsumerWidget {
           height: 44,
           child: ElevatedButton.icon(
             onPressed: () {
-              if (onNavigateToTab != null) {
+              if (onNavigateToKey != null) {
+                onNavigateToKey!(StaffNavKey.timetable);
+              } else if (onNavigateToTab != null) {
                 onNavigateToTab!(12); // Academic Schedule tab in sidebar
               }
             },

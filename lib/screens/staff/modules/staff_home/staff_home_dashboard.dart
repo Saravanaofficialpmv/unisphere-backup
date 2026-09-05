@@ -10,14 +10,17 @@ import 'package:unisphere/screens/staff/modules/staff_home/staff_quick_actions.d
 import 'package:unisphere/screens/staff/modules/staff_home/staff_recent_activity.dart';
 import 'package:unisphere/screens/staff/modules/staff_home/staff_subjects_section.dart';
 import 'package:unisphere/screens/staff/modules/staff_home/staff_today_schedule.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffHomeDashboard extends ConsumerWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
   final VoidCallback? onSwitchToAdvisorMode;
 
   const StaffHomeDashboard({
     super.key,
     this.onNavigateToTab,
+    this.onNavigateToKey,
     this.onSwitchToAdvisorMode,
   });
 
@@ -199,7 +202,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                           ),
                         ),
                         OutlinedButton(
-                          onPressed: () => onNavigateToTab?.call(11), // Profile Tab
+                          onPressed: () {
+                            if (onNavigateToKey != null) {
+                              onNavigateToKey!(StaffNavKey.profile);
+                            } else {
+                              onNavigateToTab?.call(11);
+                            }
+                          },
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFFC4B5FD)),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -233,7 +242,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                       icon: Icons.calendar_today_rounded,
                       iconColor: AppColors.staffRole,
                       iconBgColor: AppColors.staffRole.withValues(alpha: 0.1),
-                      onTap: () => onNavigateToTab?.call(12),
+                      onTap: () {
+                        if (onNavigateToKey != null) {
+                          onNavigateToKey!(StaffNavKey.timetable);
+                        } else {
+                          onNavigateToTab?.call(12);
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -244,7 +259,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                       icon: Icons.assignment_outlined,
                       iconColor: const Color(0xFFEA580C),
                       iconBgColor: const Color(0xFFEA580C).withValues(alpha: 0.1),
-                      onTap: () => onNavigateToTab?.call(3),
+                      onTap: () {
+                        if (onNavigateToKey != null) {
+                          onNavigateToKey!(StaffNavKey.submissions);
+                        } else {
+                          onNavigateToTab?.call(3);
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -256,7 +277,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                       icon: Icons.bar_chart_rounded,
                       iconColor: const Color(0xFF16A34A),
                       iconBgColor: const Color(0xFF16A34A).withValues(alpha: 0.1),
-                      onTap: () => onNavigateToTab?.call(14),
+                      onTap: () {
+                        if (onNavigateToKey != null) {
+                          onNavigateToKey!(StaffNavKey.attendance);
+                        } else {
+                          onNavigateToTab?.call(14);
+                        }
+                      },
                     ),
                   ),
                 ],
@@ -276,10 +303,12 @@ class StaffHomeDashboard extends ConsumerWidget {
                         children: [
                           StaffTodayScheduleSection(
                             onNavigateToTab: onNavigateToTab,
+                            onNavigateToKey: onNavigateToKey,
                           ),
                           const SizedBox(height: 20),
                           StaffSubjectsSection(
                             onNavigateToTab: onNavigateToTab,
+                            onNavigateToKey: onNavigateToKey,
                           ),
                         ],
                       ),
@@ -293,14 +322,17 @@ class StaffHomeDashboard extends ConsumerWidget {
                         children: [
                           StaffQuickActionsSection(
                             onNavigateToTab: onNavigateToTab,
+                            onNavigateToKey: onNavigateToKey,
                           ),
                           const SizedBox(height: 20),
                           StaffPendingWorkSection(
                             onNavigateToTab: onNavigateToTab,
+                            onNavigateToKey: onNavigateToKey,
                           ),
                           const SizedBox(height: 20),
                           StaffRecentActivitySection(
                             onNavigateToTab: onNavigateToTab,
+                            onNavigateToKey: onNavigateToKey,
                           ),
                         ],
                       ),
@@ -311,22 +343,27 @@ class StaffHomeDashboard extends ConsumerWidget {
                 // Mobile single column flow
                 StaffTodayScheduleSection(
                   onNavigateToTab: onNavigateToTab,
+                  onNavigateToKey: onNavigateToKey,
                 ),
                 const SizedBox(height: 20),
                 StaffQuickActionsSection(
                   onNavigateToTab: onNavigateToTab,
+                  onNavigateToKey: onNavigateToKey,
                 ),
                 const SizedBox(height: 20),
                 StaffSubjectsSection(
                   onNavigateToTab: onNavigateToTab,
+                  onNavigateToKey: onNavigateToKey,
                 ),
                 const SizedBox(height: 20),
                 StaffPendingWorkSection(
                   onNavigateToTab: onNavigateToTab,
+                  onNavigateToKey: onNavigateToKey,
                 ),
                 const SizedBox(height: 20),
                 StaffRecentActivitySection(
                   onNavigateToTab: onNavigateToTab,
+                  onNavigateToKey: onNavigateToKey,
                 ),
               ],
               const SizedBox(height: 24),

@@ -3,11 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffPendingWorkSection extends ConsumerWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
 
-  const StaffPendingWorkSection({super.key, this.onNavigateToTab});
+  const StaffPendingWorkSection({
+    super.key,
+    this.onNavigateToTab,
+    this.onNavigateToKey,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +37,9 @@ class StaffPendingWorkSection extends ConsumerWidget {
             ),
             InkWell(
               onTap: () {
-                if (onNavigateToTab != null) {
+                if (onNavigateToKey != null) {
+                  onNavigateToKey!(StaffNavKey.submissions);
+                } else if (onNavigateToTab != null) {
                   onNavigateToTab!(3); // Review Submissions
                 }
               },
@@ -109,13 +117,13 @@ class StaffPendingWorkSection extends ConsumerWidget {
                 child: InkWell(
                   onTap: () {
                     if (action == 'upload_marks') {
-                      onNavigateToTab?.call(10);
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.marks) : onNavigateToTab?.call(10);
                     } else if (action == 'take_attendance') {
-                      onNavigateToTab?.call(14);
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.attendance) : onNavigateToTab?.call(14);
                     } else if (action == 'review_submissions') {
-                      onNavigateToTab?.call(3);
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.submissions) : onNavigateToTab?.call(3);
                     } else if (action == 'upload_qp') {
-                      onNavigateToTab?.call(15);
+                      onNavigateToKey != null ? onNavigateToKey!(StaffNavKey.questionPapers) : onNavigateToTab?.call(15);
                     }
                   },
                   borderRadius: BorderRadius.circular(16),

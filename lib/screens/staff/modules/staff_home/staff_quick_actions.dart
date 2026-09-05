@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffQuickActionsSection extends StatelessWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
   final VoidCallback? onTasksPressed;
 
   const StaffQuickActionsSection({
     super.key,
     this.onNavigateToTab,
+    this.onNavigateToKey,
     this.onTasksPressed,
   });
 
@@ -20,6 +23,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'icon': Icons.how_to_reg_rounded,
         'color': AppColors.staffRole,
         'bgColor': AppColors.staffRole.withValues(alpha: 0.1),
+        'navKey': StaffNavKey.attendance,
         'tabIndex': 14,
       },
       {
@@ -27,6 +31,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'icon': Icons.grade_rounded,
         'color': const Color(0xFF16A34A),
         'bgColor': const Color(0xFF16A34A).withValues(alpha: 0.1),
+        'navKey': StaffNavKey.marks,
         'tabIndex': 10,
       },
       {
@@ -34,6 +39,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'icon': Icons.assignment_rounded,
         'color': const Color(0xFFEA580C),
         'bgColor': const Color(0xFFEA580C).withValues(alpha: 0.1),
+        'navKey': StaffNavKey.assignments,
         'tabIndex': 2,
       },
       {
@@ -41,6 +47,7 @@ class StaffQuickActionsSection extends StatelessWidget {
         'icon': Icons.upload_file_rounded,
         'color': const Color(0xFF2563EB),
         'bgColor': const Color(0xFF2563EB).withValues(alpha: 0.1),
+        'navKey': StaffNavKey.questionPapers,
         'tabIndex': 15,
       },
       {
@@ -48,14 +55,16 @@ class StaffQuickActionsSection extends StatelessWidget {
         'icon': Icons.rate_review_rounded,
         'color': const Color(0xFFDC2626),
         'bgColor': const Color(0xFFDC2626).withValues(alpha: 0.1),
+        'navKey': StaffNavKey.submissions,
         'tabIndex': 3,
       },
       {
-        'label': 'Tasks',
-        'icon': Icons.checklist_rounded,
+        'label': 'Schedule\nTimetable',
+        'icon': Icons.calendar_month_rounded,
         'color': const Color(0xFF9333EA),
         'bgColor': const Color(0xFF9333EA).withValues(alpha: 0.1),
-        'tabIndex': -1, // custom task trigger
+        'navKey': StaffNavKey.timetable,
+        'tabIndex': 12,
       },
     ];
 
@@ -93,7 +102,10 @@ class StaffQuickActionsSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
                 onTap: () {
-                  if (tabIndex == -1) {
+                  final navKey = item['navKey'] as StaffNavKey?;
+                  if (navKey != null && onNavigateToKey != null) {
+                    onNavigateToKey!(navKey);
+                  } else if (tabIndex == -1) {
                     if (onTasksPressed != null) {
                       onTasksPressed!();
                     }

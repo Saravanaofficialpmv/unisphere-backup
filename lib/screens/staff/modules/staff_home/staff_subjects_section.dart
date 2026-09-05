@@ -4,11 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_subject_card.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class StaffSubjectsSection extends ConsumerWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
 
-  const StaffSubjectsSection({super.key, this.onNavigateToTab});
+  const StaffSubjectsSection({
+    super.key,
+    this.onNavigateToTab,
+    this.onNavigateToKey,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +38,9 @@ class StaffSubjectsSection extends ConsumerWidget {
             ),
             InkWell(
               onTap: () {
-                if (onNavigateToTab != null) {
+                if (onNavigateToKey != null) {
+                  onNavigateToKey!(StaffNavKey.syllabus);
+                } else if (onNavigateToTab != null) {
                   onNavigateToTab!(1); // Syllabus / Subjects management
                 }
               },
@@ -98,7 +106,9 @@ class StaffSubjectsSection extends ConsumerWidget {
                 studentsCount: (sub['studentsCount'] ?? 60) as int,
                 attendancePercent: (sub['attendance'] ?? 90) as int,
                 onTap: () {
-                  if (onNavigateToTab != null) {
+                  if (onNavigateToKey != null) {
+                    onNavigateToKey!(StaffNavKey.syllabus);
+                  } else if (onNavigateToTab != null) {
                     onNavigateToTab!(1);
                   }
                 },
