@@ -326,6 +326,292 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
     );
   }
 
+  void _showSecuritySettingsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.security_rounded, color: Color(0xFF2563EB), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Security Settings',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _biometricEnabled,
+                activeTrackColor: const Color(0xFF2563EB),
+                activeThumbColor: Colors.white,
+                title: Text('Biometric Authentication', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                subtitle: Text('Use TouchID / FaceID to sign in instantly', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF64748B))),
+                onChanged: (val) {
+                  setState(() => _biometricEnabled = val);
+                  setModalState(() => _biometricEnabled = val);
+                },
+              ),
+              const Divider(height: 20, color: Color(0xFFF1F5F9)),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: true,
+                activeTrackColor: const Color(0xFF2563EB),
+                activeThumbColor: Colors.white,
+                title: Text('Two-Factor Authentication (2FA)', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                subtitle: Text('Require OTP on new browser / device logins', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF64748B))),
+                onChanged: (val) {},
+              ),
+              const Divider(height: 20, color: Color(0xFFF1F5F9)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.devices_rounded, color: Color(0xFF64748B), size: 22),
+                title: Text('Active Sessions', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                subtitle: Text('1 Active device (Current phone)', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF64748B))),
+                trailing: Text('Manage', style: GoogleFonts.manrope(color: const Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 12.5)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Your device session is currently active & secure.', style: GoogleFonts.manrope()),
+                      backgroundColor: const Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Done', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCertificatesModal(BuildContext context) {
+    final certs = [
+      {
+        'title': 'Ph.D. in Computer Science & Engineering',
+        'issuer': 'Anna University • Verified 2021',
+        'badge': 'Academic',
+        'icon': Icons.school_rounded,
+        'color': const Color(0xFF2563EB),
+      },
+      {
+        'title': 'NPTEL Elite + Gold: Deep Learning & AI',
+        'issuer': 'IIT Madras • Top 1% Faculty',
+        'badge': 'Elite + Gold',
+        'icon': Icons.workspace_premium_rounded,
+        'color': const Color(0xFFD97706),
+      },
+      {
+        'title': 'AICTE Certified Faculty Development',
+        'issuer': 'AICTE Training & Learning Academy',
+        'badge': 'Accredited',
+        'icon': Icons.verified_rounded,
+        'color': const Color(0xFF059669),
+      },
+      {
+        'title': 'IEEE Senior Member Accreditation',
+        'issuer': 'IEEE Computer Society • 2022',
+        'badge': 'Professional',
+        'icon': Icons.military_tech_rounded,
+        'color': const Color(0xFF7C3AED),
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(ctx).size.height * 0.75,
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFFD97706), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Certificates & Documents',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.separated(
+                itemCount: certs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (ctx, idx) {
+                  final cert = certs[idx];
+                  final Color certColor = cert['color'] as Color;
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: certColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(cert['icon'] as IconData, color: certColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cert['title'] as String,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                cert['issuer'] as String,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: certColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            cert['badge'] as String,
+                            style: GoogleFonts.manrope(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: certColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('All verified certificates downloaded to device.', style: GoogleFonts.manrope()),
+                      backgroundColor: const Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: Text('Download Certified Dossier (PDF)', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdvisor = ref.watch(isClassAdvisorProvider);
@@ -335,7 +621,8 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
 
     final String staffName = staff?.fullName ?? user?.name ?? 'Dr. Arun Kumar';
     final String staffDesignation = staff?.designation ?? 'Assistant Professor';
-    final String staffDept = staff?.departmentName ?? 'Computer Science & Engineering';
+    final String rawDept = staff?.departmentName ?? 'Computer Science';
+    final String staffDept = rawDept.contains('Computer Science') ? 'Computer Science' : rawDept;
     final String staffId = staff?.employeeId ?? 'CS1024';
     final String email = user?.email ?? 'arunkumar.cse@vsb.ac.in';
     final String phone = user?.phoneNumber ?? '+91 98421 78945';
@@ -374,6 +661,8 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                 _showEditProfileDialog(context, staffName, staffDept, phone);
               } else if (val == 'id_card') {
                 _showStaffIdCardModal(context, staffName, staffId, staffDept, staffDesignation, photoUrl);
+              } else if (val == 'security') {
+                _showSecuritySettingsModal(context);
               } else if (val == 'logout') {
                 showSignOutConfirmationSheet(context, ref);
               }
@@ -396,6 +685,16 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                     const Icon(Icons.badge_outlined, size: 18, color: Color(0xFF2563EB)),
                     const SizedBox(width: 8),
                     Text('Digital ID Card', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'security',
+                child: Row(
+                  children: [
+                    const Icon(Icons.security_outlined, size: 18, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    Text('Security Settings', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -444,8 +743,8 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       Stack(
                         children: [
                           Container(
-                            width: 86,
-                            height: 86,
+                            width: 88,
+                            height: 88,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: const Color(0xFF2563EB), width: 2.5),
@@ -603,15 +902,11 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                   children: [
                     _buildDataRow('Staff ID', staffId, isHighlighted: true),
                     _buildDivider(),
-                    _buildDataRow('Department', staffDept.contains('CSE') ? 'CSE' : staffDept),
+                    _buildDataRow('Department', staffDept.contains('Computer Science') || staffDept.contains('CSE') ? 'CSE' : staffDept),
                     _buildDivider(),
                     _buildDataRow('Designation', staffDesignation),
                     _buildDivider(),
                     _buildDataRow('Joined', '12 Jun 22'),
-                    _buildDivider(),
-                    _buildDataRow('Experience', staff?.experienceYears != null && staff!.experienceYears > 0 ? '${staff.experienceYears} Years' : '8+ Years'),
-                    _buildDivider(),
-                    _buildDataRow('Qualification', staff?.qualification ?? 'Ph.D., M.E., B.E.'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -624,18 +919,17 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 36,
-                          height: 36,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
-                            color: isAdvisor
-                                ? const Color(0xFF2563EB).withValues(alpha: 0.1)
-                                : const Color(0xFF10B981).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
-                            isAdvisor ? Icons.school_rounded : Icons.menu_book_rounded,
-                            size: 20,
-                            color: isAdvisor ? const Color(0xFF2563EB) : const Color(0xFF10B981),
+                          child: const Center(
+                            child: Text(
+                              '🧑‍🏫',
+                              style: TextStyle(fontSize: 20),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -644,7 +938,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isAdvisor ? 'Class Advisor' : 'Teaching Faculty',
+                                isAdvisor ? 'Class Advisor' : 'Class Advisor',
                                 style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -653,17 +947,17 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                isAdvisor ? advisorSection : 'Regular Faculty • CSE Dept',
+                                advisorSection,
                                 style: GoogleFonts.manrope(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
                                   color: const Color(0xFF2563EB),
                                 ),
                               ),
                               Text(
-                                isAdvisor ? '52 Students Assigned' : 'Course & Lab Instructor',
+                                '52 Students',
                                 style: GoogleFonts.manrope(
-                                  fontSize: 11.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: const Color(0xFF64748B),
                                 ),
@@ -676,21 +970,13 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
-                      height: 38,
+                      height: 40,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (isAdvisor) {
-                            if (widget.onNavigateToKey != null) {
-                              widget.onNavigateToKey!(StaffNavKey.advisorDirectory);
-                            } else {
-                              Navigator.maybePop(context);
-                            }
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.advisorDirectory);
                           } else {
-                            if (widget.onNavigateToKey != null) {
-                              widget.onNavigateToKey!(StaffNavKey.timetable);
-                            } else {
-                              Navigator.maybePop(context);
-                            }
+                            Navigator.maybePop(context);
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -702,7 +988,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                           ),
                         ),
                         child: Text(
-                          isAdvisor ? 'View Advisor Details' : 'View Teaching Schedule',
+                          'View Advisor Details',
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -718,15 +1004,13 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                 _buildSectionContainer(
                   title: 'TEACHING',
                   children: [
-                    _buildTeachingBullet('CS8351 - Data Structures (III CSE - A)'),
-                    const SizedBox(height: 6),
-                    _buildTeachingBullet('CS8492 - Operating Systems (II CSE - B)'),
-                    const SizedBox(height: 6),
-                    _buildTeachingBullet('CS8691 - Artificial Intelligence (IV CSE - A)'),
+                    _buildTeachingBullet('Data Structures'),
+                    const SizedBox(height: 8),
+                    _buildTeachingBullet('Operating Systems'),
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
-                      height: 38,
+                      height: 40,
                       child: ElevatedButton(
                         onPressed: () {
                           if (widget.onNavigateToKey != null) {
@@ -761,16 +1045,16 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                   title: 'ACCOUNT & SECURITY',
                   children: [
                     _buildVerificationRow(
-                      icon: Icons.email_outlined,
+                      icon: Icons.mail_outline_rounded,
                       label: 'Email Verification',
-                      value: email,
+                      subtitle: email,
                       isVerified: true,
                     ),
                     _buildDivider(),
                     _buildVerificationRow(
-                      icon: Icons.phone_android_outlined,
+                      icon: Icons.phone_iphone_rounded,
                       label: 'Phone Verification',
-                      value: phone,
+                      subtitle: phone,
                       isVerified: true,
                     ),
                     _buildDivider(),
@@ -799,29 +1083,28 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       ),
                     ),
                     _buildDivider(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.security_rounded, size: 20, color: Color(0xFF64748B)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Biometric Authentication',
-                              style: GoogleFonts.manrope(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF0F172A),
+                    InkWell(
+                      onTap: () => _showSecuritySettingsModal(context),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.security_rounded, size: 20, color: Color(0xFF64748B)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Security Settings',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF0F172A),
+                                ),
                               ),
                             ),
-                          ),
-                          Switch.adaptive(
-                            value: _biometricEnabled,
-                            activeTrackColor: const Color(0xFF2563EB),
-                            activeThumbColor: Colors.white,
-                            onChanged: (val) => setState(() => _biometricEnabled = val),
-                          ),
-                        ],
+                            const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF94A3B8)),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -858,15 +1141,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                     ),
                     _buildDivider(),
                     InkWell(
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Certificates & Credentials vault loaded (3 Verified)', style: GoogleFonts.manrope()),
-                            backgroundColor: const Color(0xFF2563EB),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
+                      onTap: () => _showCertificatesModal(context),
                       borderRadius: BorderRadius.circular(10),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -876,7 +1151,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Certificates & Credentials',
+                                'Certificates',
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -1002,7 +1277,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
           child: Text(
             subject,
             style: GoogleFonts.manrope(
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF1E293B),
               height: 1.2,
@@ -1016,35 +1291,39 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
   Widget _buildVerificationRow({
     required IconData icon,
     required String label,
-    required String value,
+    String? subtitle,
     required bool isVerified,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF64748B)),
-          const SizedBox(width: 10),
+          Icon(icon, size: 20, color: const Color(0xFF64748B)),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   label,
                   style: GoogleFonts.manrope(
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF0F172A),
                   ),
                 ),
-                Text(
-                  value,
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 1.5),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.manrope(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1058,13 +1337,13 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                  const Icon(Icons.check_rounded, size: 13, color: Color(0xFF10B981)),
                   const SizedBox(width: 3),
                   Text(
-                    'Verified',
+                    '✓',
                     style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
                       color: const Color(0xFF059669),
                     ),
                   ),

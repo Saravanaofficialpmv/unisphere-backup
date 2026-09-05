@@ -412,7 +412,9 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
         drawer: isDesktop ? null : Drawer(child: _buildSidebar(sidebarItems)),
-        appBar: AppBar(
+        appBar: currentKey == StaffNavKey.profile
+            ? null
+            : AppBar(
           backgroundColor: Colors.white,
           elevation: 0.5,
           scrolledUnderElevation: 0.5,
