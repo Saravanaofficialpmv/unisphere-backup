@@ -32,6 +32,7 @@ import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/screens/student/modules/student_library_screen.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_access_denied_view.dart';
+import 'package:unisphere/core/theme/app_animations.dart';
 
 enum StaffNavKey {
   dashboard,
@@ -524,19 +525,31 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   _buildSidebar(sidebarItems),
                   const VerticalDivider(width: 1, thickness: 1, color: AppColors.border),
                   Expanded(
-                    child: Navigator(
-                      key: _innerNavigatorKey,
-                      onGenerateRoute: (settings) => MaterialPageRoute(
-                        builder: (_) => screenForNavKey(currentKey),
+                    child: ClipRect(
+                      child: Navigator(
+                        key: _innerNavigatorKey,
+                        onGenerateRoute: (settings) => MaterialPageRoute(
+                          builder: (_) => FadeSlideTransition(
+                            transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
+                            duration: const Duration(milliseconds: 180),
+                            child: screenForNavKey(currentKey),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
               )
-            : Navigator(
-                key: _innerNavigatorKey,
-                onGenerateRoute: (settings) => MaterialPageRoute(
-                  builder: (_) => screenForNavKey(currentKey),
+            : ClipRect(
+                child: Navigator(
+                  key: _innerNavigatorKey,
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (_) => FadeSlideTransition(
+                      transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
+                      duration: const Duration(milliseconds: 180),
+                      child: screenForNavKey(currentKey),
+                    ),
+                  ),
                 ),
               ),
       ),
