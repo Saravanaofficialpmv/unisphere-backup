@@ -239,6 +239,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                     child: StaffMetricCard(
                       title: "Today's Classes",
                       value: "3",
+                      imageAsset: "assets/images/metric_classes_3d.jpg",
                       icon: Icons.menu_book_rounded,
                       iconColor: const Color(0xFF6366F1),
                       gradientColors: const [
@@ -259,6 +260,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                     child: StaffMetricCard(
                       title: "Pending Tasks",
                       value: "5",
+                      imageAsset: "assets/images/metric_tasks_3d.jpg",
                       icon: Icons.assignment_turned_in_rounded,
                       iconColor: const Color(0xFFF97316),
                       gradientColors: const [
@@ -280,6 +282,7 @@ class StaffHomeDashboard extends ConsumerWidget {
                       title: "Attendance",
                       value: "92%",
                       subtitle: "(This Month)",
+                      imageAsset: "assets/images/metric_attendance_3d.jpg",
                       icon: Icons.donut_large_rounded,
                       iconColor: const Color(0xFF10B981),
                       gradientColors: const [

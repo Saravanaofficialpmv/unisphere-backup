@@ -6,7 +6,8 @@ class StaffMetricCard extends StatelessWidget {
   final String title;
   final String value;
   final String? subtitle;
-  final IconData icon;
+  final IconData? icon;
+  final String? imageAsset;
   final Color? iconColor;
   final Color? iconBgColor;
   final List<Color>? gradientColors;
@@ -19,7 +20,8 @@ class StaffMetricCard extends StatelessWidget {
     required this.title,
     required this.value,
     this.subtitle,
-    required this.icon,
+    this.icon,
+    this.imageAsset,
     this.iconColor,
     this.iconBgColor,
     this.gradientColors,
@@ -86,37 +88,59 @@ class StaffMetricCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // 3D Solid Gradient Icon Badge with White Glyph
-                  Container(
-                    width: isDense ? 34 : 38,
-                    height: isDense ? 34 : 38,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: effectiveGradients,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  if (imageAsset != null)
+                    Container(
+                      width: isDense ? 34 : 38,
+                      height: isDense ? 34 : 38,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(11),
+                        boxShadow: [
+                          BoxShadow(
+                            color: effectiveGradients.first.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: effectiveGradients.first.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Image.asset(
+                          imageAsset!,
+                          fit: BoxFit.cover,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        icon,
-                        size: isDense ? 18 : 20,
-                        color: Colors.white,
+                      ),
+                    )
+                  else
+                    Container(
+                      width: isDense ? 34 : 38,
+                      height: isDense ? 34 : 38,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: effectiveGradients,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: effectiveGradients.first.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          icon ?? Icons.analytics_rounded,
+                          size: isDense ? 18 : 20,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
 
                   // Compact Micro Chevron or Dot
                   if (onTap != null)
