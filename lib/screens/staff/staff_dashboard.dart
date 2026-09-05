@@ -31,6 +31,7 @@ import 'package:unisphere/screens/features/academic_schedule_detail_screen.dart'
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/screens/student/modules/student_library_screen.dart';
+import 'package:unisphere/screens/staff/modules/shared/staff_access_denied_view.dart';
 
 enum StaffNavKey {
   dashboard,
@@ -279,9 +280,34 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
         : activeNavKeys.first;
 
     Widget screenForNavKey(StaffNavKey navKey) {
+      // ── RBAC Security Guard: Advisor-only keys restricted from Normal Staff ──
+      final isAdvisorOnlyKey = navKey == StaffNavKey.advisorDirectory ||
+          navKey == StaffNavKey.parentCommunication ||
+          navKey == StaffNavKey.advisorApprovals ||
+          navKey == StaffNavKey.advisorEditRequests ||
+          navKey == StaffNavKey.advisorResumeBank ||
+          navKey == StaffNavKey.advisorNptel ||
+          navKey == StaffNavKey.advisorHackathons;
+
+      if (isAdvisorOnlyKey && !isAdvisor) {
+        return StaffAccessDeniedView(
+          title: 'Advisor Access Required',
+          message:
+              'This module is restricted to designated Class Advisors. Your account has standard faculty teaching permissions.',
+          onGoBack: () => _navigateToKey(StaffNavKey.dashboard, activeNavKeys),
+        );
+      }
+
       switch (navKey) {
         case StaffNavKey.advisorDashboard:
-          return (isAdvisor && !_overrideTeachingMode)
+          if (!isAdvisor) {
+            return StaffHomeDashboard(
+              onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+              onNavigateToTab: (idx) => _handleNavigation(idx),
+              onSwitchToAdvisorMode: null,
+            );
+          }
+          return !_overrideTeachingMode
               ? AdvisorDashboard(
                   onNavigateToTab: (idx) {
                     if (idx == 12) {
@@ -301,7 +327,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
               : StaffHomeDashboard(
                   onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
                   onNavigateToTab: (idx) => _handleNavigation(idx),
-                  onSwitchToAdvisorMode: isAdvisor ? () => setState(() => _overrideTeachingMode = false) : null,
+                  onSwitchToAdvisorMode: () => setState(() => _overrideTeachingMode = false),
                 );
 
         case StaffNavKey.dashboard:
