@@ -239,9 +239,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                     child: StaffMetricCard(
                       title: "Today's Classes",
                       value: "3",
-                      icon: Icons.calendar_today_rounded,
-                      iconColor: AppColors.staffRole,
-                      iconBgColor: AppColors.staffRole.withValues(alpha: 0.1),
+                      icon: Icons.calendar_month_rounded,
+                      iconColor: const Color(0xFF6366F1),
+                      gradientColors: const [
+                        Color(0xFF6366F1),
+                        Color(0xFF8B5CF6),
+                      ],
+                      trendText: "Active",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.timetable);
@@ -256,9 +260,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                     child: StaffMetricCard(
                       title: "Pending Tasks",
                       value: "5",
-                      icon: Icons.assignment_outlined,
-                      iconColor: const Color(0xFFEA580C),
-                      iconBgColor: const Color(0xFFEA580C).withValues(alpha: 0.1),
+                      icon: Icons.pending_actions_rounded,
+                      iconColor: const Color(0xFFF97316),
+                      gradientColors: const [
+                        Color(0xFFF97316),
+                        Color(0xFFEA580C),
+                      ],
+                      trendText: "Due Today",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.submissions);
@@ -274,9 +282,13 @@ class StaffHomeDashboard extends ConsumerWidget {
                       title: "Attendance",
                       value: "92%",
                       subtitle: "(This Month)",
-                      icon: Icons.bar_chart_rounded,
-                      iconColor: const Color(0xFF16A34A),
-                      iconBgColor: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                      icon: Icons.insights_rounded,
+                      iconColor: const Color(0xFF10B981),
+                      gradientColors: const [
+                        Color(0xFF10B981),
+                        Color(0xFF059669),
+                      ],
+                      trendText: "+2.4%",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.attendance);
