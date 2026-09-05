@@ -925,10 +925,10 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                             color: const Color(0xFF2563EB).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Text(
-                              '🧑‍🏫',
-                              style: TextStyle(fontSize: 20),
+                              isAdvisor ? '🧑‍🏫' : '👨‍🏫',
+                              style: const TextStyle(fontSize: 20),
                             ),
                           ),
                         ),
@@ -938,7 +938,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isAdvisor ? 'Class Advisor' : 'Class Advisor',
+                                isAdvisor ? 'Class Advisor' : 'Teaching Faculty',
                                 style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -947,7 +947,11 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                advisorSection,
+                                isAdvisor
+                                    ? advisorSection
+                                    : (staff?.assignedClasses.isNotEmpty == true
+                                        ? staff!.assignedClasses.join(' • ')
+                                        : 'III CSE - A • II CSE - B • IV CSE - A'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -955,7 +959,9 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                                 ),
                               ),
                               Text(
-                                '52 Students',
+                                isAdvisor
+                                    ? '52 Students • Class Incharge'
+                                    : 'Subject & Lab In-charge • Teaching Faculty',
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -974,7 +980,11 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (widget.onNavigateToKey != null) {
-                            widget.onNavigateToKey!(StaffNavKey.advisorDirectory);
+                            widget.onNavigateToKey!(
+                              isAdvisor
+                                  ? StaffNavKey.advisorDirectory
+                                  : StaffNavKey.studentDirectory,
+                            );
                           } else {
                             Navigator.maybePop(context);
                           }
@@ -988,7 +998,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                           ),
                         ),
                         child: Text(
-                          'View Advisor Details',
+                          isAdvisor ? 'View Advisor Details' : 'View Faculty Student Directory',
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -1004,10 +1014,21 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                 _buildSectionContainer(
                   title: 'TEACHING',
                   children: [
-                    _buildTeachingBullet('Data Structures'),
-                    const SizedBox(height: 8),
-                    _buildTeachingBullet('Operating Systems'),
-                    const SizedBox(height: 14),
+                    if (staff?.assignedSubjects != null && staff!.assignedSubjects.isNotEmpty)
+                      ...staff.assignedSubjects.map(
+                        (subj) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildTeachingBullet(subj),
+                        ),
+                      )
+                    else ...[
+                      _buildTeachingBullet('Machine Learning'),
+                      const SizedBox(height: 8),
+                      _buildTeachingBullet('Data Structures & Algorithms'),
+                      const SizedBox(height: 8),
+                      _buildTeachingBullet('Artificial Intelligence'),
+                    ],
+                    const SizedBox(height: 6),
                     SizedBox(
                       width: double.infinity,
                       height: 40,

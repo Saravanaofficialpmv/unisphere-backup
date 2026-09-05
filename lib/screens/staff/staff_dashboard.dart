@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,7 @@ import 'package:unisphere/widgets/common/main_sidebar.dart';
 import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/notification_bell_button.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
+import 'package:unisphere/widgets/common/unisphere_bottom_nav_bar.dart';
 
 // Staff Modules
 import 'package:unisphere/screens/staff/modules/staff_home/staff_home_dashboard.dart';
@@ -411,68 +413,143 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
-        drawer: isDesktop ? null : Drawer(child: _buildSidebar(sidebarItems)),
+        drawer: null,
         appBar: currentKey == StaffNavKey.profile
             ? null
             : AppBar(
           backgroundColor: Colors.white,
-          elevation: 0.5,
-          scrolledUnderElevation: 0.5,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          toolbarHeight: 64,
+          automaticallyImplyLeading: false,
+          leadingWidth: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false)) ? 54 : 0,
+          titleSpacing: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false)) ? 8 : 16,
           centerTitle: false,
-          leading: Builder(
-            builder: (context) => IconButton(
-              icon: Icon(
-                _currentIndex == 0 && !(_innerNavigatorKey.currentState?.canPop() ?? false)
-                    ? Icons.menu_rounded
-                    : Icons.arrow_back_ios_new_rounded,
-                color: const Color(0xFF1E293B),
-                size: 20,
-              ),
-              onPressed: () {
-                if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-                  _innerNavigatorKey.currentState?.pop();
-                } else if (_currentIndex != 0) {
-                  _handleBackNavigation();
-                } else {
-                  _scaffoldKey.currentState?.openDrawer();
-                }
-              },
+          shape: const Border(
+            bottom: BorderSide(
+              color: Color(0xFFE2E8F0),
+              width: 1,
             ),
           ),
+          leading: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false))
+              ? Builder(
+                  builder: (context) => Container(
+                    margin: const EdgeInsets.only(left: 12, top: 12, bottom: 12),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          if (_innerNavigatorKey.currentState?.canPop() ?? false) {
+                            _innerNavigatorKey.currentState?.pop();
+                          } else {
+                            _handleBackNavigation();
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Color(0xFF1E293B),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : null,
           title: _currentIndex == 0
               ? Row(
                   children: [
                     _buildVsbLogo(),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'VSB COLLEGE',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.manrope(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: 0.3,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'VSB COLLEGE',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14.5,
+                                    color: const Color(0xFF0F172A),
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                                ),
+                                child: Text(
+                                  'CSE',
+                                  style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 8.5,
+                                    color: const Color(0xFF475569),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            (isAdvisor && !_overrideTeachingMode)
-                                ? 'Class Advisor Portal'
-                                : 'Faculty Management System',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.manrope(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 10.5,
-                              color: (isAdvisor && !_overrideTeachingMode)
-                                  ? AppColors.staffRole
-                                  : AppColors.textSecondary,
-                            ),
+                          const SizedBox(height: 1.5),
+                          Row(
+                            children: [
+                              Container(
+                                width: 5.5,
+                                height: 5.5,
+                                margin: const EdgeInsets.only(right: 4.5),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: (isAdvisor && !_overrideTeachingMode)
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0xFF10B981),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: ((isAdvisor && !_overrideTeachingMode)
+                                              ? const Color(0xFF2563EB)
+                                              : const Color(0xFF10B981))
+                                          .withValues(alpha: 0.45),
+                                      blurRadius: 4,
+                                      spreadRadius: 0.5,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  (isAdvisor && !_overrideTeachingMode)
+                                      ? 'Class Advisor Portal'
+                                      : 'Faculty Management System',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 10.5,
+                                    color: (isAdvisor && !_overrideTeachingMode)
+                                        ? AppColors.staffRole
+                                        : AppColors.textSecondary,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -490,32 +567,90 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   ),
                 ),
           actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.school_rounded,
-                color: AppColors.staffRole,
-                size: 22,
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => showDepartmentVisionSheet(context),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFDBEAFE), width: 1),
+                    ),
+                    child: const Icon(
+                      Icons.school_rounded,
+                      color: AppColors.staffRole,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ),
-              tooltip: 'Department Vision & POs',
-              onPressed: () => showDepartmentVisionSheet(context),
             ),
+            const SizedBox(width: 4),
             NotificationBellButton(
               unreadCount: 3,
               onTap: () => showNotificationSheet(context),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             GestureDetector(
               onTap: () => _navigateToKey(StaffNavKey.profile, activeNavKeys),
               child: Container(
-                margin: const EdgeInsets.only(right: 14),
-                child: CircleAvatar(
-                  radius: 17,
-                  backgroundColor: AppColors.staffRole.withValues(alpha: 0.1),
-                  backgroundImage: staff?.photoPath != null && staff!.photoPath!.isNotEmpty
-                      ? NetworkImage(staff.photoPath!)
-                      : const NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+                margin: const EdgeInsets.only(right: 14, left: 4),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2.0),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        backgroundImage: staff?.photoPath != null && staff!.photoPath!.isNotEmpty
+                            ? NetworkImage(staff.photoPath!)
+                            : const NetworkImage(
+                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -542,18 +677,268 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   ),
                 ],
               )
-            : ClipRect(
-                child: Navigator(
-                  key: _innerNavigatorKey,
-                  onGenerateRoute: (settings) => MaterialPageRoute(
-                    builder: (_) => FadeSlideTransition(
-                      transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
-                      duration: const Duration(milliseconds: 180),
-                      child: screenForNavKey(currentKey),
+            : Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRect(
+                      child: Navigator(
+                        key: _innerNavigatorKey,
+                        onGenerateRoute: (settings) => MaterialPageRoute(
+                          builder: (_) => FadeSlideTransition(
+                            transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
+                            duration: const Duration(milliseconds: 180),
+                            child: screenForNavKey(currentKey),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (currentKey != StaffNavKey.profile)
+                    Positioned(
+                      bottom: math.max(16.0, MediaQuery.of(context).padding.bottom + 10.0),
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: UnisphereBottomNavBar(
+                          activeSlot: _resolveStaffNavSlot(currentKey),
+                          unreadNotificationsCount: 3,
+                          classesLabel: 'Classes',
+                          classesIcon: Icons.assignment_outlined,
+                          classesActiveIcon: Icons.assignment_rounded,
+                          onHomeTap: () => _navigateToKey(
+                            isAdvisor && !_overrideTeachingMode
+                                ? StaffNavKey.advisorDashboard
+                                : StaffNavKey.dashboard,
+                            activeNavKeys,
+                          ),
+                          onClassesTap: () => _navigateToKey(StaffNavKey.timetable, activeNavKeys),
+                          onCenterTap: () => _showStaffQuickLauncher(context, activeNavKeys, isAdvisor),
+                          onNotificationsTap: () => showNotificationSheet(context),
+                          onProfileTap: () => _navigateToKey(StaffNavKey.profile, activeNavKeys),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  UnisphereNavSlot _resolveStaffNavSlot(StaffNavKey currentKey) {
+    switch (currentKey) {
+      case StaffNavKey.dashboard:
+      case StaffNavKey.advisorDashboard:
+        return UnisphereNavSlot.home;
+      case StaffNavKey.timetable:
+      case StaffNavKey.attendance:
+        return UnisphereNavSlot.classes;
+      case StaffNavKey.announcements:
+        return UnisphereNavSlot.notifications;
+      case StaffNavKey.profile:
+        return UnisphereNavSlot.profile;
+      default:
+        return UnisphereNavSlot.home;
+    }
+  }
+
+  void _showStaffQuickLauncher(
+    BuildContext context,
+    List<StaffNavKey> activeNavKeys,
+    bool isAdvisor,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 20,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0066FF), Color(0xFF0044CC)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CustomPaint(painter: UnisphereULogoPainter()),
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Unisphere Quick Hub',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      'Faculty & Advisor Shortcuts',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildLauncherChip(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: 'Attendance',
+                  color: const Color(0xFF10B981),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.attendance, activeNavKeys);
+                  },
+                ),
+                _buildLauncherChip(
+                  icon: Icons.upload_file_rounded,
+                  label: 'Upload Marks',
+                  color: const Color(0xFF0066FF),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.marks, activeNavKeys);
+                  },
+                ),
+                _buildLauncherChip(
+                  icon: Icons.assignment_outlined,
+                  label: 'Assignments',
+                  color: const Color(0xFF8B5CF6),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.assignments, activeNavKeys);
+                  },
+                ),
+                _buildLauncherChip(
+                  icon: Icons.rate_review_outlined,
+                  label: 'Submissions',
+                  color: const Color(0xFFF59E0B),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.submissions, activeNavKeys);
+                  },
+                ),
+                _buildLauncherChip(
+                  icon: Icons.quiz_outlined,
+                  label: 'Question Papers',
+                  color: const Color(0xFFEC4899),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.questionPapers, activeNavKeys);
+                  },
+                ),
+                _buildLauncherChip(
+                  icon: Icons.people_alt_outlined,
+                  label: 'Student Directory',
+                  color: const Color(0xFF06B6D4),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToKey(StaffNavKey.studentDirectory, activeNavKeys);
+                  },
+                ),
+                if (isAdvisor) ...[
+                  _buildLauncherChip(
+                    icon: Icons.verified_user_outlined,
+                    label: 'Approvals',
+                    color: const Color(0xFF059669),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _navigateToKey(StaffNavKey.advisorApprovals, activeNavKeys);
+                    },
+                  ),
+                  _buildLauncherChip(
+                    icon: Icons.contact_emergency_outlined,
+                    label: 'Parents',
+                    color: const Color(0xFF2563EB),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _navigateToKey(StaffNavKey.parentCommunication, activeNavKeys);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLauncherChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1E293B),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -579,21 +964,55 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
 
   Widget _buildVsbLogo() {
     return Container(
-      width: 28,
-      height: 28,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
-        color: AppColors.staffRole,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          'V',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            fontSize: 16,
-          ),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            right: -3,
+            top: -3,
+            child: Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+          Center(
+            child: Text(
+              'V',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                fontSize: 18,
+                letterSpacing: -0.5,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
