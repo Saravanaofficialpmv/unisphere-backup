@@ -245,7 +245,6 @@ class StaffHomeDashboard extends ConsumerWidget {
                         Color(0xFF6366F1),
                         Color(0xFF8B5CF6),
                       ],
-                      trendText: "Active",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.timetable);
@@ -266,7 +265,6 @@ class StaffHomeDashboard extends ConsumerWidget {
                         Color(0xFFF97316),
                         Color(0xFFEA580C),
                       ],
-                      trendText: "Due Today",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.submissions);
@@ -288,7 +286,6 @@ class StaffHomeDashboard extends ConsumerWidget {
                         Color(0xFF10B981),
                         Color(0xFF059669),
                       ],
-                      trendText: "+2.4%",
                       onTap: () {
                         if (onNavigateToKey != null) {
                           onNavigateToKey!(StaffNavKey.attendance);
