@@ -12,6 +12,7 @@ class StaffMetricCard extends StatelessWidget {
   final Color? iconBgColor;
   final List<Color>? gradientColors;
   final String? trendText;
+  final double? progress;
   final VoidCallback? onTap;
   final bool isDense;
 
@@ -26,6 +27,7 @@ class StaffMetricCard extends StatelessWidget {
     this.iconBgColor,
     this.gradientColors,
     this.trendText,
+    this.progress,
     this.onTap,
     this.isDense = false,
   });
@@ -38,7 +40,13 @@ class StaffMetricCard extends StatelessWidget {
       effectiveColor.withValues(alpha: 0.8),
     ];
 
-    final percentValue = double.tryParse(value.replaceAll('%', '').trim());
+    double? effectiveProgress = progress;
+    if (effectiveProgress == null && value.contains('%')) {
+      final parsed = double.tryParse(value.replaceAll('%', '').trim());
+      if (parsed != null && parsed > 0) {
+        effectiveProgress = (parsed / 100.0).clamp(0.0, 1.0);
+      }
+    }
 
     return Material(
       color: Colors.transparent,
@@ -49,6 +57,7 @@ class StaffMetricCard extends StatelessWidget {
         splashColor: effectiveGradients.first.withValues(alpha: 0.12),
         highlightColor: effectiveGradients.first.withValues(alpha: 0.06),
         child: Container(
+          height: double.infinity,
           padding: EdgeInsets.symmetric(
             horizontal: isDense ? 9 : 11,
             vertical: isDense ? 10 : 12,
@@ -167,7 +176,7 @@ class StaffMetricCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // ── Metric Value & Title ──
+              // ── Metric Value & Title & Subtitle ──
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -221,43 +230,46 @@ class StaffMetricCard extends StatelessWidget {
                       color: const Color(0xFF475569),
                     ),
                   ),
-                  if (subtitle != null && subtitle!.isNotEmpty) ...[
-                    const SizedBox(height: 1),
-                    Text(
-                      subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-
-                  // Micro Progress Bar if percentage is present
-                  if (percentValue != null && percentValue > 0 && percentValue <= 100) ...[
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: Container(
-                        height: 3.5,
-                        width: double.infinity,
-                        color: const Color(0xFFE2E8F0).withValues(alpha: 0.7),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: percentValue / 100.0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: effectiveGradients,
-                              ),
+                  const SizedBox(height: 1),
+                  SizedBox(
+                    height: 14,
+                    child: (subtitle != null && subtitle!.isNotEmpty)
+                        ? Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF94A3B8),
                             ),
-                          ),
-                        ),
-                      ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+
+                  // Micro Progress Bar
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: Container(
+                      height: 3.5,
+                      width: double.infinity,
+                      color: const Color(0xFFE2E8F0).withValues(alpha: 0.7),
+                      child: effectiveProgress != null && effectiveProgress > 0
+                          ? FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: effectiveProgress,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: effectiveGradients,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ],

@@ -233,72 +233,80 @@ class StaffHomeDashboard extends ConsumerWidget {
               const SizedBox(height: 18),
 
               // ── 2. Top Metric Cards (Today's Classes, Pending Tasks, Attendance) ──
-              Row(
-                children: [
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: "Today's Classes",
-                      value: "3",
-                      imageAsset: "assets/images/metric_classes_3d.jpg",
-                      icon: Icons.menu_book_rounded,
-                      iconColor: const Color(0xFF2563EB),
-                      gradientColors: const [
-                        Color(0xFF2563EB),
-                        Color(0xFF3B82F6),
-                      ],
-                      onTap: () {
-                        if (onNavigateToKey != null) {
-                          onNavigateToKey!(StaffNavKey.timetable);
-                        } else {
-                          onNavigateToTab?.call(12);
-                        }
-                      },
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: StaffMetricCard(
+                        title: "Today's Classes",
+                        value: "3",
+                        subtitle: "Scheduled",
+                        progress: 0.60,
+                        imageAsset: "assets/images/metric_classes_3d.jpg",
+                        icon: Icons.menu_book_rounded,
+                        iconColor: const Color(0xFF2563EB),
+                        gradientColors: const [
+                          Color(0xFF2563EB),
+                          Color(0xFF3B82F6),
+                        ],
+                        onTap: () {
+                          if (onNavigateToKey != null) {
+                            onNavigateToKey!(StaffNavKey.timetable);
+                          } else {
+                            onNavigateToTab?.call(12);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: "Pending Tasks",
-                      value: "5",
-                      imageAsset: "assets/images/metric_tasks_3d.jpg",
-                      icon: Icons.assignment_turned_in_rounded,
-                      iconColor: const Color(0xFFF97316),
-                      gradientColors: const [
-                        Color(0xFFF97316),
-                        Color(0xFFEA580C),
-                      ],
-                      onTap: () {
-                        if (onNavigateToKey != null) {
-                          onNavigateToKey!(StaffNavKey.submissions);
-                        } else {
-                          onNavigateToTab?.call(3);
-                        }
-                      },
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StaffMetricCard(
+                        title: "Pending Tasks",
+                        value: "5",
+                        subtitle: "To Review",
+                        progress: 0.45,
+                        imageAsset: "assets/images/metric_tasks_3d.jpg",
+                        icon: Icons.assignment_turned_in_rounded,
+                        iconColor: const Color(0xFFF97316),
+                        gradientColors: const [
+                          Color(0xFFF97316),
+                          Color(0xFFEA580C),
+                        ],
+                        onTap: () {
+                          if (onNavigateToKey != null) {
+                            onNavigateToKey!(StaffNavKey.submissions);
+                          } else {
+                            onNavigateToTab?.call(3);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: "Attendance",
-                      value: "92%",
-                      subtitle: "(This Month)",
-                      imageAsset: "assets/images/metric_attendance_3d.jpg",
-                      icon: Icons.donut_large_rounded,
-                      iconColor: const Color(0xFF10B981),
-                      gradientColors: const [
-                        Color(0xFF10B981),
-                        Color(0xFF059669),
-                      ],
-                      onTap: () {
-                        if (onNavigateToKey != null) {
-                          onNavigateToKey!(StaffNavKey.attendance);
-                        } else {
-                          onNavigateToTab?.call(14);
-                        }
-                      },
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StaffMetricCard(
+                        title: "Attendance",
+                        value: "92%",
+                        subtitle: "This Month",
+                        progress: 0.92,
+                        imageAsset: "assets/images/metric_attendance_3d.jpg",
+                        icon: Icons.donut_large_rounded,
+                        iconColor: const Color(0xFF10B981),
+                        gradientColors: const [
+                          Color(0xFF10B981),
+                          Color(0xFF059669),
+                        ],
+                        onTap: () {
+                          if (onNavigateToKey != null) {
+                            onNavigateToKey!(StaffNavKey.attendance);
+                          } else {
+                            onNavigateToTab?.call(14);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 
