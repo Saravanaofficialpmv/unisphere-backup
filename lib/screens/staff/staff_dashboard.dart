@@ -26,7 +26,7 @@ import 'package:unisphere/screens/staff/modules/advisor_hackathon_verification_s
 import 'package:unisphere/screens/staff/modules/adviser_resume_bank_screen.dart';
 import 'package:unisphere/screens/staff/modules/staff_question_paper_upload_screen.dart';
 import 'package:unisphere/screens/hod/modules/hod_syllabus_management_screen.dart';
-import 'package:unisphere/screens/staff/staff_details_screen.dart';
+import 'package:unisphere/screens/staff/staff_profile_screen.dart';
 import 'package:unisphere/screens/features/academic_schedule_detail_screen.dart';
 import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
@@ -394,7 +394,10 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           return FullPhotoGalleryScreen(onBack: _handleBackNavigation);
 
         case StaffNavKey.profile:
-          return StaffDetailsScreen(onBack: _handleBackNavigation);
+          return StaffProfileScreen(
+            onBack: _handleBackNavigation,
+            onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+          );
       }
     }
 

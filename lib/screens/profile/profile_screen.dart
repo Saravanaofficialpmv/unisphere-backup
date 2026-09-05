@@ -18,7 +18,7 @@ import 'package:unisphere/screens/features/github_detail_screen.dart';
 import 'package:unisphere/widgets/student/student_profile_edit_request_modal.dart';
 import 'package:unisphere/screens/student/modules/student_resume_screen.dart';
 import 'package:unisphere/screens/parent/parent_profile_screen.dart';
-import 'package:unisphere/screens/staff/staff_details_screen.dart';
+import 'package:unisphere/screens/staff/staff_profile_screen.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -123,7 +123,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (currentUser?.role == UserRole.staff ||
         currentUser?.role == UserRole.hod ||
         currentUser?.role == UserRole.advisor) {
-      return StaffDetailsScreen(onBack: widget.onBack);
+      return StaffProfileScreen(onBack: widget.onBack);
     }
     final name = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty) ? currentUser.name : 'Alex Johnson';
     final email = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty) ? currentUser.email : 'saravanapmvofficial@gmail.com';
