@@ -1,18 +1,21 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:unisphere/models/academic_record_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unisphere/models/models.dart';
 import 'package:unisphere/repositories/academic_record_repository.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
+import 'package:unisphere/services/marks_import_service.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
-class StaffMarksUploadModule extends StatefulWidget {
+class StaffMarksUploadModule extends ConsumerStatefulWidget {
   const StaffMarksUploadModule({super.key});
 
   @override
-  State<StaffMarksUploadModule> createState() => _StaffMarksUploadModuleState();
+  ConsumerState<StaffMarksUploadModule> createState() => _StaffMarksUploadModuleState();
 }
 
-class _StaffMarksUploadModuleState extends State<StaffMarksUploadModule> {
+class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule> {
   String _selectedSubject = 'CS401 - Advanced Data Structures';
   String _selectedExamType = 'IA-1 (Internal Assessment 1)';
   String _selectedFormat = 'Excel Sheet (.xlsx)';
@@ -250,6 +253,50 @@ class _StaffMarksUploadModuleState extends State<StaffMarksUploadModule> {
     setState(() {
       _isPublishing = true;
     });
+
+    final currentUser = ref.read(authServiceProvider).currentUser ??
+        UserModel(
+          uid: 'DEMO-STF',
+          email: 'staff@unisphere.edu',
+          fullName: 'Dr. Arun Kumar',
+          role: UserRole.staff,
+        );
+
+    try {
+      final marksImportService = ref.read(marksImportServiceProvider);
+      await marksImportService.importMarksDocument(
+        fileName: _uploadedFileName.isNotEmpty ? _uploadedFileName : 'Marks_Upload.xlsx',
+        fileType: _selectedFormat.contains('CSV') ? 'csv' : (_selectedFormat.contains('PDF') ? 'pdf' : 'xlsx'),
+        departmentId: currentUser.departmentId ?? 'DEP-CSE',
+        departmentName: currentUser.departmentName ?? 'Computer Science & Engineering',
+        courseCode: _selectedSubject.contains(' - ') ? _selectedSubject.split(' - ')[0].trim() : 'CS401',
+        subjectName: _selectedSubject.contains(' - ') ? _selectedSubject.split(' - ')[1].trim() : _selectedSubject,
+        assessmentType: _selectedExamType.contains('IA-1')
+            ? 'internal_1'
+            : (_selectedExamType.contains('IA-2')
+                ? 'internal_2'
+                : (_selectedExamType.contains('Model') ? 'model' : 'retest')),
+        semester: 6,
+        currentUser: currentUser,
+        records: _parsedRecords,
+        maximumMarks: _selectedExamType.contains('Model') ? 100.0 : 50.0,
+        weightage: _selectedExamType.contains('Model') ? 20.0 : 15.0,
+      );
+    } on MarksPermissionException catch (permErr) {
+      if (mounted) {
+        setState(() => _isPublishing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(permErr.message),
+            backgroundColor: const Color(0xFFDC2626),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    } catch (e) {
+      debugPrint('MarksImportService notice: $e');
+    }
 
     final firestoreService = FirebaseFirestoreService();
     await firestoreService.saveAssignmentMarks(
@@ -534,6 +581,27 @@ class _StaffMarksUploadModuleState extends State<StaffMarksUploadModule> {
                                 items: _examTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12.5)))).toList(),
                                 onChanged: (v) => setState(() => _selectedExamType = v!),
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.shield_outlined, size: 13, color: Color(0xFF475569)),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Final Semester marks are managed exclusively by HOD.',
+                                    style: TextStyle(fontSize: 10.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

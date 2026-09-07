@@ -2240,18 +2240,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
         final regNo = (updatedMeta['registerNumber'] ?? updatedMeta['regNo'])?.toString().trim();
         if (regNo != null && regNo.isNotEmpty) {
-          await firestore.collection('students').doc(regNo).set(updateMap, SetOptions(merge: true));
-          await firestore.collection('students').doc(regNo.toUpperCase()).set(updateMap, SetOptions(merge: true));
-          await firestore.collection('users').doc(regNo).set(updateMap, SetOptions(merge: true));
-          await firestore.collection('users').doc(regNo.toUpperCase()).set(updateMap, SetOptions(merge: true));
-          await firestore.collection('student_profiles').doc(regNo).set({
-            'photoUrl': uploadedUrl,
-            'profileImageUrl': uploadedUrl,
-            'personal.photoUrl': uploadedUrl,
-            'personal.passportPhotoUrl': uploadedUrl,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-
           ref.read(parentServiceProvider).cacheStudentProfile(regNo, {
             'fullName': updatedUser.fullName,
             'name': updatedUser.fullName,
@@ -2348,18 +2336,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }, SetOptions(merge: true));
 
           if (regNo != null && regNo.isNotEmpty) {
-            await firestore.collection('students').doc(regNo).set(deleteMap, SetOptions(merge: true));
-            await firestore.collection('students').doc(regNo.toUpperCase()).set(deleteMap, SetOptions(merge: true));
-            await firestore.collection('users').doc(regNo).set(deleteMap, SetOptions(merge: true));
-            await firestore.collection('users').doc(regNo.toUpperCase()).set(deleteMap, SetOptions(merge: true));
-            await firestore.collection('student_profiles').doc(regNo).set({
-              'photoUrl': '',
-              'profileImageUrl': '',
-              'personal.photoUrl': '',
-              'personal.passportPhotoUrl': '',
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-
             ref.read(parentServiceProvider).cacheStudentProfile(regNo, {
               'fullName': updatedUser.fullName,
               'name': updatedUser.fullName,

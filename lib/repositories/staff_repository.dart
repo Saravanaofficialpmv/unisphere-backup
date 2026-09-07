@@ -361,16 +361,21 @@ class StaffRepository {
     required String requestId,
     required String status,
     String? reviewerName,
+    String? remarks,
   }) async {
     final firestore = _firestore;
     if (firestore == null || requestId.isEmpty) return;
     try {
-      await firestore.collection('leave_requests').doc(requestId).set({
+      final data = <String, dynamic>{
         'status': status,
-        'reviewedBy': reviewerName ?? 'Class Advisor',
+        'reviewedBy': reviewerName ?? 'HOD',
         'reviewedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (remarks != null && remarks.isNotEmpty) {
+        data['remarks'] = remarks;
+      }
+      await firestore.collection('leave_requests').doc(requestId).set(data, SetOptions(merge: true));
     } catch (e) {
       debugPrint('StaffRepository updateLeaveODStatus error: $e');
       rethrow;
@@ -779,4 +784,74 @@ class StaffRepository {
       'status': 'Pending',
     },
   ];
+
+  /// Stream real-time leave and OD requests for a department
+  Stream<List<Map<String, dynamic>>> watchDepartmentLeaveRequests(String departmentId) {
+    final firestore = _firestore;
+    if (firestore == null) return Stream.value(_defaultLeaveODRequests);
+
+    return firestore.collection('leave_requests').snapshots().map((snap) {
+      if (snap.docs.isEmpty) return _defaultLeaveODRequests;
+      return snap.docs.map((d) {
+        final data = d.data();
+        data['id'] = d.id;
+        return data;
+      }).toList();
+    }).handleError((e) {
+      debugPrint('StaffRepository watchDepartmentLeaveRequests error: $e');
+      return _defaultLeaveODRequests;
+    });
+  }
+
+  /// Watch all staff members strictly scoped to a department
+  Stream<List<StaffModel>> watchStaffByDepartment(String departmentId) {
+    final firestore = _firestore;
+    final cleanDept = departmentId.trim();
+    if (firestore == null) return Stream.value([_resolveDefaultStaff('')]);
+
+    return firestore.collection('staff').snapshots().map((snap) {
+      if (snap.docs.isEmpty) return [_resolveDefaultStaff('')];
+      final list = snap.docs
+          .map((d) => StaffModel.fromMap(d.data(), d.id))
+          .where((s) => _matchesStaffDepartment(s, cleanDept))
+          .toList();
+      return list.isNotEmpty ? list : [_resolveDefaultStaff('')];
+    }).handleError((e) {
+      debugPrint('StaffRepository watchStaffByDepartment error: $e');
+      return <StaffModel>[_resolveDefaultStaff('')];
+    });
+  }
+
+  /// Watch all staff assignments for a department
+  Stream<List<StaffAssignmentModel>> watchAssignmentsByDepartment(String departmentId) {
+    final firestore = _firestore;
+    final cleanDept = departmentId.trim();
+    if (firestore == null) return Stream.value(_resolveDefaultAssignments(''));
+
+    return firestore.collection('staffAssignments').snapshots().map((snap) {
+      if (snap.docs.isEmpty) return _resolveDefaultAssignments('');
+      final list = snap.docs
+          .map((d) => StaffAssignmentModel.fromMap(d.data(), d.id))
+          .where((a) => cleanDept.isEmpty || a.departmentId.toLowerCase().contains(cleanDept.toLowerCase()))
+          .toList();
+      return list.isNotEmpty ? list : _resolveDefaultAssignments('');
+    }).handleError((e) {
+      debugPrint('StaffRepository watchAssignmentsByDepartment error: $e');
+      return _resolveDefaultAssignments('');
+    });
+  }
+
+  static bool _matchesStaffDepartment(StaffModel staff, String targetDept) {
+    final cleanTarget = targetDept.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final staffDeptId = staff.departmentId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final staffDeptName = staff.departmentName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    if (cleanTarget.isEmpty) return true;
+    if (staffDeptId == cleanTarget || staffDeptName == cleanTarget) return true;
+    if (staffDeptId.contains(cleanTarget) || cleanTarget.contains(staffDeptId)) return true;
+    if (cleanTarget.contains('cse') || cleanTarget.contains('computerscience')) {
+      if (staffDeptId.contains('cse') || staffDeptName.contains('computerscience')) return true;
+    }
+    return false;
+  }
 }

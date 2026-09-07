@@ -17,6 +17,12 @@ export 'common/sign_out_confirmation_sheet.dart';
 export 'common/masonry_photo_grid.dart';
 export 'common/recent_photos_section.dart';
 export 'common/stacked_deck_photo_gallery.dart';
+export 'common/app_desktop_header.dart';
+export 'common/app_desktop_shell.dart';
+export 'common/app_kpi_card.dart';
+export 'common/app_page_header.dart';
+export 'common/app_desktop_data_table.dart';
+export 'common/app_responsive_grid.dart';
 
 // Student Domain Widgets
 export 'student/student_floating_nav_bar.dart';
@@ -31,6 +37,9 @@ export 'student/student_reference_card.dart';
 export 'parent/parent_floating_nav_bar.dart';
 export 'parent/parent_navigation_sheet.dart';
 export 'parent/parent_quick_navigation_bar.dart';
+
+// HOD Domain Widgets
+export 'hod/hod_floating_nav_bar.dart';
 
 // Examination Widgets
 export 'exams/exam_card.dart';

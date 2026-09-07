@@ -4,6 +4,10 @@ import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/user_session_service.dart';
 
+import 'package:unisphere/core/responsive/responsive_breakpoints.dart';
+import 'package:unisphere/widgets/common/app_kpi_card.dart';
+import 'package:unisphere/widgets/common/app_page_header.dart';
+
 class AdminDashboard extends ConsumerStatefulWidget {
   const AdminDashboard({super.key});
 
@@ -41,6 +45,118 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = AppResponsive.isDesktop(context);
+
+    if (isDesktop) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppPageHeader(
+            title: 'Executive Institutional Overview',
+            subtitle: 'Real-time metrics, student enrollment, faculty readiness, and governance actions',
+            icon: Icons.dashboard_customize_rounded,
+            accentColor: AppColors.primary,
+            actions: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Refresh Status'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => _checkUserSession(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // 4 Enterprise KPI Cards
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width >= 1200 ? 4 : 2;
+              final cardWidth = (width - ((crossAxisCount - 1) * 16)) / crossAxisCount;
+
+              final kpiCards = [
+                const AppKpiCard(
+                  title: 'Total Students',
+                  value: '1,240',
+                  subtitle: 'Enrolled across all 12 departments',
+                  trend: '+8% this year',
+                  isPositiveTrend: true,
+                  icon: Icons.school_rounded,
+                  accentColor: AppColors.primary,
+                ),
+                const AppKpiCard(
+                  title: 'Faculty & Staff',
+                  value: '142',
+                  subtitle: 'Active institutional members',
+                  trend: '100% assigned',
+                  isPositiveTrend: true,
+                  icon: Icons.badge_outlined,
+                  accentColor: AppColors.primaryLight,
+                ),
+                const AppKpiCard(
+                  title: 'Departments',
+                  value: '12',
+                  subtitle: 'Governed academic faculties',
+                  trend: 'All accredited',
+                  isPositiveTrend: true,
+                  icon: Icons.business_rounded,
+                  accentColor: Color(0xFF8B5CF6),
+                ),
+                const AppKpiCard(
+                  title: 'System Health',
+                  value: '99.9%',
+                  subtitle: 'Firestore & Authentication engines',
+                  trend: 'Optimal status',
+                  isPositiveTrend: true,
+                  icon: Icons.health_and_safety_rounded,
+                  accentColor: AppColors.success,
+                ),
+              ];
+
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: kpiCards.map((card) => SizedBox(width: cardWidth, child: card)).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          // Multi-column Analytics & Actions
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 7,
+                child: Column(
+                  children: [
+                    _buildTrendGraph(),
+                    const SizedBox(height: 24),
+                    _buildQuickActions(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    _buildSystemPulse(),
+                    const SizedBox(height: 24),
+                    _buildAnnouncementsList(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 40),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

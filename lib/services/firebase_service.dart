@@ -19,26 +19,71 @@ class FirebaseService {
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
+  Future<bool>? _initFuture;
 
-  FirebaseAuth? get auth => Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null;
-  FirebaseFirestore? get firestore => Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null;
-  FirebaseStorage? get storage => Firebase.apps.isNotEmpty ? FirebaseStorage.instance : null;
-
-  /// Initialize Firebase app safely across platforms
-  Future<bool> initialize() async {
-    if (_initialized && Firebase.apps.isNotEmpty) return true;
-
+  FirebaseAuth? get auth {
+    if (!_initialized) return null;
     try {
-      if (Firebase.apps.isEmpty) {
-        try {
-          await Firebase.initializeApp(
-            options: DefaultFirebaseOptions.currentPlatform,
-          );
-        } catch (e) {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  FirebaseFirestore? get firestore {
+    if (!_initialized) return null;
+    try {
+      return FirebaseFirestore.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  FirebaseStorage? get storage {
+    if (!_initialized) return null;
+    try {
+      return FirebaseStorage.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Initialize Firebase app safely across platforms without querying Firebase.apps on Web before initialization
+  Future<bool> initialize() {
+    if (_initialized) return Future.value(true);
+    _initFuture ??= _performInitialize();
+    return _initFuture!;
+  }
+
+  Future<bool> _performInitialize() async {
+    try {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } on FirebaseException catch (e) {
+        if (e.code == 'duplicate-app') {
+          debugPrint('Firebase already initialized: ${e.message}');
+        } else {
+          rethrow;
+        }
+      } catch (e) {
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('duplicate') || errStr.contains('already exists')) {
+          debugPrint('Firebase already initialized.');
+        } else {
           debugPrint('Platform specific options failed, trying default initializeApp: $e');
-          await Firebase.initializeApp();
+          try {
+            await Firebase.initializeApp();
+          } catch (inner) {
+            final innerStr = inner.toString().toLowerCase();
+            if (!innerStr.contains('duplicate') && !innerStr.contains('already exists')) {
+              rethrow;
+            }
+          }
         }
       }
+
       _initialized = true;
       debugPrint('Firebase initialized successfully.');
       // Asynchronously seed initial data in microtask without blocking initialization flow
@@ -46,7 +91,13 @@ class FirebaseService {
       return true;
     } catch (e) {
       debugPrint('Firebase initialization warning: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('duplicate') || errStr.contains('already exists')) {
+        _initialized = true;
+        return true;
+      }
       _initialized = false;
+      _initFuture = null; // allow retry
       return false;
     }
   }

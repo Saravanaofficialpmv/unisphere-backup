@@ -118,7 +118,7 @@ class StaffModel {
       assignedClasses: List<String>.from(map['assignedClasses'] ?? map['assigned_classes'] ?? []),
       assignedSubjects: List<String>.from(map['assignedSubjects'] ?? map['assigned_subjects'] ?? []),
       qualification: map['qualification'],
-      experienceYears: (map['experienceYears'] ?? map['experience_years'] ?? 0) as int,
+      experienceYears: int.tryParse(map['experienceYears']?.toString() ?? map['experience_years']?.toString() ?? '0') ?? 0,
       officeLocation: map['officeLocation'] ?? map['office_location'],
       isHod: map['isHod'] ?? map['is_hod'] ?? false,
       isAdvisor: map['isAdvisor'] ?? map['is_advisor'] ?? map['isClassAdvisor'] ?? false,

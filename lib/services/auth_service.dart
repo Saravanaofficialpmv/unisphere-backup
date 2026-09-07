@@ -24,6 +24,7 @@ abstract class AuthService {
   UserModel? get currentUser;
   Future<void> reloadUser();
   Stream<fb.User?>? get firebaseUserStream;
+  Future<void> ensureAuthReady();
 }
 
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -56,6 +57,9 @@ class SupabaseAuthService implements AuthService {
     });
     _init();
   }
+
+  @override
+  Future<void> ensureAuthReady() async {}
 
   @override
   Stream<UserModel?> get authStateChanges async* {
@@ -115,30 +119,15 @@ class SupabaseAuthService implements AuthService {
       return;
     }
 
-    // REAL SIGN IN WITH OFFLINE / DEMO FALLBACK
+    // REAL SIGN IN
     try {
       await _supabase.auth.signInWithPassword(email: email, password: password);
     } catch (e) {
-      // Catch network exceptions (SocketException / Failed host lookup) or auth errors during demo
-      UserRole fallbackRole = UserRole.student;
-      if (lowerEmail.contains('hod')) {
-        fallbackRole = UserRole.hod;
-      } else if (lowerEmail.contains('admin')) {
-        fallbackRole = UserRole.admin;
-      } else if (lowerEmail.contains('staff') || lowerEmail.contains('faculty')) {
-        fallbackRole = UserRole.staff;
-      } else if (lowerEmail.contains('parent')) {
-        fallbackRole = UserRole.parent;
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('invalid') || msg.contains('not found') || msg.contains('user_not_found')) {
+        throw 'User not found. No account is registered with this email address. Please check your email or Sign Up.';
       }
-
-      _mockUser = UserModel(
-        uid: 'DEMO-OFFLINE',
-        email: email,
-        fullName: email.contains('@') ? email.split('@').first : email,
-        role: fallbackRole,
-      );
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
+      rethrow;
     }
   }
 

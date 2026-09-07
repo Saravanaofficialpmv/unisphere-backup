@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/photo_album_model.dart';
 import 'package:unisphere/providers/gallery_provider.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/screens/gallery/album_details_screen.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/gallery_service.dart';
@@ -117,8 +118,14 @@ class _HodAlbumManagementScreenState extends ConsumerState<HodAlbumManagementScr
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authServiceProvider).currentUser;
-    final userDept = user?.metadata?['department']?.toString() ?? 'Computer Science & Engineering';
+    final dept = ref.watch(currentHodDepartmentProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final userDept = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (user?.departmentName ??
+            user?.department ??
+            user?.metadata?['department']?.toString() ??
+            'Department');
 
     final albumsAsync = ref.watch(departmentAlbumsProvider(userDept));
     final dateFormat = DateFormat('MMM dd, yyyy');

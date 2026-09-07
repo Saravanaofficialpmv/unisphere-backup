@@ -217,9 +217,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   late bool _isSignUp;
   late final PageController _pageController;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _rememberMe = false;
+  String? _loginErrorMessage;
+  bool _isUserNotFoundError = false;
 
   @override
   void initState() {
@@ -286,7 +290,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   void _toggleAuthMode(bool isSignUp) {
     if (_isSignUp == isSignUp) return;
-    setState(() => _isSignUp = isSignUp);
+    setState(() {
+      _isSignUp = isSignUp;
+      _loginErrorMessage = null;
+      _isUserNotFoundError = false;
+    });
     if (_pageController.hasClients) {
       _pageController.animateToPage(
         isSignUp ? 1 : 0,
@@ -309,6 +317,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         context.go('/student');
         break;
       case UserRole.staff:
+      case UserRole.advisor:
         context.go('/staff');
         break;
       case UserRole.parent:
@@ -331,7 +340,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loginErrorMessage = null;
+      _isUserNotFoundError = false;
+    });
     
     try {
       if (_isSignUp) {
@@ -416,6 +429,102 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               childRegisterNumbers: childRegs,
             );
           }
+        } else if (_selectedRole == UserRole.staff) {
+          final staffReg = _regNoController.text.trim();
+          if (staffReg.length != 4 || !RegExp(r'^[0-9]{4}$').hasMatch(staffReg)) {
+            _showSnackBar('Staff register number must be exactly 4 digits', AppColors.error);
+            return;
+          }
+          final deptVal = _deptController.text.trim();
+          await ref.read(authServiceProvider).registerWithEmail(
+            email,
+            password,
+            name.isNotEmpty ? name : 'Faculty Member',
+            UserRole.staff,
+            phoneNumber: phone.isNotEmpty ? phone : null,
+            metadata: {
+              'fullName': name,
+              'name': name,
+              'staffId': staffReg,
+              'employeeId': staffReg,
+              'registerNumber': staffReg,
+              'regNo': staffReg,
+              'department': deptVal,
+              'departmentName': deptVal,
+              'email': email,
+              'phone': phone,
+              'role': 'staff',
+              'userRole': 'staff',
+              'isAdvisor': false,
+              'profileCompletionStatus': 'complete',
+            },
+          );
+
+          final currentUser = ref.read(authServiceProvider).currentUser;
+          if (currentUser != null) {
+            final staffMap = {
+              'userId': currentUser.uid,
+              'uid': currentUser.uid,
+              'staffId': staffReg,
+              'employeeId': staffReg,
+              'registerNumber': staffReg,
+              'name': name,
+              'fullName': name,
+              'email': email,
+              'phone': phone,
+              'department': deptVal,
+              'departmentName': deptVal,
+              'role': 'staff',
+              'userRole': 'staff',
+              'isAdvisor': false,
+              'updatedAt': FieldValue.serverTimestamp(),
+            };
+            try {
+              final firestore = FirebaseFirestore.instance;
+              await firestore.collection('staff').doc(currentUser.uid).set(staffMap, SetOptions(merge: true));
+              await firestore.collection('users').doc(currentUser.uid).set(staffMap, SetOptions(merge: true));
+            } catch (_) {}
+          }
+        } else if (_selectedRole == UserRole.hod) {
+          final deptVal = _deptController.text.trim();
+          await ref.read(authServiceProvider).registerWithEmail(
+            email,
+            password,
+            name.isNotEmpty ? name : 'Head of Department',
+            UserRole.hod,
+            phoneNumber: phone.isNotEmpty ? phone : null,
+            metadata: {
+              'fullName': name,
+              'name': name,
+              'department': deptVal,
+              'departmentName': deptVal,
+              'email': email,
+              'phone': phone,
+              'role': 'hod',
+              'userRole': 'hod',
+              'profileCompletionStatus': 'complete',
+            },
+          );
+          final currentUser = ref.read(authServiceProvider).currentUser;
+          if (currentUser != null) {
+            final hodMap = {
+              'userId': currentUser.uid,
+              'uid': currentUser.uid,
+              'name': name,
+              'fullName': name,
+              'email': email,
+              'phone': phone,
+              'department': deptVal,
+              'departmentName': deptVal,
+              'role': 'hod',
+              'userRole': 'hod',
+              'updatedAt': FieldValue.serverTimestamp(),
+            };
+            try {
+              final firestore = FirebaseFirestore.instance;
+              await firestore.collection('users').doc(currentUser.uid).set(hodMap, SetOptions(merge: true));
+            } catch (_) {}
+          }
         } else {
           final regNo = _regNoController.text.trim();
           if (_selectedRole == UserRole.student) {
@@ -467,14 +576,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             'updatedAt': FieldValue.serverTimestamp(),
           };
 
-          try {
-            final firestore = FirebaseFirestore.instance;
-            await firestore.collection('students').doc(regNo).set(studentMap, SetOptions(merge: true));
-            await firestore.collection('students').doc(regNo.toUpperCase()).set(studentMap, SetOptions(merge: true));
-            await firestore.collection('users').doc(regNo).set(studentMap, SetOptions(merge: true));
-            await firestore.collection('users').doc(regNo.toUpperCase()).set(studentMap, SetOptions(merge: true));
-          } catch (_) {}
-
           ref.read(parentServiceProvider).cacheStudentProfile(regNo, studentMap);
         }
       } else {
@@ -494,7 +595,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _navigateToUserDashboard(currentUser);
       }
     } catch (e) {
-      if (mounted) _showSnackBar('Authentication Notice: ${e.toString()}', AppColors.error);
+      final rawError = e.toString().replaceFirst('Exception: ', '').trim();
+      final lowerErr = rawError.toLowerCase();
+      final isUserNotFound = lowerErr.contains('user not found') ||
+          lowerErr.contains('user-not-found') ||
+          lowerErr.contains('no account is registered') ||
+          lowerErr.contains('no user record');
+
+      setState(() {
+        if (!_isSignUp) {
+          if (isUserNotFound) {
+            _isUserNotFoundError = true;
+            _loginErrorMessage = 'User not found. No account is registered with this email address. Please check your email or Sign Up.';
+          } else {
+            _isUserNotFoundError = false;
+            _loginErrorMessage = rawError.startsWith('Authentication Notice:')
+                ? rawError.replaceFirst('Authentication Notice:', '').trim()
+                : rawError;
+          }
+        }
+      });
+
+      if (mounted) {
+        _showSnackBar(
+          isUserNotFound ? 'User not found. Please check your email or Sign Up.' : rawError,
+          AppColors.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -616,14 +743,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
   );
 
+  static final RegExp _gmailRegExp = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@gmail\.com$',
+    caseSensitive: false,
+  );
+
   String? _validateEmail(String? val, {bool isCollege = false}) {
     final clean = val?.trim() ?? '';
     if (clean.isEmpty) {
       return isCollege ? 'Please enter college email address' : 'Please enter your email address';
     }
-    if (!_emailRegExp.hasMatch(clean)) {
-      return 'Enter a valid email address (e.g. name@domain.com)';
+    if (isCollege) {
+      if (!_emailRegExp.hasMatch(clean)) {
+        return 'Enter a valid college email address';
+      }
+      return null;
     }
+
+    // Gmail format validation for login and parent
+    if (!clean.contains('@')) {
+      return 'Gmail format required: must include @gmail.com';
+    }
+
+    final lowerClean = clean.toLowerCase();
+    final isDemoDomain = lowerClean.endsWith('@unisphere.edu') || lowerClean.endsWith('@vsbec.ac.in');
+
+    if (!isDemoDomain && !_gmailRegExp.hasMatch(clean)) {
+      if (!_emailRegExp.hasMatch(clean)) {
+        return 'Please enter a valid Gmail address (e.g. name@gmail.com)';
+      }
+      return 'Please enter a valid Gmail address (@gmail.com)';
+    }
+
     return null;
   }
 
@@ -669,12 +820,77 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         const SizedBox(height: 10),
         _buildTextField(
           controller: _emailController,
-          hint: 'example@unisphere.edu',
+          hint: 'yourname@gmail.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
+          customBorderColor: _isUserNotFoundError ? const Color(0xFFEF4444) : null,
           validator: (val) => _validateEmail(val),
+          onChanged: (val) {
+            setState(() {
+              _loginErrorMessage = null;
+              _isUserNotFoundError = false;
+            });
+          },
         ),
-        const SizedBox(height: 24),
+        if (_isUserNotFoundError)
+          const Padding(
+            padding: EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                SizedBox(width: 4),
+                Text(
+                  'User not found',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (!_isSignUp && _emailController.text.isNotEmpty && !_emailController.text.contains('@'))
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              children: [
+                const Text(
+                  'Format: ',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                ),
+                InkWell(
+                  onTap: () {
+                    final text = _emailController.text.trim();
+                    _emailController.text = '$text@gmail.com';
+                    _emailController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _emailController.text.length),
+                    );
+                    setState(() {});
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                    ),
+                    child: const Text(
+                      'Tap to append @gmail.com',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 20),
         const Text('Password', style: _labelStyle),
         const SizedBox(height: 10),
         _buildTextField(
@@ -685,6 +901,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           obscureText: _obscurePassword,
           onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
           validator: (val) => val == null || val.length < 6 ? 'Password too short' : null,
+          onChanged: (val) {
+            if (_loginErrorMessage != null) {
+              setState(() {
+                _loginErrorMessage = null;
+                _isUserNotFoundError = false;
+              });
+            }
+          },
         ),
         const SizedBox(height: 16),
         Row(
@@ -729,22 +953,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+
+
   Widget _buildDemoLogins() {
     return Center(
       child: Column(
         children: [
-          const Text('⚡ Quick Demo Access & Autofill', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          const Text('⚡ Real-Time Demo Access & Quick Login', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              _demoChip('🏛️ Department (HOD)', 'hod.cse@unisphere.edu', 'HodPass123!'),
-              _demoChip('👑 Admin', 'admin@unisphere.edu', 'AdminPass123!'),
-              _demoChip('👨‍🏫 Staff', 'staff@unisphere.edu', 'StaffPass123!'),
               _demoChip('🎓 Student', 'saravanapmvofficial@gmail.com', 'Sivamani9698pmv\$'),
-              _demoChip('👨‍👩‍👧 Parent', 'parent@unisphere.edu', 'ParentPass123!'),
+              _demoChip('👨‍👩‍👧 Parent', 'heydigitals.care@gmail.com', 'Sivamani9698pmv\$'),
+              _demoChip('🏛️ Department (HOD)', 'unispherecrm.official@gmail.com', 'Unisphere@123'),
+              _demoChip('👨‍🏫 Staff', 'Awenests.care@gmail.com', 'Unisphere@123'),
+              _demoChip('👑 Admin', 'admin@unisphere.edu', 'AdminPass123!'),
             ],
           ),
           const SizedBox(height: 24),
@@ -769,12 +995,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
               onTap: () {
                 _toggleAuthMode(false);
+                setState(() {
+                  _loginErrorMessage = null;
+                  _isUserNotFoundError = false;
+                });
                 _emailController.text = email;
                 _passwordController.text = pass;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Autofilled $role credentials! Tap Log In or tap Open ➔ to launch.'),
-                    duration: const Duration(seconds: 1),
+                    content: Text('Autofilled $role credentials! Tap Log In or Login ➔ to launch.'),
+                    duration: const Duration(seconds: 2),
                   ),
                 );
               },
@@ -791,6 +1021,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               onTap: () async {
                 setState(() {
                   _isSignUp = false;
+                  _loginErrorMessage = null;
+                  _isUserNotFoundError = false;
                   _emailController.text = email;
                   _passwordController.text = pass;
                   _isLoading = true;
@@ -811,7 +1043,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Text('Open ➔', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    Text('Login ➔', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -823,13 +1055,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Widget _buildSignupForm() {
-    final isParent = _selectedRole == UserRole.parent;
-
     return Column(
       key: const ValueKey('signup_form'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isParent) ...[
+        if (_selectedRole == UserRole.parent) ...[
           const Text('Parent / Guardian Full Name', style: _labelStyle),
           const SizedBox(height: 8),
           _buildTextField(
@@ -1063,10 +1293,139 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           const SizedBox(height: 8),
           _buildTextField(
             controller: _emailController,
-            hint: 'parent@example.com',
+            hint: 'parent@gmail.com',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
             validator: (val) => _validateEmail(val),
+          ),
+        ] else if (_selectedRole == UserRole.staff) ...[
+          const Text('Faculty / Staff Full Name', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _nameController,
+            hint: 'Enter faculty / staff full name',
+            icon: Icons.person_outline,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]')),
+            ],
+            validator: (val) => _validateName(val, entity: 'faculty full'),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Staff Register Number', style: _labelStyle),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _regNoController,
+                      hint: 'Enter 4-digit register number',
+                      icon: Icons.badge_outlined,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      validator: (val) {
+                        if (!_isSignUp) return null;
+                        if (val == null || val.trim().isEmpty) return 'Staff register number required';
+                        if (val.trim().length != 4 || !RegExp(r'^[0-9]{4}$').hasMatch(val.trim())) {
+                          return 'Must be 4 digits';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Department', style: _labelStyle),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _deptController,
+                      hint: 'e.g. CSE, IT, MECH',
+                      icon: Icons.school_outlined,
+                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('Staff Email Address', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _emailController,
+            hint: 'staff@unisphere.edu or gmail',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) => _validateEmail(val),
+          ),
+          const SizedBox(height: 16),
+          const Text('Contact Phone Number', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _phoneController,
+            hint: 'Enter 10-digit mobile number',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+            validator: _validatePhone,
+          ),
+        ] else if (_selectedRole == UserRole.hod) ...[
+          const Text('HOD Full Name', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _nameController,
+            hint: 'Enter HOD full name',
+            icon: Icons.person_outline,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]')),
+            ],
+            validator: (val) => _validateName(val, entity: 'HOD full'),
+          ),
+          const SizedBox(height: 16),
+          const Text('Department', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _deptController,
+            hint: 'e.g. Computer Science & Engineering',
+            icon: Icons.domain_rounded,
+            validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
+          ),
+          const SizedBox(height: 16),
+          const Text('HOD Email Address', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _emailController,
+            hint: 'hod@unisphere.edu or gmail',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) => _validateEmail(val),
+          ),
+          const SizedBox(height: 16),
+          const Text('Contact Phone Number', style: _labelStyle),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _phoneController,
+            hint: 'Enter 10-digit mobile number',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+            validator: _validatePhone,
           ),
         ] else ...[
           const Text('Student Full Name', style: _labelStyle),
@@ -1208,11 +1567,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   children: [
                     const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 6),
-                    Text(
-                      pass.length < 6
-                          ? 'Password must be at least 6 characters'
-                          : 'Enter confirm password to match',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    Expanded(
+                      child: Text(
+                        pass.length < 6
+                            ? 'Password must be at least 6 characters'
+                            : 'Enter confirm password to match',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
                     ),
                   ],
                 );
@@ -1226,12 +1587,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     color: isMatch ? AppColors.success : AppColors.error,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    isMatch ? 'Both passwords match' : 'Passwords do not match',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isMatch ? AppColors.success : AppColors.error,
+                  Expanded(
+                    child: Text(
+                      isMatch ? 'Both passwords match' : 'Passwords do not match',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isMatch ? AppColors.success : AppColors.error,
+                      ),
                     ),
                   ),
                 ],
@@ -1254,6 +1617,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 24),
+        _buildSocialLogins(),
         const SizedBox(height: 32),
       ],
     );
@@ -1318,7 +1683,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             Expanded(
               child: _buildGoogleButton(
                 () async {
-                  setState(() => _isLoading = true);
+                  if (_isLoading || _isGoogleLoading || _isAppleLoading) return;
+                  setState(() => _isGoogleLoading = true);
                   try {
                     await ref.read(authServiceProvider).signInWithGoogle();
                     final user = ref.read(authServiceProvider).currentUser;
@@ -1326,9 +1692,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       _navigateToUserDashboard(user);
                     }
                   } catch (e) {
-                    if (mounted) _showSnackBar('Google Sign-In Notice: ${e.toString()}', AppColors.error);
+                    final cleanMsg = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
+                    if (mounted) _showSnackBar(cleanMsg.isNotEmpty ? cleanMsg : 'Google Sign-In could not be completed.', AppColors.error);
                   } finally {
-                    if (mounted) setState(() => _isLoading = false);
+                    if (mounted) setState(() => _isGoogleLoading = false);
                   }
                 },
               ),
@@ -1340,7 +1707,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 Icons.apple_rounded,
                 Colors.black,
                 () async {
-                  setState(() => _isLoading = true);
+                  if (_isLoading || _isGoogleLoading || _isAppleLoading) return;
+                  setState(() => _isAppleLoading = true);
                   try {
                     await ref.read(authServiceProvider).signInWithApple();
                     final user = ref.read(authServiceProvider).currentUser;
@@ -1348,9 +1716,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       _navigateToUserDashboard(user);
                     }
                   } catch (e) {
-                    if (mounted) _showSnackBar('Apple Sign-In Notice: ${e.toString()}', AppColors.error);
+                    final cleanMsg = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
+                    if (mounted) _showSnackBar(cleanMsg.isNotEmpty ? cleanMsg : 'Apple Sign-In could not be completed.', AppColors.error);
                   } finally {
-                    if (mounted) setState(() => _isLoading = false);
+                    if (mounted) setState(() => _isAppleLoading = false);
                   }
                 },
               ),
@@ -1362,44 +1731,58 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Widget _buildGoogleButton(VoidCallback onTap) {
+    final bool isBusy = _isLoading || _isGoogleLoading || _isAppleLoading;
     return OutlinedButton(
-      onPressed: _isLoading ? null : onTap,
+      onPressed: isBusy ? null : onTap,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
         side: BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SvgPicture.asset(
-            'assets/google_logo.svg',
-            width: 20,
-            height: 20,
-          ),
-          const SizedBox(width: 8),
-          const Text('Google', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-        ],
-      ),
+      child: _isGoogleLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/google_logo.svg',
+                  width: 20,
+                  height: 20,
+                ),
+                const SizedBox(width: 8),
+                const Text('Google', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              ],
+            ),
     );
   }
 
   Widget _buildSocialButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    final bool isBusy = _isLoading || _isGoogleLoading || _isAppleLoading;
     return OutlinedButton(
-      onPressed: _isLoading ? null : onTap,
+      onPressed: isBusy ? null : onTap,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
         side: BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-        ],
-      ),
+      child: _isAppleLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 24),
+                const SizedBox(width: 8),
+                Text(label, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              ],
+            ),
     );
   }
 

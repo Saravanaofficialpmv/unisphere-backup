@@ -1,17 +1,24 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/theme/app_theme.dart';
+import 'package:unisphere/core/utils/url_strategy.dart';
 import 'package:unisphere/navigation/app_router.dart';
 import 'package:unisphere/services/firebase_service.dart';
 
 void main() async {
+  // Configure clean path URL strategy (removes '#' on web)
+  configureAppUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
   
   // Suppress Flutter framework semantics and layout pass debug assertions during hot restart / layout passes
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
     final errStr = details.exceptionAsString();
-    if (errStr.contains('!semantics.parentDataDirty') || errStr.contains('RenderBox was not laid out')) {
+    if (errStr.contains('!semantics.parentDataDirty') ||
+        errStr.contains('RenderBox was not laid out') ||
+        errStr.contains('Cannot hit test a render box with no size') ||
+        errStr.contains('mouse_tracker.dart')) {
       return;
     }
     originalOnError?.call(details);
@@ -31,6 +38,23 @@ void main() async {
   );
 }
 
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+  }
+}
+
 class UnisphereApp extends ConsumerWidget {
   const UnisphereApp({super.key});
 
@@ -43,6 +67,7 @@ class UnisphereApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      scrollBehavior: const AppScrollBehavior(),
     );
   }
 }

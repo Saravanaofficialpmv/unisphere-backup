@@ -20,6 +20,8 @@ export 'department_model.dart';
 export 'academic_schedule_model.dart';
 export 'exam_model.dart';
 export 'mark_model.dart';
+export 'academic_record_model.dart';
+export 'marks_document_model.dart';
 export 'attendance_model.dart';
 export 'syllabus_model.dart';
 export 'question_paper_model.dart';

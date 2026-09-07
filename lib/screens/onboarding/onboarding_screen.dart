@@ -346,6 +346,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             _hasIdError = true;
             _idErrorMessage = 'Register number must be 12 digits';
             hasError = true;
+          } else if ((_selectedRole == 'Faculty' || _selectedRole == 'Staff') && (idText.length != 4 || !RegExp(r'^[0-9]{4}$').hasMatch(idText))) {
+            _hasIdError = true;
+            _idErrorMessage = 'Staff register number must be 4 digits';
+            hasError = true;
           } else if (_selectedRole == 'Student' && _studentIdAlreadyExists) {
             _hasIdError = true;
             _idErrorMessage = 'Already registered';
@@ -1194,16 +1198,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Campus ID Field (Highlighted with red border if empty / invalid / already exists)
         _buildStyledInputField(
           controller: _idController,
-          hint: _selectedRole == 'Student' ? 'Enter 12-digit register number' : 'Enter your campus ID / employee ID',
+          hint: _selectedRole == 'Student'
+              ? 'Enter 12-digit register number'
+              : ((_selectedRole == 'Faculty' || _selectedRole == 'Staff')
+                  ? 'Enter 4-digit register number'
+                  : 'Enter your campus ID / employee ID'),
           icon: Icons.badge_outlined,
-          label: _selectedRole == 'Student' ? 'Campus Register Number' : 'Campus Register / Employee ID',
-          keyboardType: _selectedRole == 'Student' ? TextInputType.number : null,
+          label: _selectedRole == 'Student'
+              ? 'Campus Register Number'
+              : ((_selectedRole == 'Faculty' || _selectedRole == 'Staff')
+                  ? 'Staff Register Number (4 Digits)'
+                  : 'Campus Register / Employee ID'),
+          keyboardType: (_selectedRole == 'Student' || _selectedRole == 'Faculty' || _selectedRole == 'Staff')
+              ? TextInputType.number
+              : null,
           inputFormatters: _selectedRole == 'Student'
               ? [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(12),
                 ]
-              : null,
+              : ((_selectedRole == 'Faculty' || _selectedRole == 'Staff')
+                  ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(4),
+                    ]
+                  : null),
           hasError: _hasIdError || _studentIdAlreadyExists,
           isSuccess: _selectedRole == 'Student' && _studentIdAvailable,
           errorMessage: _idErrorMessage,

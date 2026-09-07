@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
@@ -61,41 +62,45 @@ class StudentFloatingNavBar extends StatelessWidget {
     final activeSlot = _activeSlot;
     final bool hasActiveSlot = activeSlot >= 0;
 
-    return AnimatedSlide(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeInOutCubic,
-      offset: isVisible ? Offset.zero : const Offset(0, 1.35),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 220),
-        opacity: isVisible ? 1.0 : 0.0,
-        child: Semantics(
-          label: 'Student Navigation Dock',
-          child: Container(
-            width: barWidth,
-            height: barHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(36),
-              boxShadow: [
-                // Deep ambient glass shadow
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.14),
-                  blurRadius: 28,
-                  offset: const Offset(0, 10),
-                  spreadRadius: 0,
-                ),
-                // Soft indigo tinted glow
-                BoxShadow(
-                  color: const Color(0xFF4338CA).withValues(alpha: 0.08),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(36),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+    return RepaintBoundary(
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+        offset: isVisible ? Offset.zero : const Offset(0, 1.35),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 220),
+          opacity: isVisible ? 1.0 : 0.0,
+          child: Semantics(
+            label: 'Student Navigation Dock',
+            child: Container(
+              width: barWidth,
+              height: barHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  // Deep ambient glass shadow
+                  BoxShadow(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.14),
+                    blurRadius: 28,
+                    offset: const Offset(0, 10),
+                    spreadRadius: 0,
+                  ),
+                  // Soft indigo tinted glow
+                  BoxShadow(
+                    color: const Color(0xFF4338CA).withValues(alpha: 0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(36),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: kIsWeb ? 10 : 24,
+                    sigmaY: kIsWeb ? 10 : 24,
+                  ),
                 child: Container(
                   decoration: BoxDecoration(
                     // Authentic Translucent Glassmorphism Gradient Surface
@@ -262,6 +267,7 @@ class StudentFloatingNavBar extends StatelessWidget {
       ),
     ),
   ),
+),
 );
 }
 }

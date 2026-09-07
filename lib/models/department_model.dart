@@ -40,8 +40,8 @@ class DepartmentModel {
       code: deptCode.toString(),
       hodId: map['hodId'] ?? map['hod_id'],
       hodName: map['hodName'] ?? map['hod_name'],
-      totalStudents: (map['totalStudents'] ?? map['total_students'] ?? 0) as int,
-      totalFaculty: (map['totalFaculty'] ?? map['total_faculty'] ?? 0) as int,
+      totalStudents: int.tryParse(map['totalStudents']?.toString() ?? map['total_students']?.toString() ?? '') ?? 0,
+      totalFaculty: int.tryParse(map['totalFaculty']?.toString() ?? map['total_faculty']?.toString() ?? '') ?? 0,
       createdAt: parseDate(map['createdAt'] ?? map['created_at']),
       updatedAt: parseDate(map['updatedAt'] ?? map['updated_at']),
     );

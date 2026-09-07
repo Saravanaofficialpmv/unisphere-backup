@@ -122,6 +122,71 @@ class StudentRepository {
     });
   }
 
+  /// Watch real-time stream of students belonging strictly to a department
+  Stream<List<StudentModel>> watchStudentsByDepartment(String departmentId) {
+    final firestore = _firestore;
+    final cleanDept = departmentId.trim();
+    if (cleanDept.isEmpty || firestore == null) {
+      return Stream.value([]);
+    }
+
+    return firestore.collection('students').snapshots().map((snap) {
+      final Map<String, StudentModel> deduplicated = {};
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final model = StudentModel.fromMap(data, doc.id);
+        if (_matchesDepartment(model, cleanDept)) {
+          final key = model.registerNumber.isNotEmpty ? model.registerNumber : model.studentId;
+          deduplicated[key] = model;
+        }
+      }
+      return deduplicated.values.toList()
+        ..sort((a, b) => a.registerNumber.compareTo(b.registerNumber));
+    }).handleError((e) {
+      debugPrint('StudentRepository watchStudentsByDepartment error: $e');
+      return <StudentModel>[];
+    });
+  }
+
+  /// Get students belonging strictly to a department
+  Future<List<StudentModel>> getStudentsByDepartment(String departmentId) async {
+    final firestore = _firestore;
+    final cleanDept = departmentId.trim();
+    if (cleanDept.isEmpty || firestore == null) return [];
+
+    try {
+      final snap = await firestore.collection('students').get();
+      final Map<String, StudentModel> deduplicated = {};
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final model = StudentModel.fromMap(data, doc.id);
+        if (_matchesDepartment(model, cleanDept)) {
+          final key = model.registerNumber.isNotEmpty ? model.registerNumber : model.studentId;
+          deduplicated[key] = model;
+        }
+      }
+      return deduplicated.values.toList()
+        ..sort((a, b) => a.registerNumber.compareTo(b.registerNumber));
+    } catch (e) {
+      debugPrint('StudentRepository getStudentsByDepartment error: $e');
+      return [];
+    }
+  }
+
+  static bool _matchesDepartment(StudentModel student, String targetDept) {
+    final cleanTarget = targetDept.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final studentDeptId = student.departmentId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final studentDeptName = student.departmentName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    if (cleanTarget.isEmpty) return true;
+    if (studentDeptId == cleanTarget || studentDeptName == cleanTarget) return true;
+    if (studentDeptId.contains(cleanTarget) || cleanTarget.contains(studentDeptId)) return true;
+    if (cleanTarget.contains('cse') || cleanTarget.contains('computerscience')) {
+      if (studentDeptId.contains('cse') || studentDeptName.contains('computerscience')) return true;
+    }
+    return false;
+  }
+
   /// Save or update student record stored under unique Register Number doc ID
   Future<void> saveStudent(StudentModel student) async {
     final firestore = _firestore;

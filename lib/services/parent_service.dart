@@ -151,6 +151,7 @@ class ParentService {
   static final Map<String, List<String>> _inMemoryParentWards = {
     'DEMO-PRT': ['23CSE1042', '24ECE2018'],
     'parent@unisphere.edu': ['23CSE1042', '24ECE2018'],
+    'heydigitals.care@gmail.com': ['23CSE1042', '24ECE2018'],
   };
 
   /// Links a parent with multiple student wards (children) in Firestore
@@ -822,7 +823,7 @@ class ParentService {
 
     // Default demo fallback ONLY for demo parent or when explicitly empty
     if (wardRegNos.isEmpty) {
-      if (clean == 'DEMO-PRT' || clean.toLowerCase() == 'parent@unisphere.edu' || clean.isEmpty) {
+      if (clean == 'DEMO-PRT' || clean.toLowerCase() == 'parent@unisphere.edu' || clean.toLowerCase() == 'heydigitals.care@gmail.com' || clean.isEmpty) {
         return getDefaultStudentWards();
       }
       return [];

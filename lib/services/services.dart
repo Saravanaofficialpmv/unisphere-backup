@@ -37,6 +37,7 @@ export 'academic_schedule_service.dart';
 export 'syllabus_service.dart';
 export 'question_paper_service.dart';
 export 'exam_service.dart';
+export 'marks_import_service.dart';
 export 'assignment_service.dart';
 export 'task_service.dart';
 

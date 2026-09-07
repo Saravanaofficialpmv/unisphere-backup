@@ -58,6 +58,24 @@ service firebase.storage {
     }
 
 
+    // Academic Documents & Marks Sheets (Storage separated from metadata)
+    match /academic_documents/marks/{departmentId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
+        request.resource.size < 50 * 1024 * 1024 &&
+        (request.resource.contentType.matches('application/.*excel.*') ||
+         request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
+         request.resource.contentType.matches('text/csv') ||
+         request.resource.contentType.matches('application/pdf') ||
+         request.resource.contentType.matches('application/octet-stream'));
+    }
+
+    match /marks_documents/{departmentId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
+        request.resource.size < 50 * 1024 * 1024;
+    }
+
     // Assignments & Submissions
     match /assignments/{assignmentId}/{fileName} {
       allow read: if isAuthenticated();

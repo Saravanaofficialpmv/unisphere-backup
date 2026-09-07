@@ -175,6 +175,7 @@ class _LatestPhotoGalleryCardState extends ConsumerState<LatestPhotoGalleryCard>
                 child: SizedBox.expand(
                   child: Image.network(
                     p.photoUrl,
+                    cacheWidth: 800,
                     fit: BoxFit.cover, // COMPLETELY FILLED, ZERO SPACE
                     alignment: Alignment.center,
                     loadingBuilder: (context, child, progress) {
@@ -252,30 +253,32 @@ class _LatestPhotoGalleryCardState extends ConsumerState<LatestPhotoGalleryCard>
           );
         }
 
-        return Container(
-          height: 220,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.16),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+        return RepaintBoundary(
+          child: Container(
+            height: 220,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.16),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                fit: StackFit.expand,
+                children: stackChildren,
               ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              fit: StackFit.expand,
-              children: stackChildren,
             ),
           ),
         );
