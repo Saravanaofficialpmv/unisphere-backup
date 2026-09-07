@@ -13,14 +13,17 @@ import 'package:unisphere/screens/staff/modules/advisor/advisor_leave_od.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_student_directory.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_tasks.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_metric_card.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class AdvisorDashboard extends ConsumerStatefulWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
   final VoidCallback? onSwitchToTeachingMode;
 
   const AdvisorDashboard({
     super.key,
     this.onNavigateToTab,
+    this.onNavigateToKey,
     this.onSwitchToTeachingMode,
   });
 
@@ -320,7 +323,13 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
 
               // ── 7. Advisor Tasks Checklist ──
               AdvisorTasksSection(
-                onViewAll: () => widget.onNavigateToTab?.call(3),
+                onViewAll: () {
+                  if (widget.onNavigateToKey != null) {
+                    widget.onNavigateToKey!(StaffNavKey.submissions);
+                  } else {
+                    widget.onNavigateToTab?.call(3);
+                  }
+                },
               ),
               const SizedBox(height: 20),
 
@@ -332,27 +341,63 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                     Expanded(
                       flex: 6,
                       child: AdvisorAnnouncementsSection(
-                        onViewAll: () => widget.onNavigateToTab?.call(13),
-                        onNewAnnouncement: () => widget.onNavigateToTab?.call(13),
+                        onViewAll: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.announcements);
+                          } else {
+                            widget.onNavigateToTab?.call(13);
+                          }
+                        },
+                        onNewAnnouncement: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.announcements);
+                          } else {
+                            widget.onNavigateToTab?.call(13);
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(
                       flex: 5,
                       child: AdvisorLeaveODSection(
-                        onViewAll: () => widget.onNavigateToTab?.call(16),
+                        onViewAll: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.advisorApprovals);
+                          } else {
+                            widget.onNavigateToTab?.call(16);
+                          }
+                        },
                       ),
                     ),
                   ],
                 ),
               ] else ...[
                 AdvisorAnnouncementsSection(
-                  onViewAll: () => widget.onNavigateToTab?.call(13),
-                  onNewAnnouncement: () => widget.onNavigateToTab?.call(13),
+                  onViewAll: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.announcements);
+                    } else {
+                      widget.onNavigateToTab?.call(13);
+                    }
+                  },
+                  onNewAnnouncement: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.announcements);
+                    } else {
+                      widget.onNavigateToTab?.call(13);
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
                 AdvisorLeaveODSection(
-                  onViewAll: () => widget.onNavigateToTab?.call(16),
+                  onViewAll: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.advisorApprovals);
+                    } else {
+                      widget.onNavigateToTab?.call(16);
+                    }
+                  },
                 ),
               ],
               const SizedBox(height: 24),

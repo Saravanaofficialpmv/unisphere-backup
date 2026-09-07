@@ -120,6 +120,82 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
     }
   }
 
+  void _handleLegacyTabNavigation(int idx, List<StaffNavKey> activeNavKeys) {
+    StaffNavKey? targetKey;
+    switch (idx) {
+      case 0:
+        targetKey = activeNavKeys.contains(StaffNavKey.advisorDashboard) && !_overrideTeachingMode
+            ? StaffNavKey.advisorDashboard
+            : StaffNavKey.dashboard;
+        break;
+      case 1:
+        targetKey = StaffNavKey.syllabus;
+        break;
+      case 2:
+        targetKey = StaffNavKey.assignments;
+        break;
+      case 3:
+        targetKey = StaffNavKey.submissions;
+        break;
+      case 4:
+        targetKey = StaffNavKey.studentDirectory;
+        break;
+      case 5:
+        targetKey = StaffNavKey.advisorEditRequests;
+        break;
+      case 6:
+        targetKey = StaffNavKey.advisorResumeBank;
+        break;
+      case 7:
+        targetKey = StaffNavKey.advisorNptel;
+        break;
+      case 8:
+        targetKey = StaffNavKey.advisorHackathons;
+        break;
+      case 9:
+        targetKey = StaffNavKey.advisorDirectory;
+        break;
+      case 10:
+        targetKey = StaffNavKey.marks;
+        break;
+      case 11:
+        targetKey = StaffNavKey.profile;
+        break;
+      case 12:
+        targetKey = StaffNavKey.timetable;
+        break;
+      case 13:
+      case 17:
+        targetKey = StaffNavKey.announcements;
+        break;
+      case 14:
+        targetKey = StaffNavKey.attendance;
+        break;
+      case 15:
+        targetKey = StaffNavKey.questionPapers;
+        break;
+      case 16:
+        targetKey = StaffNavKey.advisorApprovals;
+        break;
+      case 18:
+        targetKey = StaffNavKey.library;
+        break;
+      case 19:
+        targetKey = StaffNavKey.gallery;
+        break;
+      default:
+        if (idx >= 0 && idx < activeNavKeys.length) {
+          _handleNavigation(idx);
+          return;
+        }
+        break;
+    }
+
+    if (targetKey != null) {
+      _navigateToKey(targetKey, activeNavKeys);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
@@ -306,37 +382,26 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           if (!isAdvisor) {
             return StaffHomeDashboard(
               onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
-              onNavigateToTab: (idx) => _handleNavigation(idx),
+              onNavigateToTab: (idx) => _handleLegacyTabNavigation(idx, activeNavKeys),
               onSwitchToAdvisorMode: null,
             );
           }
           return !_overrideTeachingMode
               ? AdvisorDashboard(
-                  onNavigateToTab: (idx) {
-                    if (idx == 12) {
-                      _navigateToKey(StaffNavKey.timetable, activeNavKeys);
-                    } else if (idx == 3) {
-                      _navigateToKey(StaffNavKey.submissions, activeNavKeys);
-                    } else if (idx == 14) {
-                      _navigateToKey(StaffNavKey.attendance, activeNavKeys);
-                    } else if (idx == 17) {
-                      _navigateToKey(StaffNavKey.announcements, activeNavKeys);
-                    } else {
-                      _handleNavigation(idx);
-                    }
-                  },
+                  onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+                  onNavigateToTab: (idx) => _handleLegacyTabNavigation(idx, activeNavKeys),
                   onSwitchToTeachingMode: () => setState(() => _overrideTeachingMode = true),
                 )
               : StaffHomeDashboard(
                   onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
-                  onNavigateToTab: (idx) => _handleNavigation(idx),
+                  onNavigateToTab: (idx) => _handleLegacyTabNavigation(idx, activeNavKeys),
                   onSwitchToAdvisorMode: () => setState(() => _overrideTeachingMode = false),
                 );
 
         case StaffNavKey.dashboard:
           return StaffHomeDashboard(
             onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
-            onNavigateToTab: (idx) => _handleNavigation(idx),
+            onNavigateToTab: (idx) => _handleLegacyTabNavigation(idx, activeNavKeys),
             onSwitchToAdvisorMode: isAdvisor ? () => setState(() => _overrideTeachingMode = false) : null,
           );
 

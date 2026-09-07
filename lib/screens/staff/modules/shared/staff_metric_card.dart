@@ -57,7 +57,6 @@ class StaffMetricCard extends StatelessWidget {
         splashColor: effectiveGradients.first.withValues(alpha: 0.12),
         highlightColor: effectiveGradients.first.withValues(alpha: 0.06),
         child: Container(
-          height: double.infinity,
           padding: EdgeInsets.symmetric(
             horizontal: isDense ? 9 : 11,
             vertical: isDense ? 10 : 12,
