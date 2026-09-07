@@ -314,20 +314,23 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
           ),
         ],
       ),
-      child: Column(
-        children: _permissions.keys.map((perm) {
-          final isChecked = _permissions[perm]!;
-          return CheckboxListTile(
-            title: Text(perm, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            subtitle: const Text(
-              'Authorized by Super Admin',
-              style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
-            ),
-            value: isChecked,
-            activeColor: AppColors.primary,
-            onChanged: (val) => setState(() => _permissions[perm] = val!),
-          );
-        }).toList(),
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          children: _permissions.keys.map((perm) {
+            final isChecked = _permissions[perm]!;
+            return CheckboxListTile(
+              title: Text(perm, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                'Authorized by Super Admin',
+                style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              ),
+              value: isChecked,
+              activeColor: AppColors.primary,
+              onChanged: (val) => setState(() => _permissions[perm] = val!),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -346,32 +349,35 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('Email Notifications', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            subtitle: const Text('Receive instant emails for leave requests and notices'),
-            value: _emailNotifs,
-            activeThumbColor: AppColors.primary,
-            onChanged: (v) => setState(() => _emailNotifs = v),
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('SMS Parent Warnings', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            subtitle: const Text('Auto-dispatch SMS to parents on low attendance'),
-            value: _smsAlerts,
-            activeThumbColor: AppColors.primary,
-            onChanged: (v) => setState(() => _smsAlerts = v),
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('Dark Theme Mode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            subtitle: const Text('Enable modern dark mode aesthetic'),
-            value: _darkTheme,
-            activeThumbColor: AppColors.primary,
-            onChanged: (v) => setState(() => _darkTheme = v),
-          ),
-        ],
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('Email Notifications', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Receive instant emails for leave requests and notices'),
+              value: _emailNotifs,
+              activeThumbColor: AppColors.primary,
+              onChanged: (v) => setState(() => _emailNotifs = v),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('SMS Parent Warnings', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Auto-dispatch SMS to parents on low attendance'),
+              value: _smsAlerts,
+              activeThumbColor: AppColors.primary,
+              onChanged: (v) => setState(() => _smsAlerts = v),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('Dark Theme Mode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Enable modern dark mode aesthetic'),
+              value: _darkTheme,
+              activeThumbColor: AppColors.primary,
+              onChanged: (v) => setState(() => _darkTheme = v),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -496,7 +496,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // ─── STANDALONE & DEEP LINK ROUTES ───
       GoRoute(
->>>>>>> origin/main
         path: '/staff-details',
         pageBuilder: (context, state) => AppRouteTransitions.slideFade(
           context: context,

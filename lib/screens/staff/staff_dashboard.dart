@@ -40,7 +40,6 @@ import 'package:unisphere/screens/student/modules/student_library_screen.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_access_denied_view.dart';
 import 'package:unisphere/screens/staff/modules/staff_home/staff_today_schedule_screen.dart';
 import 'package:unisphere/screens/staff/modules/staff_home/staff_pending_tasks_screen.dart';
-import 'package:unisphere/core/theme/app_animations.dart';
 
 enum StaffNavKey {
   dashboard,
