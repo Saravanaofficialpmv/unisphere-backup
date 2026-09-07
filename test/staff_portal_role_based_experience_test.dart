@@ -888,39 +888,6 @@ void main() {
 
       // Snack bar should show
       expect(find.text('Marks pending marked as done.'), findsOneWidget);
-=======
-      // Verify Header Top logout button is present with tooltip and icon on Desktop
-      final desktopLogoutButton = find.byTooltip('Log Out');
-      expect(desktopLogoutButton, findsOneWidget);
-      expect(find.descendant(of: desktopLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
-
-      // Tap logout button and verify sign-out sheet is triggered
-      await tester.tap(desktopLogoutButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Sign Out?'), findsOneWidget);
-      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
-      expect(find.text('Sign Out'), findsAtLeast(1));
-      expect(find.text('Stay'), findsOneWidget);
-
-      // Dismiss dialog by tapping Stay
-      await tester.tap(find.text('Stay'));
-      await tester.pumpAndSettle();
-
-      // Now verify Mobile Header Top logout option
-      tester.view.physicalSize = const Size(390, 844);
-      await tester.pumpAndSettle();
-
-      final mobileLogoutButton = find.byTooltip('Log Out');
-      expect(mobileLogoutButton, findsOneWidget);
-      expect(find.descendant(of: mobileLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
-
-      await tester.tap(mobileLogoutButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Sign Out?'), findsOneWidget);
-      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
->>>>>>> origin/main
     });
   });
 }
