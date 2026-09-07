@@ -38,9 +38,9 @@ class StaffPendingWorkSection extends ConsumerWidget {
             InkWell(
               onTap: () {
                 if (onNavigateToKey != null) {
-                  onNavigateToKey!(StaffNavKey.submissions);
+                  onNavigateToKey!(StaffNavKey.pendingTasks);
                 } else if (onNavigateToTab != null) {
-                  onNavigateToTab!(3); // Review Submissions
+                  onNavigateToTab!(21); // Task Review Center
                 }
               },
               borderRadius: BorderRadius.circular(6),

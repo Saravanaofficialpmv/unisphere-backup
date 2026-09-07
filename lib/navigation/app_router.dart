@@ -20,6 +20,10 @@ import 'package:unisphere/screens/student/modules/student_resume_screen.dart';
 import 'package:unisphere/screens/splash/splash_screen.dart';
 import 'package:unisphere/screens/common/loader_preview_screen.dart';
 import 'package:unisphere/screens/staff/staff_details_screen.dart';
+import 'package:unisphere/screens/staff/staff_profile_screen.dart';
+import 'package:unisphere/screens/staff/modules/staff_home/staff_today_schedule_screen.dart';
+import 'package:unisphere/screens/staff/modules/staff_home/staff_pending_tasks_screen.dart';
+import 'package:unisphere/screens/profile/profile_screen.dart';
 import 'package:unisphere/screens/staff/staff_dashboard.dart';
 import 'package:unisphere/core/theme/app_animations.dart';
 
@@ -222,6 +226,38 @@ final routerProvider = Provider<GoRouter>((ref) {
           context: context,
           state: state,
           child: const StaffDashboard(),
+        ),
+      ),
+      GoRoute(
+        path: '/staff/profile',
+        pageBuilder: (context, state) => AppRouteTransitions.slideFade(
+          context: context,
+          state: state,
+          child: const StaffProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/staff/today-classes',
+        pageBuilder: (context, state) => AppRouteTransitions.slideFade(
+          context: context,
+          state: state,
+          child: const StaffTodayScheduleScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/staff/tasks',
+        pageBuilder: (context, state) => AppRouteTransitions.slideFade(
+          context: context,
+          state: state,
+          child: const StaffPendingTasksScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (context, state) => AppRouteTransitions.slideFade(
+          context: context,
+          state: state,
+          child: const ProfileScreen(),
         ),
       ),
       GoRoute(

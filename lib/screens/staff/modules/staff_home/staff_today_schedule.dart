@@ -42,9 +42,9 @@ class StaffTodayScheduleSection extends ConsumerWidget {
             InkWell(
               onTap: () {
                 if (onNavigateToKey != null) {
-                  onNavigateToKey!(StaffNavKey.timetable);
+                  onNavigateToKey!(StaffNavKey.todayClasses);
                 } else if (onNavigateToTab != null) {
-                  onNavigateToTab!(12); // Academic Schedule tab in sidebar
+                  onNavigateToTab!(20);
                 }
               },
               borderRadius: BorderRadius.circular(6),
@@ -132,9 +132,9 @@ class StaffTodayScheduleSection extends ConsumerWidget {
           child: ElevatedButton.icon(
             onPressed: () {
               if (onNavigateToKey != null) {
-                onNavigateToKey!(StaffNavKey.timetable);
+                onNavigateToKey!(StaffNavKey.todayClasses);
               } else if (onNavigateToTab != null) {
-                onNavigateToTab!(12); // Academic Schedule tab in sidebar
+                onNavigateToTab!(20);
               }
             },
             icon: const Icon(Icons.calendar_month_rounded, size: 18),

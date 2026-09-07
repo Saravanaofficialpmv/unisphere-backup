@@ -28,8 +28,14 @@ class StaffRepository {
 
   Stream<StaffModel?> watchStaffProfile(String uid) {
     final firestore = _firestore;
-    if (uid.isEmpty || firestore == null) {
-      return Stream.value(_resolveDefaultStaff(uid));
+    if (uid.isEmpty) {
+      return Stream.value(null);
+    }
+    if (firestore == null) {
+      if (uid == 'DEMO-STF') {
+        return Stream.value(_resolveDefaultStaff(uid));
+      }
+      return Stream.value(null);
     }
 
     return firestore
@@ -40,17 +46,26 @@ class StaffRepository {
           if (docSnap.exists && docSnap.data() != null) {
             return StaffModel.fromMap(docSnap.data()!, docSnap.id);
           }
-          return _resolveDefaultStaff(uid);
+          if (uid == 'DEMO-STF') {
+            return _resolveDefaultStaff(uid);
+          }
+          return null;
         })
         .handleError((e) {
           debugPrint('StaffRepository watchStaffProfile error: $e');
-          return _resolveDefaultStaff(uid);
+          if (uid == 'DEMO-STF') {
+            return _resolveDefaultStaff(uid);
+          }
+          return null;
         });
   }
 
   Future<StaffModel?> getStaffProfile(String uid) async {
     final firestore = _firestore;
-    if (uid.isEmpty || firestore == null) return _resolveDefaultStaff(uid);
+    if (uid.isEmpty) return null;
+    if (firestore == null) {
+      return uid == 'DEMO-STF' ? _resolveDefaultStaff(uid) : null;
+    }
     try {
       final doc = await firestore.collection('staff').doc(uid).get();
       if (doc.exists && doc.data() != null) {
@@ -59,7 +74,7 @@ class StaffRepository {
     } catch (e) {
       debugPrint('StaffRepository getStaffProfile error: $e');
     }
-    return _resolveDefaultStaff(uid);
+    return uid == 'DEMO-STF' ? _resolveDefaultStaff(uid) : null;
   }
 
   Future<void> saveStaffProfile(StaffModel staff) async {
@@ -422,7 +437,7 @@ class StaffRepository {
     return StaffModel(
       userId: uid.isNotEmpty ? uid : 'DEMO-STF',
       employeeId: 'STF-CSE-1024',
-      fullName: 'Dr. Arun Kumar',
+      fullName: 'Dr. K. Tharani Kumar',
       departmentId: 'DEPT-CSE',
       departmentName: 'Computer Science & Engineering',
       designation: 'Assistant Professor',

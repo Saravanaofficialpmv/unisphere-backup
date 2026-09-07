@@ -5,8 +5,8 @@ import 'package:unisphere/services/auth_service.dart';
 
 // ── Current Staff ID Provider ──
 final currentStaffUidProvider = Provider<String>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  final uid = authService.currentUser?.uid ?? '';
+  final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
+  final uid = authUser?.uid ?? '';
   return uid.isNotEmpty ? uid : 'DEMO-STF';
 });
 
@@ -61,8 +61,12 @@ final activeClassAdvisorAssignmentProvider =
 
 // ── Is Class Advisor Boolean ──
 final isClassAdvisorProvider = Provider<bool>((ref) {
+  final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
+  if (authUser?.role == UserRole.advisor) return true;
   final advisor = ref.watch(activeClassAdvisorAssignmentProvider);
-  return advisor != null;
+  if (advisor != null) return true;
+  final profile = ref.watch(currentStaffProfileStreamProvider).valueOrNull;
+  return profile?.isClassAdvisor ?? profile?.isAdvisor ?? false;
 });
 
 // ── Today's Schedule Stream ──
@@ -87,6 +91,71 @@ final staffPendingWorkStreamProvider =
   final uid = ref.watch(currentStaffUidProvider);
   final repo = ref.watch(staffRepositoryProvider);
   return repo.watchPendingWork(uid);
+});
+
+// ── Today's Scheduled Classes Count Provider ──
+final staffTodayClassesCountProvider = Provider<int>((ref) {
+  final scheduleAsync = ref.watch(staffTodayScheduleStreamProvider);
+  final list = scheduleAsync.valueOrNull ?? [];
+  return list.length;
+});
+
+// ── Pending Tasks Count Provider (Single Source of Truth) ──
+final staffPendingTasksCountProvider = Provider<int>((ref) {
+  final pendingAsync = ref.watch(staffPendingWorkStreamProvider);
+  final list = pendingAsync.valueOrNull ?? [];
+  return list.length;
+});
+
+// ── Monthly Attendance Metric Model & Provider ──
+class StaffAttendanceMetric {
+  final String formattedPercentage;
+  final double progress;
+  final int averagePercentage;
+
+  const StaffAttendanceMetric({
+    required this.formattedPercentage,
+    required this.progress,
+    required this.averagePercentage,
+  });
+}
+
+final staffMonthlyAttendanceMetricProvider = Provider<StaffAttendanceMetric>((ref) {
+  final subjectsAsync = ref.watch(staffSubjectsStreamProvider);
+  final subjects = subjectsAsync.valueOrNull ?? [];
+
+  if (subjects.isEmpty) {
+    return const StaffAttendanceMetric(
+      formattedPercentage: '91%',
+      progress: 0.91,
+      averagePercentage: 91,
+    );
+  }
+
+  double totalAtt = 0;
+  int count = 0;
+  for (final s in subjects) {
+    final attVal = s['attendance'];
+    if (attVal is num) {
+      totalAtt += attVal;
+      count++;
+    } else if (attVal != null) {
+      final parsed = double.tryParse(attVal.toString().replaceAll('%', ''));
+      if (parsed != null) {
+        totalAtt += parsed;
+        count++;
+      }
+    }
+  }
+
+  final avg = count > 0 ? (totalAtt / count).round() : 91;
+  final progress = (avg / 100.0).clamp(0.0, 1.0);
+
+  return StaffAttendanceMetric(
+    formattedPercentage: '$avg%',
+    progress: progress,
+    averagePercentage: avg,
+  );
 });
 
 // ── Recent Activity Stream ──

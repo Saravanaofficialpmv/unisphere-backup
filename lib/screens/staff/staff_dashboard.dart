@@ -34,11 +34,15 @@ import 'package:unisphere/screens/gallery/full_photo_gallery_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/screens/student/modules/student_library_screen.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_access_denied_view.dart';
+import 'package:unisphere/screens/staff/modules/staff_home/staff_today_schedule_screen.dart';
+import 'package:unisphere/screens/staff/modules/staff_home/staff_pending_tasks_screen.dart';
 import 'package:unisphere/core/theme/app_animations.dart';
 
 enum StaffNavKey {
   dashboard,
   advisorDashboard,
+  todayClasses,
+  pendingTasks,
   advisorDirectory,
   parentCommunication,
   advisorApprovals,
@@ -183,6 +187,12 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
       case 19:
         targetKey = StaffNavKey.gallery;
         break;
+      case 20:
+        targetKey = StaffNavKey.todayClasses;
+        break;
+      case 21:
+        targetKey = StaffNavKey.pendingTasks;
+        break;
       default:
         if (idx >= 0 && idx < activeNavKeys.length) {
           _handleNavigation(idx);
@@ -283,6 +293,18 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
     sidebarItems.add(SidebarItem(
       label: 'Timetable & Schedule',
       icon: Icons.calendar_month_outlined,
+    ));
+
+    activeNavKeys.add(StaffNavKey.todayClasses);
+    sidebarItems.add(SidebarItem(
+      label: "Today's Schedule",
+      icon: Icons.schedule_rounded,
+    ));
+
+    activeNavKeys.add(StaffNavKey.pendingTasks);
+    sidebarItems.add(SidebarItem(
+      label: 'Task Review Center',
+      icon: Icons.pending_actions_rounded,
     ));
 
     activeNavKeys.add(StaffNavKey.attendance);
@@ -403,6 +425,22 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
             onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
             onNavigateToTab: (idx) => _handleLegacyTabNavigation(idx, activeNavKeys),
             onSwitchToAdvisorMode: isAdvisor ? () => setState(() => _overrideTeachingMode = false) : null,
+          );
+
+        case StaffNavKey.todayClasses:
+          return StaffTodayScheduleScreen(
+            onBack: _handleBackNavigation,
+            onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
+            onViewClassStudents: (section) => _navigateToKey(
+              isAdvisor ? StaffNavKey.advisorDirectory : StaffNavKey.studentDirectory,
+              activeNavKeys,
+            ),
+          );
+
+        case StaffNavKey.pendingTasks:
+          return StaffPendingTasksScreen(
+            onBack: _handleBackNavigation,
+            onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
           );
 
         case StaffNavKey.advisorDirectory:

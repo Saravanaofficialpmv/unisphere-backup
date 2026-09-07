@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/core/theme/app_animations.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
-import 'package:unisphere/services/auth_service.dart';
-import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 import 'package:unisphere/screens/staff/staff_dashboard.dart';
+import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/staff_service.dart';
+import 'package:unisphere/widgets/common/custom_loader.dart';
+import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 
 class StaffProfileScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -24,100 +28,204 @@ class StaffProfileScreen extends ConsumerStatefulWidget {
 class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
   bool _biometricEnabled = true;
 
-  void _showEditProfileDialog(BuildContext context, String currentName, String currentDept, String currentPhone) {
+  void _handleBack() {
+    if (widget.onBack != null) {
+      widget.onBack!();
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/staff');
+    }
+  }
+
+  void _showEditProfileDialog({
+    required BuildContext context,
+    required String currentName,
+    required String currentPhone,
+    required String currentDept,
+    required String currentDesignation,
+    required String currentEmpId,
+    required String currentEmail,
+  }) {
     final nameController = TextEditingController(text: currentName);
-    final deptController = TextEditingController(text: currentDept);
     final phoneController = TextEditingController(text: currentPhone);
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Edit Profile',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Edit Profile',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Editable: Full Name
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      labelStyle: GoogleFonts.manrope(fontSize: 13),
+                      prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(ctx),
+                  const SizedBox(height: 12),
+
+                  // Editable: Phone Number
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      labelStyle: GoogleFonts.manrope(fontSize: 13),
+                      prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Locked / Administrative Notice Banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Institutional Fields (Contact Admin to Change)',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Department: $currentDept', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF334155))),
+                        Text('Designation: $currentDesignation', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF334155))),
+                        Text('Staff ID: $currentEmpId', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF334155))),
+                        Text('Email: $currentEmail', style: GoogleFonts.manrope(fontSize: 12, color: const Color(0xFF334155))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              final newName = nameController.text.trim();
+                              final newPhone = phoneController.text.trim();
+
+                              if (newName.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Name cannot be empty', style: GoogleFonts.manrope()),
+                                    backgroundColor: const Color(0xFFEF4444),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setDialogState(() => isSaving = true);
+                              try {
+                                final authUser = ref.read(currentUserProvider).valueOrNull ?? ref.read(authServiceProvider).currentUser;
+                                if (authUser != null) {
+                                  final updatedUser = authUser.copyWith(
+                                    fullName: newName,
+                                    phone: newPhone,
+                                  );
+                                  await ref.read(authServiceProvider).updateUserProfile(updatedUser);
+                                }
+
+                                final staff = ref.read(currentStaffProfileStreamProvider).valueOrNull;
+                                if (staff != null) {
+                                  final updatedStaff = staff.copyWith(fullName: newName);
+                                  await ref.read(staffServiceProvider).saveStaff(updatedStaff);
+                                }
+
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Profile updated successfully!', style: GoogleFonts.manrope()),
+                                      backgroundColor: const Color(0xFF10B981),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setDialogState(() => isSaving = false);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to update profile: $e', style: GoogleFonts.manrope()),
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: isSaving
+                          ? const Loader.button(size: 16)
+                          : Text('Save Changes', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  labelStyle: GoogleFonts.manrope(fontSize: 13),
-                  prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: deptController,
-                decoration: InputDecoration(
-                  labelText: 'Department',
-                  labelStyle: GoogleFonts.manrope(fontSize: 13),
-                  prefixIcon: const Icon(Icons.business_outlined, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  labelStyle: GoogleFonts.manrope(fontSize: 13),
-                  prefixIcon: const Icon(Icons.phone_outlined, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Profile updated successfully!', style: GoogleFonts.manrope()),
-                        backgroundColor: const Color(0xFF10B981),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text('Save Changes', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -199,7 +307,15 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
     );
   }
 
-  void _showStaffIdCardModal(BuildContext context, String name, String empId, String dept, String desig, String? photoUrl) {
+  void _showStaffIdCardModal(
+    BuildContext context,
+    String name,
+    String empId,
+    String dept,
+    String desig,
+    String institution,
+    String? photoUrl,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -228,37 +344,43 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'V',
-                            style: GoogleFonts.outfit(
-                              color: const Color(0xFF1E3A8A),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Text(
+                              institution.isNotEmpty ? institution[0] : 'U',
+                              style: GoogleFonts.outfit(
+                                color: const Color(0xFF1E3A8A),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'VSB ENGINEERING COLLEGE',
-                        style: GoogleFonts.manrope(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: 0.5,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            institution.toUpperCase(),
+                            style: GoogleFonts.manrope(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10.5,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
@@ -267,16 +389,11 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                 ],
               ),
               const Divider(color: Colors.white24, height: 20),
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.white24,
-                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl)
-                    : const NetworkImage('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'),
-              ),
+              _buildAvatar(name, photoUrl, size: 80),
               const SizedBox(height: 12),
               Text(
                 name,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -285,6 +402,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
               ),
               Text(
                 desig,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -293,6 +411,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
               ),
               Text(
                 dept,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -612,22 +731,204 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
     );
   }
 
+  Widget _buildAvatar(String name, String? photoUrl, {double size = 88}) {
+    final initials = name.trim().isNotEmpty
+        ? name.trim().split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase()
+        : 'ST';
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF60A5FA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: const Color(0xFF2563EB), width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.18),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: (photoUrl != null && photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')))
+            ? Image.network(
+                photoUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.outfit(
+                      fontSize: size * 0.32,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              )
+            : Center(
+                child: Text(
+                  initials,
+                  style: GoogleFonts.outfit(
+                    fontSize: size * 0.32,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdvisor = ref.watch(isClassAdvisorProvider);
     final profileAsync = ref.watch(currentStaffProfileStreamProvider);
-    final user = ref.watch(authServiceProvider).currentUser;
+    final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
+    final advisorAssignment = ref.watch(activeClassAdvisorAssignmentProvider);
+    final summary = ref.watch(advisorClassSummaryProvider);
+
+    // ── 1. Loading State ──
+    if (profileAsync.isLoading && profileAsync.valueOrNull == null && authUser == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0.5,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
+            onPressed: _handleBack,
+          ),
+          title: Text(
+            'My Profile',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+        ),
+        body: const Center(
+          child: Loader.page(
+            size: 64,
+            label: 'Loading Staff Profile...',
+          ),
+        ),
+      );
+    }
+
+    // ── 2. Error State ──
+    if (profileAsync.hasError && profileAsync.valueOrNull == null && authUser == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0.5,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
+            onPressed: _handleBack,
+          ),
+          title: Text(
+            'My Profile',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Unable to Load Profile',
+                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'There was an issue fetching your staff profile records. Please check your connection and retry.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.manrope(fontSize: 13, color: const Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => ref.invalidate(currentStaffProfileStreamProvider),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text('Retry', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── 3. Resolve Dynamic Profile Fields ──
     final staff = profileAsync.valueOrNull;
 
-    final String staffName = staff?.fullName ?? user?.name ?? 'Dr. Arun Kumar';
-    final String staffDesignation = staff?.designation ?? 'Assistant Professor';
-    final String rawDept = staff?.departmentName ?? 'Computer Science';
-    final String staffDept = rawDept.contains('Computer Science') ? 'Computer Science' : rawDept;
-    final String staffId = staff?.employeeId ?? 'CS1024';
-    final String email = user?.email ?? 'arunkumar.cse@vsb.ac.in';
-    final String phone = user?.phoneNumber ?? '+91 98421 78945';
-    final String? photoUrl = staff?.photoPath ?? user?.profileImageUrl;
-    final String advisorSection = staff?.advisorSection ?? 'II CSE – A';
+    final String staffName = (staff?.fullName != null && staff!.fullName.trim().isNotEmpty)
+        ? staff.fullName
+        : ((authUser?.fullName != null && authUser!.fullName.trim().isNotEmpty)
+            ? authUser.fullName
+            : (authUser?.email.contains('@') == true ? authUser!.email.split('@').first : 'Faculty Member'));
+
+    final String staffDesignation = (staff?.designation != null && staff!.designation.trim().isNotEmpty)
+        ? staff.designation
+        : (authUser?.metadata?['designation']?.toString() ?? 'Faculty Member');
+
+    final String rawDept = (staff?.departmentName != null && staff!.departmentName.trim().isNotEmpty)
+        ? staff.departmentName
+        : (authUser?.metadata?['department']?.toString() ?? 'Computer Science & Engineering');
+    final String staffDept = rawDept.contains('Computer Science') ? 'Computer Science & Engineering' : rawDept;
+
+    final String institution = authUser?.metadata?['institution']?.toString() ?? 'VSB Engineering College';
+
+    final String staffId = (staff?.employeeId != null && staff!.employeeId.trim().isNotEmpty)
+        ? staff.employeeId
+        : (authUser?.metadata?['employeeId']?.toString() ??
+            authUser?.metadata?['staffId']?.toString() ??
+            authUser?.uid ??
+            'STF1024');
+
+    final String email = authUser?.email ?? 'staff@unisphere.edu';
+    final String phone = (authUser?.phone.isNotEmpty == true)
+        ? authUser!.phone
+        : (authUser?.phoneNumber ?? '+91 98421 00000');
+
+    final String? photoUrl = staff?.photoPath ?? authUser?.profileImageUrl;
+    final String advisorSection = advisorAssignment?.className ??
+        advisorAssignment?.section ??
+        staff?.advisorSection ??
+        'Assigned Section';
+
+    final String academicYear = advisorAssignment?.academicYear ?? staff?.advisorAcademicYear ?? '2025–26';
+    final String accountStatus = authUser?.isActive == false ? 'Inactive' : 'Active';
+    final DateTime? staffCreated = staff?.createdAt;
+    final String joiningDate = authUser?.formattedCreatedAt ??
+        (staffCreated != null ? '${staffCreated.day} ${_monthName(staffCreated.month)} ${staffCreated.year}' : 'Active');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -636,13 +937,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
         elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
-          onPressed: () {
-            if (widget.onBack != null) {
-              widget.onBack!();
-            } else {
-              Navigator.maybePop(context);
-            }
-          },
+          onPressed: _handleBack,
         ),
         title: Text(
           'My Profile',
@@ -658,9 +953,17 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             onSelected: (val) {
               if (val == 'edit') {
-                _showEditProfileDialog(context, staffName, staffDept, phone);
+                _showEditProfileDialog(
+                  context: context,
+                  currentName: staffName,
+                  currentPhone: phone,
+                  currentDept: staffDept,
+                  currentDesignation: staffDesignation,
+                  currentEmpId: staffId,
+                  currentEmail: email,
+                );
               } else if (val == 'id_card') {
-                _showStaffIdCardModal(context, staffName, staffId, staffDept, staffDesignation, photoUrl);
+                _showStaffIdCardModal(context, staffName, staffId, staffDept, staffDesignation, institution, photoUrl);
               } else if (val == 'security') {
                 _showSecuritySettingsModal(context);
               } else if (val == 'logout') {
@@ -742,43 +1045,20 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       // Profile Photo with Camera Badge
                       Stack(
                         children: [
-                          Container(
-                            width: 88,
-                            height: 88,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFF2563EB), width: 2.5),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF2563EB).withValues(alpha: 0.18),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: (photoUrl != null && photoUrl.isNotEmpty)
-                                  ? Image.network(
-                                      photoUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Icon(
-                                        Icons.person_rounded,
-                                        size: 48,
-                                        color: Color(0xFF2563EB),
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.person_rounded,
-                                      size: 48,
-                                      color: Color(0xFF2563EB),
-                                    ),
-                            ),
-                          ),
+                          _buildAvatar(staffName, photoUrl, size: 88),
                           Positioned(
                             bottom: 0,
                             right: 0,
-                            child: GestureDetector(
-                              onTap: () => _showEditProfileDialog(context, staffName, staffDept, phone),
+                            child: AppPressable(
+                              onTap: () => _showEditProfileDialog(
+                                context: context,
+                                currentName: staffName,
+                                currentPhone: phone,
+                                currentDept: staffDept,
+                                currentDesignation: staffDesignation,
+                                currentEmpId: staffId,
+                                currentEmail: email,
+                              ),
                               child: Container(
                                 width: 28,
                                 height: 28,
@@ -824,9 +1104,9 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       ),
                       const SizedBox(height: 2),
 
-                      // Department
+                      // Department & Institution
                       Text(
-                        staffDept,
+                        '$staffDept • $institution',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.manrope(
                           fontSize: 12,
@@ -836,35 +1116,76 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Email Verified Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.verified_rounded,
-                              size: 14,
-                              color: Color(0xFF10B981),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Email Verified',
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF059669),
+                      // Role & Email Verified Badges
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isAdvisor
+                                  ? AppColors.staffRole.withValues(alpha: 0.12)
+                                  : const Color(0xFF2563EB).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isAdvisor
+                                    ? AppColors.staffRole.withValues(alpha: 0.3)
+                                    : const Color(0xFF2563EB).withValues(alpha: 0.25),
                               ),
                             ),
-                          ],
-                        ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isAdvisor ? Icons.stars_rounded : Icons.person_outline_rounded,
+                                  size: 13,
+                                  color: isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isAdvisor ? 'Class Advisor' : 'Normal Staff',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 13,
+                                  color: Color(0xFF10B981),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Active Faculty',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF059669),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
 
@@ -873,7 +1194,15 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                         width: 160,
                         height: 38,
                         child: OutlinedButton.icon(
-                          onPressed: () => _showEditProfileDialog(context, staffName, staffDept, phone),
+                          onPressed: () => _showEditProfileDialog(
+                            context: context,
+                            currentName: staffName,
+                            currentPhone: phone,
+                            currentDept: staffDept,
+                            currentDesignation: staffDesignation,
+                            currentEmpId: staffId,
+                            currentEmail: email,
+                          ),
                           icon: const Icon(Icons.edit_rounded, size: 15),
                           label: Text(
                             'Edit Profile',
@@ -902,16 +1231,22 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                   children: [
                     _buildDataRow('Staff ID', staffId, isHighlighted: true),
                     _buildDivider(),
-                    _buildDataRow('Department', staffDept.contains('Computer Science') || staffDept.contains('CSE') ? 'CSE' : staffDept),
+                    _buildDataRow('Department', staffDept),
                     _buildDivider(),
                     _buildDataRow('Designation', staffDesignation),
                     _buildDivider(),
-                    _buildDataRow('Joined', '12 Jun 22'),
+                    _buildDataRow('Institution', institution),
+                    _buildDivider(),
+                    _buildDataRow('Staff Role', isAdvisor ? 'Class Advisor' : 'Normal Staff'),
+                    _buildDivider(),
+                    _buildDataRow('Account Status', accountStatus),
+                    _buildDivider(),
+                    _buildDataRow('Joined Date', joiningDate),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // ── 3. ROLE & RESPONSIBILITY Section Card ──
+                // ── 3. ROLE & RESPONSIBILITY Section Card (Dynamic Advisor vs Normal Staff) ──
                 _buildSectionContainer(
                   title: 'ROLE & RESPONSIBILITY',
                   children: [
@@ -919,10 +1254,10 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            color: (isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB)).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Center(
@@ -938,7 +1273,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isAdvisor ? 'Class Advisor' : 'Teaching Faculty',
+                                isAdvisor ? 'Class Advisor' : 'Normal Staff',
                                 style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -948,20 +1283,18 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 isAdvisor
-                                    ? advisorSection
-                                    : (staff?.assignedClasses.isNotEmpty == true
-                                        ? staff!.assignedClasses.join(' • ')
-                                        : 'III CSE - A • II CSE - B • IV CSE - A'),
+                                    ? '$advisorSection • AY $academicYear'
+                                    : 'Teaching Faculty • $staffDept',
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF2563EB),
+                                  color: isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB),
                                 ),
                               ),
                               Text(
                                 isAdvisor
-                                    ? '52 Students • Class Incharge'
-                                    : 'Subject & Lab In-charge • Teaching Faculty',
+                                    ? '${summary.totalStudents} Assigned Students • Class Incharge & Mentor'
+                                    : 'No class advisor assignment.',
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -990,15 +1323,15 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.08),
-                          foregroundColor: const Color(0xFF2563EB),
+                          backgroundColor: (isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB)).withValues(alpha: 0.08),
+                          foregroundColor: isAdvisor ? AppColors.staffRole : const Color(0xFF2563EB),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: Text(
-                          isAdvisor ? 'View Advisor Details' : 'View Faculty Student Directory',
+                          isAdvisor ? 'View Class Student Directory' : 'View Faculty Student Directory',
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -1012,7 +1345,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
 
                 // ── 4. TEACHING Section Card ──
                 _buildSectionContainer(
-                  title: 'TEACHING',
+                  title: 'TEACHING & SUBJECTS',
                   children: [
                     if (staff?.assignedSubjects != null && staff!.assignedSubjects.isNotEmpty)
                       ...staff.assignedSubjects.map(
@@ -1049,7 +1382,7 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                           ),
                         ),
                         child: Text(
-                          'View Assigned Subjects',
+                          'View Assigned Subjects & Syllabus',
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -1137,7 +1470,15 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
                   title: 'DOCUMENTS',
                   children: [
                     InkWell(
-                      onTap: () => _showStaffIdCardModal(context, staffName, staffId, staffDept, staffDesignation, photoUrl),
+                      onTap: () => _showStaffIdCardModal(
+                        context,
+                        staffName,
+                        staffId,
+                        staffDept,
+                        staffDesignation,
+                        institution,
+                        photoUrl,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1272,12 +1613,18 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
               color: const Color(0xFF64748B),
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 13.5,
-              fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w700,
-              color: isHighlighted ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.outfit(
+                fontSize: 13.5,
+                fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w700,
+                color: isHighlighted ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1378,5 +1725,11 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
 
   Widget _buildDivider() {
     return const Divider(height: 14, color: Color(0xFFF1F5F9));
+  }
+
+  static String _monthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
   }
 }

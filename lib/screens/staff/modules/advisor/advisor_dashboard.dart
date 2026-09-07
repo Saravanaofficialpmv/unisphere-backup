@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
-import 'package:unisphere/models/models.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_academic_performance.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_announcements.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_attendance.dart';
@@ -37,28 +37,30 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
     final profileAsync = ref.watch(currentStaffProfileStreamProvider);
     final advisorAssignment = ref.watch(activeClassAdvisorAssignmentProvider);
     final summary = ref.watch(advisorClassSummaryProvider);
+    final staff = profileAsync.valueOrNull;
 
-    final staff = profileAsync.valueOrNull ??
-        StaffModel(
-          userId: 'DEMO-STF',
-          employeeId: 'STF1024',
-          fullName: 'Dr. Arun Kumar',
-          departmentId: 'DEPT-CSE',
-          departmentName: 'CSE Department',
-          designation: 'Assistant Professor',
-          specialization: 'Computer Science',
-          assignedClasses: ['III CSE - A'],
-          assignedSubjects: ['Machine Learning'],
-          isAdvisor: true,
-          advisorSection: 'III CSE - A',
-          advisorAcademicYear: '2025–26',
-        );
+    final String staffName = (staff?.fullName != null && staff!.fullName.trim().isNotEmpty)
+        ? staff.fullName
+        : ((authUser?.fullName != null && authUser!.fullName.trim().isNotEmpty)
+            ? authUser.fullName
+            : (authUser?.email.contains('@') == true
+                ? authUser!.email.split('@').first
+                : 'Class Advisor'));
 
-    final sectionName = advisorAssignment?.className ?? advisorAssignment?.classId ?? staff.advisorSection ?? 'III CSE - A';
-    final academicYear = advisorAssignment?.academicYear ?? staff.advisorAcademicYear ?? '2025–26';
+    final String staffDesignation = (staff?.designation != null && staff!.designation.trim().isNotEmpty)
+        ? staff.designation
+        : (authUser?.metadata?['designation']?.toString() ?? 'Assistant Professor');
+
+    final String staffDept = (staff?.departmentName != null && staff!.departmentName.trim().isNotEmpty)
+        ? (staff.departmentName.contains('CSE') ? 'CSE Department' : staff.departmentName)
+        : (authUser?.metadata?['department']?.toString() ?? 'Computer Science & Engineering');
+
+    final sectionName = advisorAssignment?.className ?? advisorAssignment?.classId ?? staff?.advisorSection ?? 'III CSE - A';
+    final academicYear = advisorAssignment?.academicYear ?? staff?.advisorAcademicYear ?? '2025–26';
 
     final hour = DateTime.now().hour;
     final greeting = hour < 12
@@ -120,7 +122,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      staff.fullName,
+                      staffName,
                       style: GoogleFonts.manrope(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -130,7 +132,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${staff.designation} • ${staff.departmentName.contains('CSE') ? 'CSE Department' : staff.departmentName}',
+                      '$staffDesignation • $staffDept',
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
