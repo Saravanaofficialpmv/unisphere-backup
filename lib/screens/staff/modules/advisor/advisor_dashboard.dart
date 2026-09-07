@@ -13,14 +13,17 @@ import 'package:unisphere/screens/staff/modules/advisor/advisor_leave_od.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_student_directory.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_tasks.dart';
 import 'package:unisphere/screens/staff/modules/shared/staff_metric_card.dart';
+import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class AdvisorDashboard extends ConsumerStatefulWidget {
   final Function(int)? onNavigateToTab;
+  final Function(StaffNavKey)? onNavigateToKey;
   final VoidCallback? onSwitchToTeachingMode;
 
   const AdvisorDashboard({
     super.key,
     this.onNavigateToTab,
+    this.onNavigateToKey,
     this.onSwitchToTeachingMode,
   });
 
@@ -235,7 +238,10 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       value: '${summary.totalStudents}',
                       icon: Icons.groups_rounded,
                       iconColor: AppColors.staffRole,
-                      iconBgColor: AppColors.staffRole.withValues(alpha: 0.1),
+                      gradientColors: const [
+                        Color(0xFF6366F1),
+                        Color(0xFF8B5CF6),
+                      ],
                       isDense: true,
                       onTap: () => setState(() => _activeDirectoryFilter = 'all'),
                     ),
@@ -245,9 +251,12 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                     child: StaffMetricCard(
                       title: 'Attendance',
                       value: '${summary.overallAttendance.toInt()}%',
-                      icon: Icons.bar_chart_rounded,
-                      iconColor: const Color(0xFF16A34A),
-                      iconBgColor: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                      icon: Icons.insights_rounded,
+                      iconColor: const Color(0xFF10B981),
+                      gradientColors: const [
+                        Color(0xFF10B981),
+                        Color(0xFF059669),
+                      ],
                       isDense: true,
                       onTap: () => setState(() => _activeDirectoryFilter = 'attendance'),
                     ),
@@ -259,7 +268,10 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       value: '${summary.averageCgpa}',
                       icon: Icons.school_rounded,
                       iconColor: const Color(0xFF2563EB),
-                      iconBgColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      gradientColors: const [
+                        Color(0xFF3B82F6),
+                        Color(0xFF1D4ED8),
+                      ],
                       isDense: true,
                       onTap: () => setState(() => _activeDirectoryFilter = 'top'),
                     ),
@@ -271,7 +283,10 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       value: '${summary.atRiskCount}',
                       icon: Icons.warning_amber_rounded,
                       iconColor: const Color(0xFFDC2626),
-                      iconBgColor: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                      gradientColors: const [
+                        Color(0xFFEF4444),
+                        Color(0xFFDC2626),
+                      ],
                       isDense: true,
                       onTap: () => setState(() => _activeDirectoryFilter = 'at_risk'),
                     ),
@@ -308,7 +323,13 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
 
               // ── 7. Advisor Tasks Checklist ──
               AdvisorTasksSection(
-                onViewAll: () => widget.onNavigateToTab?.call(3),
+                onViewAll: () {
+                  if (widget.onNavigateToKey != null) {
+                    widget.onNavigateToKey!(StaffNavKey.submissions);
+                  } else {
+                    widget.onNavigateToTab?.call(3);
+                  }
+                },
               ),
               const SizedBox(height: 20),
 
@@ -320,27 +341,63 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                     Expanded(
                       flex: 6,
                       child: AdvisorAnnouncementsSection(
-                        onViewAll: () => widget.onNavigateToTab?.call(13),
-                        onNewAnnouncement: () => widget.onNavigateToTab?.call(13),
+                        onViewAll: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.announcements);
+                          } else {
+                            widget.onNavigateToTab?.call(13);
+                          }
+                        },
+                        onNewAnnouncement: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.announcements);
+                          } else {
+                            widget.onNavigateToTab?.call(13);
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(
                       flex: 5,
                       child: AdvisorLeaveODSection(
-                        onViewAll: () => widget.onNavigateToTab?.call(16),
+                        onViewAll: () {
+                          if (widget.onNavigateToKey != null) {
+                            widget.onNavigateToKey!(StaffNavKey.advisorApprovals);
+                          } else {
+                            widget.onNavigateToTab?.call(16);
+                          }
+                        },
                       ),
                     ),
                   ],
                 ),
               ] else ...[
                 AdvisorAnnouncementsSection(
-                  onViewAll: () => widget.onNavigateToTab?.call(13),
-                  onNewAnnouncement: () => widget.onNavigateToTab?.call(13),
+                  onViewAll: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.announcements);
+                    } else {
+                      widget.onNavigateToTab?.call(13);
+                    }
+                  },
+                  onNewAnnouncement: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.announcements);
+                    } else {
+                      widget.onNavigateToTab?.call(13);
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
                 AdvisorLeaveODSection(
-                  onViewAll: () => widget.onNavigateToTab?.call(16),
+                  onViewAll: () {
+                    if (widget.onNavigateToKey != null) {
+                      widget.onNavigateToKey!(StaffNavKey.advisorApprovals);
+                    } else {
+                      widget.onNavigateToTab?.call(16);
+                    }
+                  },
                 ),
               ],
               const SizedBox(height: 24),
