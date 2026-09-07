@@ -14,6 +14,7 @@ import 'package:unisphere/core/theme/app_animations.dart';
 import 'package:unisphere/widgets/common/app_desktop_shell.dart';
 import 'package:unisphere/widgets/common/app_desktop_header.dart';
 import 'package:unisphere/widgets/common/unisphere_bottom_nav_bar.dart';
+import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 
 // Staff Modules
 import 'package:unisphere/screens/staff/modules/staff_home/staff_home_dashboard.dart';
@@ -561,6 +562,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
             ),
           ],
           onProfileTap: () => _navigateToKey(StaffNavKey.profile, activeNavKeys),
+          onLogoutTap: () => showSignOutConfirmationSheet(context, ref),
         ),
         body: FadeSlideTransition(
           transitionKey: ValueKey('staff_tab_$currentKey'),
@@ -726,6 +728,8 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                   _currentIndex < sidebarItems.length
                       ? sidebarItems[_currentIndex].label
                       : 'Staff Portal',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
@@ -766,7 +770,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
             GestureDetector(
               onTap: () => _navigateToKey(StaffNavKey.profile, activeNavKeys),
               child: Container(
-                margin: const EdgeInsets.only(right: 14, left: 4),
+                margin: const EdgeInsets.only(right: 6, left: 4),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -817,6 +821,33 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            Tooltip(
+              message: 'Log Out',
+              child: Container(
+                margin: const EdgeInsets.only(right: 12, top: 12, bottom: 12, left: 2),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => showSignOutConfirmationSheet(context, ref),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFEE2E2), width: 1),
+                      ),
+                      child: const Icon(
+                        Icons.logout_rounded,
+                        color: Color(0xFFEF4444),
+                        size: 19,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -345,6 +345,70 @@ void main() {
       expect(find.text('Give Assignment'), findsOneWidget);
     });
 
+    testWidgets('6b. Header Top Logout Option is displayed and triggers sign out confirmation sheet', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final staffUser = StaffModel(
+        userId: 'STF-001',
+        employeeId: 'STF-001',
+        fullName: 'Dr. Arun Kumar',
+        departmentId: 'DEPT-CSE',
+        departmentName: 'CSE Department',
+        designation: 'Assistant Professor',
+        specialization: 'Computer Science',
+        assignedClasses: ['III CSE - A'],
+        assignedSubjects: ['Data Structures'],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            isClassAdvisorProvider.overrideWithValue(false),
+            currentStaffProfileStreamProvider.overrideWith((ref) => Stream.value(staffUser)),
+          ],
+          child: const MaterialApp(
+            home: StaffDashboard(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify Header Top logout button is present with tooltip and icon on Desktop
+      final desktopLogoutButton = find.byTooltip('Log Out');
+      expect(desktopLogoutButton, findsOneWidget);
+      expect(find.descendant(of: desktopLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
+
+      // Tap logout button and verify sign-out sheet is triggered
+      await tester.tap(desktopLogoutButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign Out?'), findsOneWidget);
+      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
+      expect(find.text('Sign Out'), findsAtLeast(1));
+      expect(find.text('Stay'), findsOneWidget);
+
+      // Dismiss dialog by tapping Stay
+      await tester.tap(find.text('Stay'));
+      await tester.pumpAndSettle();
+
+      // Now verify Mobile Header Top logout option
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+
+      final mobileLogoutButton = find.byTooltip('Log Out');
+      expect(mobileLogoutButton, findsOneWidget);
+      expect(find.descendant(of: mobileLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
+
+      await tester.tap(mobileLogoutButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign Out?'), findsOneWidget);
+      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
+    });
+
     testWidgets('7. StaffProfileScreen renders authenticated staff profile with personal and teaching info', (tester) async {
       tester.view.physicalSize = const Size(400, 1200);
       tester.view.devicePixelRatio = 1.0;
@@ -824,6 +888,39 @@ void main() {
 
       // Snack bar should show
       expect(find.text('Marks pending marked as done.'), findsOneWidget);
+=======
+      // Verify Header Top logout button is present with tooltip and icon on Desktop
+      final desktopLogoutButton = find.byTooltip('Log Out');
+      expect(desktopLogoutButton, findsOneWidget);
+      expect(find.descendant(of: desktopLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
+
+      // Tap logout button and verify sign-out sheet is triggered
+      await tester.tap(desktopLogoutButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign Out?'), findsOneWidget);
+      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
+      expect(find.text('Sign Out'), findsAtLeast(1));
+      expect(find.text('Stay'), findsOneWidget);
+
+      // Dismiss dialog by tapping Stay
+      await tester.tap(find.text('Stay'));
+      await tester.pumpAndSettle();
+
+      // Now verify Mobile Header Top logout option
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+
+      final mobileLogoutButton = find.byTooltip('Log Out');
+      expect(mobileLogoutButton, findsOneWidget);
+      expect(find.descendant(of: mobileLogoutButton, matching: find.byIcon(Icons.logout_rounded)), findsOneWidget);
+
+      await tester.tap(mobileLogoutButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign Out?'), findsOneWidget);
+      expect(find.text('Are you sure you want to log out of your account?'), findsOneWidget);
+>>>>>>> origin/main
     });
   });
 }

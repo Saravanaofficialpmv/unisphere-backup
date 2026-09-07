@@ -948,6 +948,13 @@ class _StaffProfileScreenState extends ConsumerState<StaffProfileScreen> {
           ),
         ),
         actions: [
+          Tooltip(
+            message: 'Log Out',
+            child: IconButton(
+              icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+              onPressed: () => showSignOutConfirmationSheet(context, ref),
+            ),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF0F172A)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
