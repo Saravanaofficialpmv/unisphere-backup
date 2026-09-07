@@ -18,6 +18,7 @@ class AppDesktopHeader extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
   final VoidCallback? onProfileTap;
   final VoidCallback? onNotificationsTap;
+  final VoidCallback? onLogoutTap;
   final List<Widget>? extraActions;
 
   const AppDesktopHeader({
@@ -34,6 +35,7 @@ class AppDesktopHeader extends ConsumerWidget implements PreferredSizeWidget {
     this.onSearchTap,
     this.onProfileTap,
     this.onNotificationsTap,
+    this.onLogoutTap,
     this.extraActions,
   });
 
@@ -261,6 +263,17 @@ class AppDesktopHeader extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
           ),
+
+          if (onLogoutTap != null) ...[
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Log Out',
+              child: IconButton(
+                icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+                onPressed: onLogoutTap,
+              ),
+            ),
+          ],
         ],
       ),
     );
