@@ -20,20 +20,39 @@ import 'package:unisphere/screens/staff/modules/staff_marks_upload.dart';
 import 'package:unisphere/screens/hod/modules/hod_academic_management.dart';
 import 'package:unisphere/screens/hod/modules/hod_settings.dart';
 import 'package:unisphere/core/theme/app_animations.dart';
+import 'package:unisphere/core/responsive/responsive_breakpoints.dart';
+import 'package:unisphere/widgets/common/app_desktop_shell.dart';
+import 'package:unisphere/widgets/common/app_desktop_header.dart';
 
 
 class AdminShell extends ConsumerStatefulWidget {
-  const AdminShell({super.key});
+  final int initialIndex;
+  const AdminShell({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<AdminShell> createState() => _AdminShellState();
 }
 
 class _AdminShellState extends ConsumerState<AdminShell> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+  bool _isSidebarCollapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
   final List<int> _navigationHistory = [0];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
+
+  @override
+  void didUpdateWidget(AdminShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      setState(() => _selectedIndex = widget.initialIndex);
+    }
+  }
 
   final List<SidebarItem> _sidebarItems = [
     SidebarItem(label: 'Dashboard', icon: Icons.grid_view_rounded),
@@ -75,7 +94,51 @@ class _AdminShellState extends ConsumerState<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final isDesktop = AppResponsive.isDesktop(context);
+
+    if (isDesktop) {
+      final currentItem = (_selectedIndex >= 0 && _selectedIndex < _sidebarItems.length)
+          ? _sidebarItems[_selectedIndex]
+          : _sidebarItems[0];
+      final currentTitle = currentItem.isDivider ? 'Admin Governance' : currentItem.label;
+      final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+      final userName = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
+          ? currentUser.name
+          : 'System Administrator';
+
+      return AppDesktopShell(
+        sidebar: _buildSidebar(),
+        header: AppDesktopHeader(
+          onBack: _selectedIndex != 0 ? _handleBackNavigation : null,
+          breadcrumbs: ['UniSphere', 'Institutional Governance', currentTitle],
+          title: currentTitle,
+          subtitle: 'Institutional Resource Planning & Central Campus Operations',
+          departmentName: 'Campus Governance',
+          roleName: 'System Admin',
+          roleColor: AppColors.error,
+          userName: userName,
+          userPhotoUrl: currentUser?.metadata?['photoUrl'],
+          onProfileTap: () => _handleNavigation(15),
+          extraActions: [
+            IconButton(
+              icon: const Icon(Icons.school_rounded, color: AppColors.primary, size: 20),
+              tooltip: 'Dept Vision & POs',
+              onPressed: () => showDepartmentVisionSheet(context),
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: FadeSlideTransition(
+              transitionKey: ValueKey('admin_tab_$_selectedIndex'),
+              duration: const Duration(milliseconds: 180),
+              child: _screens[_selectedIndex < _screens.length ? _selectedIndex : 0],
+            ),
+          ),
+        ),
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -84,48 +147,34 @@ class _AdminShellState extends ConsumerState<AdminShell> {
         _handleBackNavigation();
       },
       child: Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppColors.background,
-      appBar: isDesktop ? null : _buildAppBar(context, isDesktop),
-      drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
-      body: Row(
-        children: [
-          if (isDesktop) _buildSidebar(),
-          Expanded(
-            child: ClipRect(
-              child: Navigator(
-                key: _innerNavigatorKey,
-                onGenerateRoute: (settings) {
-                  return MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                      backgroundColor: AppColors.background,
-                      appBar: isDesktop ? _buildAppBar(context, isDesktop) : null,
-                      body: Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: FadeSlideTransition(
-                                  transitionKey: ValueKey('admin_tab_$_selectedIndex'),
-                                  child: _screens[_selectedIndex < _screens.length ? _selectedIndex : 0],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+        key: _scaffoldKey,
+        backgroundColor: AppColors.background,
+        appBar: _buildAppBar(context, false),
+        drawer: null,
+        body: ClipRect(
+          child: Navigator(
+            key: _innerNavigatorKey,
+            onGenerateRoute: (settings) {
+              return MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: FadeSlideTransition(
+                        transitionKey: ValueKey('admin_tab_$_selectedIndex'),
+                        child: _screens[_selectedIndex < _screens.length ? _selectedIndex : 0],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
           ),
-        ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSidebar() {
     final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
@@ -142,6 +191,10 @@ class _AdminShellState extends ConsumerState<AdminShell> {
       items: _sidebarItems,
       userName: userName,
       userEmail: userEmail,
+      isCollapsed: _isSidebarCollapsed,
+      onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+      roleBadge: 'SUPER ADMIN',
+      roleColor: AppColors.error,
     );
   }
 
@@ -156,23 +209,15 @@ class _AdminShellState extends ConsumerState<AdminShell> {
       elevation: 0,
       centerTitle: false,
       title: Text('Hello, $firstName 👋', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary)),
-      leading: isDesktop 
+      leading: _selectedIndex == 0 
         ? const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.hub_rounded, color: AppColors.primary)) 
-        : Builder(
-            builder: (context) => IconButton(
-              icon: Icon(
-                _selectedIndex == 0 ? Icons.menu_rounded : Icons.arrow_back_ios_new_rounded,
-                color: AppColors.textPrimary,
-                size: _selectedIndex == 0 ? 24 : 20,
-              ),
-              onPressed: () {
-                if (_selectedIndex == 0) {
-                  _scaffoldKey.currentState?.openDrawer();
-                } else {
-                  _handleBackNavigation();
-                }
-              },
+        : IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.textPrimary,
+              size: 20,
             ),
+            onPressed: _handleBackNavigation,
           ),
       actions: [
         IconButton(

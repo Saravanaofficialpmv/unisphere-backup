@@ -13,3 +13,4 @@ export 'notification_rules_provider.dart';
 export 'post_od_provider.dart';
 export 'semester_attendance_provider.dart';
 export 'staff_dashboard_provider.dart';
+export 'hod_dashboard_provider.dart';

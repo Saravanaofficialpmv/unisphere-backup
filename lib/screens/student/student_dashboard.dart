@@ -61,26 +61,40 @@ import 'package:unisphere/widgets/student/student_floating_nav_bar.dart';
 import 'package:unisphere/widgets/student/student_navigation_sheet.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
 import 'package:unisphere/screens/parent/parent_dashboard.dart' show ParentDashboard;
+import 'package:unisphere/core/responsive/responsive_breakpoints.dart';
+import 'package:unisphere/widgets/common/app_desktop_shell.dart';
+import 'package:unisphere/widgets/common/app_desktop_header.dart';
+import 'package:unisphere/screens/student/student_desktop_home_view.dart';
 
 class StudentDashboard extends ConsumerStatefulWidget {
-  const StudentDashboard({super.key});
+  final int initialIndex;
+  const StudentDashboard({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<StudentDashboard> createState() => _StudentDashboardState();
 }
 
 class _StudentDashboardState extends ConsumerState<StudentDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   bool _isNavigationSheetOpen = false;
   bool _isDockVisible = true;
   bool _openGpaPlannerInGradebook = false;
+  bool _isSidebarCollapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
   final List<int> _navigationHistory = [0];
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
+  }
+
+  @override
+  void didUpdateWidget(StudentDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      setState(() => _currentIndex = widget.initialIndex);
+    }
   }
 
   final List<SidebarItem> _sidebarItems = [
@@ -180,9 +194,6 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
 
 
   void _handleNavigation(int index, {bool openCalculator = false, bool isBack = false}) {
-    if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-      _innerNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-    }
     if (index == _currentIndex && !_openGpaPlannerInGradebook) return;
 
     if (!isBack && index != _currentIndex) {
@@ -199,10 +210,6 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
   }
 
   void _handleBackNavigation() {
-    if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-      _innerNavigatorKey.currentState?.pop();
-      return;
-    }
     if (_navigationHistory.isNotEmpty) {
       final prev = _navigationHistory.removeLast();
       _handleNavigation(prev, isBack: true);
@@ -218,7 +225,42 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
       return const ParentDashboard();
     }
 
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final isDesktop = AppResponsive.isDesktop(context);
+
+    if (isDesktop) {
+      final currentItem = (_currentIndex >= 0 && _currentIndex < _sidebarItems.length)
+          ? _sidebarItems[_currentIndex]
+          : _sidebarItems[0];
+      final currentTitle = currentItem.isDivider ? 'Student Dashboard' : currentItem.label;
+      final userName = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
+          ? currentUser.name
+          : 'Student User';
+      final deptName = currentUser?.metadata?['department']?.toString() ??
+          currentUser?.departmentName ??
+          currentUser?.department ??
+          'B.Tech CSE';
+
+      return AppDesktopShell(
+        sidebar: _buildSidebar(),
+        header: AppDesktopHeader(
+          onBack: _currentIndex != 0 ? _handleBackNavigation : null,
+          breadcrumbs: ['UniSphere', 'Student Portal', currentTitle],
+          title: currentTitle,
+          subtitle: 'Department of $deptName',
+          departmentName: deptName,
+          roleName: 'Student',
+          roleColor: AppColors.studentRole,
+          userName: userName,
+          userPhotoUrl: currentUser?.metadata?['photoUrl'],
+          onSearchTap: () => _handleNavigation(18),
+          onProfileTap: () => _handleNavigation(23),
+        ),
+        body: SmoothPageTransition(
+          currentIndex: _currentIndex,
+          child: _buildScreen(_currentIndex),
+        ),
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -229,7 +271,7 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: Colors.white,
-        drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
+        drawer: null,
         appBar: null,
         body: Stack(
           children: [
@@ -249,16 +291,9 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
                   if (isDesktop) _buildSidebar(),
                   Expanded(
                     child: ClipRect(
-                      child: Navigator(
-                        key: _innerNavigatorKey,
-                        onGenerateRoute: (settings) {
-                          return MaterialPageRoute(
-                            builder: (_) => SmoothPageTransition(
-                              currentIndex: _currentIndex,
-                              child: _buildScreen(_currentIndex),
-                            ),
-                          );
-                        },
+                      child: SmoothPageTransition(
+                        currentIndex: _currentIndex,
+                        child: _buildScreen(_currentIndex),
                       ),
                     ),
                   ),
@@ -316,6 +351,10 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
       items: _sidebarItems,
       userName: userName,
       userEmail: userEmail,
+      isCollapsed: _isSidebarCollapsed,
+      onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+      roleBadge: 'STUDENT',
+      roleColor: AppColors.studentRole,
     );
   }
 }
@@ -397,6 +436,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = AppResponsive.isDesktop(context);
+    if (isDesktop) {
+      return StudentDesktopHomeView(onNavigateToTab: widget.onNavigateToTab);
+    }
+
     final notificationState = ref.watch(notificationProvider);
     final unreadCount = notificationState.unreadCount;
 
@@ -788,39 +832,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.assignment_ind_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '🎓 Complete Your Profile',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Fill in your personal, academic, accommodation & transport details for HOD verification.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton(
+          child: LayoutBuilder(
+            builder: (context, bannerConstraints) {
+              final isNarrow = bannerConstraints.maxWidth < 360;
+              final actionButton = ElevatedButton(
                 onPressed: () {
                   showModalBottomSheet(
                     context: context,
@@ -841,8 +856,82 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                   'Complete Now →',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.assignment_ind_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            '🎓 Complete Your Profile',
+                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Fill in your personal, academic, accommodation & transport details for HOD verification.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 10),
+                    actionButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.assignment_ind_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '🎓 Complete Your Profile',
+                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Fill in your personal, academic, accommodation & transport details for HOD verification.',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  actionButton,
+                ],
+              );
+            },
           ),
         );
       },
@@ -1694,38 +1783,45 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Academic Overview',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF2D3142),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Animated Slide Dots (● ○ ○)
-                      Row(
-                        children: List.generate(3, (index) {
-                          final isActive = index == _academicOverviewPageIndex;
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            margin: const EdgeInsets.only(right: 4),
-                            width: isActive ? 14 : 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? const Color(0xFF3F51B5)
-                                  : const Color(0xFFCBD5E1),
-                              borderRadius: BorderRadius.circular(3),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Academic Overview',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2D3142),
+                              letterSpacing: 0.2,
                             ),
-                          );
-                        }),
-                      ),
-                    ],
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Animated Slide Dots (● ○ ○)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(3, (index) {
+                            final isActive = index == _academicOverviewPageIndex;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.only(right: 4),
+                              width: isActive ? 14 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? const Color(0xFF3F51B5)
+                                    : const Color(0xFFCBD5E1),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   InkWell(
                     onTap: () => widget.onNavigateToTab(19),
                     borderRadius: BorderRadius.circular(12),
@@ -1767,7 +1863,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               const SizedBox(height: 12),
               // Slideable PageView Container
               SizedBox(
-                height: 62,
+                height: 82,
                 child: PageView(
                   onPageChanged: (index) {
                     if (_academicOverviewPageIndex != index) {
@@ -1782,7 +1878,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                       children: [
                         // Metric 1: Attendance (Semester-Wise & HOD Working Days) -> Opens Attendance screen (Tab 4)
                         Expanded(
-                          flex: 5,
+                          flex: 1,
                           child: InkWell(
                             onTap: () => widget.onNavigateToTab(3),
                             borderRadius: BorderRadius.circular(12),
@@ -1911,7 +2007,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                         ),
                         // Metric 2: CGPA -> Opens Gradebook (Tab 5)
                         Expanded(
-                          flex: 4,
+                          flex: 1,
                           child: InkWell(
                             onTap: () => widget.onNavigateToTab(4),
                             borderRadius: BorderRadius.circular(12),
@@ -1928,7 +2024,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
+                                  runSpacing: 2,
                                   children: [
                                     AppCountUpText(
                                       key: ValueKey('cgpa_text_${overviewData.cgpa}_$_refreshEpoch'),
@@ -1941,7 +2040,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 5,
@@ -2557,14 +2655,18 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF2D3142),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF2D3142),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
         TextButton(
           onPressed: onSeeAll,
           style: TextButton.styleFrom(

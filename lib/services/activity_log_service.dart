@@ -68,8 +68,26 @@ class ActivityLogService {
       final snap = await query.get();
       return snap.docs.map((d) => ActivityLogModel.fromMap(d.data() as Map<String, dynamic>, d.id)).toList();
     } catch (e) {
-      debugPrint('ActivityLogService getActivityLogs error: $e');
+      debugPrint('ActivityLogService getActivityLogs notice: $e');
       return [];
+    }
+  }
+
+  /// Stream live activity logs for real-time dashboard activity feed
+  Stream<List<ActivityLogModel>> watchRecentActivity({int limit = 10, String? module}) {
+    final firestore = _firestore;
+    if (firestore == null) return Stream.value([]);
+    try {
+      Query query = firestore.collection('activityLogs').orderBy('createdAt', descending: true).limit(limit);
+      if (module != null && module.isNotEmpty) {
+        query = query.where('module', isEqualTo: module);
+      }
+      return query.snapshots().map((snap) => snap.docs
+          .map((d) => ActivityLogModel.fromMap(d.data() as Map<String, dynamic>, d.id))
+          .toList());
+    } catch (e) {
+      debugPrint('ActivityLogService watchRecentActivity notice: $e');
+      return Stream.value([]);
     }
   }
 }

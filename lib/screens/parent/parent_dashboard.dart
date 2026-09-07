@@ -19,6 +19,9 @@ import 'package:unisphere/widgets/parent/parent_navigation_sheet.dart';
 import 'package:unisphere/widgets/parent/parent_quick_navigation_bar.dart';
 import 'package:unisphere/widgets/parent/parent_summary_carousel.dart';
 import 'package:unisphere/widgets/common/sign_out_confirmation_sheet.dart';
+import 'package:unisphere/core/responsive/responsive_breakpoints.dart';
+import 'package:unisphere/widgets/common/app_desktop_shell.dart';
+import 'package:unisphere/widgets/common/app_desktop_header.dart';
 import 'package:unisphere/screens/parent/parent_profile_screen.dart';
 import 'package:unisphere/widgets/common/recent_photos_section.dart';
 import 'package:unisphere/widgets/common/recent_updates_card.dart';
@@ -66,19 +69,21 @@ class StudentWard {
 }
 
 class ParentDashboard extends ConsumerStatefulWidget {
-  const ParentDashboard({super.key});
+  final int initialIndex;
+  const ParentDashboard({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<ParentDashboard> createState() => _ParentDashboardState();
 }
 
 class _ParentDashboardState extends ConsumerState<ParentDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   ParentStudentWard? _activeWard;
   List<ParentStudentWard> _dashboardWards = [];
   StreamSubscription<List<ParentStudentWard>>? _dashboardWardsSub;
   bool _isNavigationSheetOpen = false;
   bool _isDockVisible = true;
+  bool _isSidebarCollapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -103,7 +108,16 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) => _initActiveWard());
+  }
+
+  @override
+  void didUpdateWidget(ParentDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      setState(() => _currentIndex = widget.initialIndex);
+    }
   }
 
   @override
@@ -263,7 +277,42 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final isDesktop = AppResponsive.isDesktop(context);
+
+    if (isDesktop) {
+      final currentItem = (_currentIndex >= 0 && _currentIndex < _sidebarItems.length)
+          ? _sidebarItems[_currentIndex]
+          : _sidebarItems[0];
+      final currentTitle = currentItem.isDivider ? 'Parent Portal' : currentItem.label;
+      final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+      final userName = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
+          ? currentUser.name
+          : 'Parent / Guardian';
+      final activeWard = _activeWard;
+
+      return AppDesktopShell(
+        sidebar: _buildSidebar(),
+        header: AppDesktopHeader(
+          onBack: _currentIndex != 0 ? _handleBackNavigation : null,
+          breadcrumbs: ['UniSphere', 'Parent Portal', currentTitle],
+          title: currentTitle,
+          subtitle: activeWard != null
+              ? 'Monitoring: ${activeWard.name} (${activeWard.regNo}) • ${activeWard.department}'
+              : 'Ward Academic & Attendance Monitoring',
+          departmentName: activeWard?.department ?? 'Parent Monitoring',
+          roleName: 'Parent',
+          roleColor: AppColors.parentRole,
+          userName: userName,
+          userPhotoUrl: currentUser?.metadata?['photoUrl'],
+          onProfileTap: () => _handleNavigation(11),
+        ),
+        body: FadeSlideTransition(
+          transitionKey: ValueKey('parent_tab_$_currentIndex'),
+          duration: const Duration(milliseconds: 180),
+          child: _buildScreen(_currentIndex),
+        ),
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -274,7 +323,7 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
-        drawer: isDesktop ? null : Drawer(child: _buildSidebar()),
+        drawer: null,
         appBar: null,
         body: Stack(
           children: [
@@ -381,6 +430,10 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
       userName: userName,
       userEmail: userEmail,
       profileUrl: profileUrl,
+      isCollapsed: _isSidebarCollapsed,
+      onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+      roleBadge: 'PARENT',
+      roleColor: AppColors.parentRole,
     );
   }
 }

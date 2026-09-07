@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/syllabus_model.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/screens/student/modules/subject_details_screen.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/syllabus_service.dart';
@@ -64,9 +65,18 @@ class _HodSyllabusManagementScreenState extends ConsumerState<HodSyllabusManagem
   }
 
   void _loadDepartmentAndSyllabi() {
+    final dept = ref.read(currentHodDepartmentProvider).valueOrNull;
     final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
     final meta = user?.metadata ?? {};
-    final deptVal = meta['department']?.toString() ?? meta['dept']?.toString() ?? 'Computer Science & Engineering';
+    final deptVal = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (user?.departmentName ??
+            user?.department ??
+            meta['department']?.toString() ??
+            meta['dept']?.toString() ??
+            meta['departmentName']?.toString() ??
+            dept?.name ??
+            'Department');
     _department = deptVal;
     _fetchData();
   }

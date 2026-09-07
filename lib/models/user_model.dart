@@ -42,6 +42,17 @@ class UserModel {
   String get name => fullName;
   String? get phoneNumber => phone;
 
+  String? get department =>
+      metadata?['department']?.toString() ?? metadata?['departmentName']?.toString();
+
+  String? get departmentName =>
+      metadata?['departmentName']?.toString() ?? metadata?['department']?.toString();
+
+  String? get departmentId =>
+      metadata?['departmentId']?.toString() ?? metadata?['department_id']?.toString();
+
+  bool get isAdvisor => metadata?['isAdvisor'] == true || role == UserRole.advisor;
+
   String get formattedCreatedAt {
     final date = createdAt ?? DateTime(2023, 8, 15);
     final months = [
@@ -93,6 +104,18 @@ class UserModel {
     if (map['batch'] != null && map['batch'].toString().isNotEmpty) {
       metaMap['batch'] = map['batch'].toString();
     }
+    if (map['department'] != null && map['department'].toString().isNotEmpty && metaMap['department'] == null) {
+      metaMap['department'] = map['department'].toString();
+    }
+    if (map['departmentName'] != null && map['departmentName'].toString().isNotEmpty && metaMap['departmentName'] == null) {
+      metaMap['departmentName'] = map['departmentName'].toString();
+    }
+    if (map['departmentId'] != null && map['departmentId'].toString().isNotEmpty && metaMap['departmentId'] == null) {
+      metaMap['departmentId'] = map['departmentId'].toString();
+    }
+    if (map['department_id'] != null && map['department_id'].toString().isNotEmpty && metaMap['department_id'] == null) {
+      metaMap['department_id'] = map['department_id'].toString();
+    }
     final creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap['createdAt'] ?? metaMap['created_at']);
 
     final rawRole = map['role'] ?? map['userRole'] ?? map['user_role'] ?? metaMap['role'] ?? metaMap['userRole'];
@@ -139,6 +162,9 @@ class UserModel {
       'profile_image_url': profileImageUrl,
       'profileImageUrl': profileImageUrl,
       if (metadata?['batch'] != null) 'batch': metadata!['batch'],
+      if (department != null) 'department': department,
+      if (departmentName != null) 'departmentName': departmentName,
+      if (departmentId != null) 'departmentId': departmentId,
       'createdAt': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),

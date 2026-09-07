@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/user_model.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
+import 'package:unisphere/repositories/department_repository.dart';
 import 'package:unisphere/services/auth_service.dart';
 
 class HodSettings extends ConsumerStatefulWidget {
@@ -108,8 +110,10 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
   }
 
   Widget _buildAccountInfoCard(UserModel? currentUser) {
-    final name = currentUser?.fullName ?? 'Dr. R. Kumar';
-    final email = currentUser?.email ?? 'hod.cse@unisphere.edu';
+    final name = (currentUser?.fullName != null && currentUser!.fullName.isNotEmpty)
+        ? currentUser.fullName
+        : (currentUser?.name ?? 'Head of Department');
+    final email = currentUser?.email ?? 'hod@unisphere.edu';
     final role = currentUser?.roleName ?? 'HOD / Department Admin';
     final creationDate = currentUser?.formattedCreatedAt ?? '15 Jun 2021';
     final uid = currentUser?.uid ?? 'DEMO-HOD';
@@ -198,6 +202,20 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
   }
 
   Widget _buildDeptInfoCard() {
+    final dept = ref.watch(currentHodDepartmentProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final deptName = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (currentUser?.departmentName ??
+            currentUser?.department ??
+            currentUser?.metadata?['departmentName']?.toString() ??
+            currentUser?.metadata?['department']?.toString() ??
+            dept?.name ??
+            'Department Administration Portal');
+    final deptCode = (dept?.code != null && dept!.code.isNotEmpty && dept.code != 'CSE')
+        ? dept.code
+        : (DepartmentRepository.deriveDepartmentCode(deptName));
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -225,26 +243,28 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
                 child: const Icon(Icons.school_rounded, color: AppColors.primary, size: 28),
               ),
               const SizedBox(width: 16),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Computer Science & Engineering',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Department Administration Portal',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deptName,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const Text(
+                      'Department Administration Portal',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: AppColors.divider),
           const SizedBox(height: 16),
-          _buildDetailRow('Department Code', 'CSE'),
-          _buildDetailRow('Building / Block', 'Ramanujan Block (3rd Floor)'),
+          _buildDetailRow('Department Code', deptCode),
+          _buildDetailRow('Building / Block', 'Academic Block (3rd Floor)'),
           _buildDetailRow('Active Academic Session', '2026 - 2027 (Odd Semester)'),
         ],
       ),
@@ -257,13 +277,22 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          Text(
-            val,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: isHighlight ? AppColors.primary : AppColors.textPrimary,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              val,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isHighlight ? AppColors.primary : AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],

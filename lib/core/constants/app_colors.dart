@@ -55,7 +55,7 @@ class AppColors {
   // ── ROLE-BASED ACCENT COLORS ─────────────────────────────────────────────
   static const Color studentRole = Color(0xFF2563EB); // Student Portal (Blue)
   static const Color staffRole = Color(0xFF2563EB); // Staff / Faculty Portal (Blue)
-  static const Color hodRole = Color(0xFFD97706); // HOD / Dept Portal (Amber)
+  static const Color hodRole = Color(0xFF2563EB); // HOD / Dept Portal (Royal Indigo Blue - Unified with App Primary)
   static const Color parentRole = Color(0xFF059669); // Parent Portal (Teal)
   static const Color adminRole = Color(0xFFDC2626); // Admin Portal (Red)
 

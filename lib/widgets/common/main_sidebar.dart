@@ -11,6 +11,10 @@ class MainSidebar extends ConsumerWidget {
   final String userName;
   final String userEmail;
   final String? profileUrl;
+  final bool isCollapsed;
+  final VoidCallback? onToggleCollapse;
+  final String? roleBadge;
+  final Color? roleColor;
 
   const MainSidebar({
     super.key,
@@ -20,91 +24,222 @@ class MainSidebar extends ConsumerWidget {
     required this.userName,
     required this.userEmail,
     this.profileUrl,
+    this.isCollapsed = false,
+    this.onToggleCollapse,
+    this.roleBadge,
+    this.roleColor,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: 280,
-      color: Colors.white,
+    final effectiveWidth = isCollapsed ? 76.0 : 280.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOutCubic,
+      width: effectiveWidth,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.6),
+            width: 1.0,
+          ),
+        ),
+      ),
       child: Column(
         children: [
           _buildHeader(context),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Divider(height: 1),
-          ),
-          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: 12),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 14),
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
                 if (item.isDivider) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 32),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          item.label.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textTertiary,
-                            letterSpacing: 1.2
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  );
+                  return _buildSectionDivider(item);
                 }
                 return _buildNavItem(index, item);
               },
             ),
           ),
-          _buildSignOut(context, ref),
+          const Divider(height: 1, color: AppColors.divider),
+          _buildFooter(context, ref),
         ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
+    if (isCollapsed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: (roleColor ?? AppColors.primary).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (roleColor ?? AppColors.primary).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.school_rounded,
+                  color: roleColor ?? AppColors.primary,
+                  size: 24,
+                ),
+              ),
+            ),
+            if (onToggleCollapse != null) ...[
+              const SizedBox(height: 8),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+                tooltip: 'Expand Sidebar',
+                onPressed: onToggleCollapse,
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 16, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.1), width: 4),
-              image: DecorationImage(
-                image: NetworkImage(profileUrl ?? 'https://i.pravatar.cc/150?u=${userEmail.hashCode}'),
-                fit: BoxFit.cover,
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(Icons.school_rounded, color: Colors.white, size: 22),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'UNISPHERE',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Institutional ERP',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        color: roleColor ?? AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onToggleCollapse != null)
+                IconButton(
+                  icon: const Icon(Icons.menu_open_rounded, size: 20, color: AppColors.textSecondary),
+                  tooltip: 'Collapse Sidebar',
+                  onPressed: onToggleCollapse,
+                ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            userName,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderSubtle),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            userEmail,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.surfaceSecondary,
+                  backgroundImage: profileUrl != null ? NetworkImage(profileUrl!) : null,
+                  child: profileUrl == null
+                      ? Text(
+                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: roleColor ?? AppColors.primary,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      if (roleBadge != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: (roleColor ?? AppColors.primary).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            roleBadge!.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                              color: roleColor ?? AppColors.primary,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          userEmail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -112,78 +247,145 @@ class MainSidebar extends ConsumerWidget {
     );
   }
 
+  Widget _buildSectionDivider(SidebarItem item) {
+    if (isCollapsed) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Divider(height: 1, indent: 8, endIndent: 8, color: AppColors.divider),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 6),
+      child: Text(
+        item.label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textTertiary,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem(int index, SidebarItem item) {
     final isSelected = selectedIndex == index;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: AppPressable(
-        onTap: () => onDestinationSelected(index),
-        scaleFactor: 0.98,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: AppAnimations.fast,
-          curve: AppAnimations.fastCurve,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+    final activeColor = roleColor ?? AppColors.primary;
+
+    final navContent = AnimatedContainer(
+      duration: AppAnimations.fast,
+      curve: AppAnimations.fastCurve,
+      padding: EdgeInsets.symmetric(
+        horizontal: isCollapsed ? 12 : 14,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: isSelected ? activeColor.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        border: isSelected
+            ? Border(
+                left: BorderSide(color: activeColor, width: 3.5),
+              )
+            : null,
+      ),
+      child: Row(
+        mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+        children: [
+          Icon(
+            item.icon,
+            size: 20,
+            color: isSelected ? activeColor : AppColors.textSecondary,
           ),
-          child: Row(
-            children: [
-              AnimatedSwitcher(
-                duration: AppAnimations.fast,
-                child: Icon(
-                  item.icon,
-                  key: ValueKey('icon_${item.icon}_$isSelected'),
-                  size: 22,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+          if (!isCollapsed) ...[
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeColor : AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
+            ),
+            if (item.badge != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: item.badgeColor ?? activeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
                 child: Text(
-                  item.label,
+                  item.badge!,
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: item.badgeColor != null ? Colors.white : activeColor,
                   ),
                 ),
               ),
-              if (item.badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: item.badgeColor ?? Colors.amber.shade400,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(item.badge!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                ),
-            ],
+          ],
+        ],
+      ),
+    );
+
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Tooltip(
+          message: isCollapsed ? item.label : '',
+          waitDuration: const Duration(milliseconds: 350),
+          child: AppPressable(
+            onTap: () => onDestinationSelected(index),
+            scaleFactor: 0.98,
+            borderRadius: BorderRadius.circular(10),
+            child: navContent,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSignOut(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
+  Widget _buildFooter(BuildContext context, WidgetRef ref) {
+    if (isCollapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: IconButton(
+          icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.error),
+          tooltip: 'Sign Out',
           onPressed: () => showSignOutConfirmationSheet(context, ref),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.background,
-            foregroundColor: AppColors.error,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => showSignOutConfirmationSheet(context, ref),
+              icon: const Icon(Icons.logout_rounded, size: 16),
+              label: const Text('Sign Out', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error.withValues(alpha: 0.2)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             ),
           ),
-          child: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        ),
+          if (onToggleCollapse != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 22, color: AppColors.textSecondary),
+              tooltip: 'Collapse Sidebar',
+              onPressed: onToggleCollapse,
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -431,6 +431,21 @@ class DatabaseSeeder {
       ];
 
       for (var f in facultyList) {
+        await _firestore.collection('staff').doc(f.userId).set({
+          'userId': f.userId,
+          'uid': f.userId,
+          'employeeId': f.facultyId,
+          'fullName': 'Dr. Arun Kumar',
+          'departmentId': f.departmentId,
+          'departmentName': f.departmentName,
+          'designation': f.designation,
+          'assignedSubjects': f.assignedSubjects,
+          'isHod': false,
+          'isAdvisor': true,
+          'advisorSection': 'III CSE - A',
+          'advisorClassId': 'CLASS-III-CSE-A',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
         await _firestore.collection('faculty').doc(f.facultyId).set(f.toMap(), SetOptions(merge: true));
       }
 
@@ -1258,6 +1273,7 @@ class DatabaseSeeder {
       ];
 
       for (var l in leaves) {
+        await _firestore.collection('leave_requests').doc(l['id'].toString()).set(l, SetOptions(merge: true));
         await _firestore.collection('leave_applications').doc(l['id'].toString()).set(l, SetOptions(merge: true));
       }
 
@@ -1717,7 +1733,68 @@ class DatabaseSeeder {
         standing: 'First Class with Distinction',
       );
 
-      debugPrint('✅ UniSphere Complete Database Seeding Succeeded across 20 Collections including real-time academic performance!');
+      // 21. Seed Normalized Marks Document Metadata
+      const sampleDocId = 'doc_dep-cse_cs401_internal_1_2026';
+      await _firestore.collection('marks_documents').doc(sampleDocId).set({
+        'documentId': sampleDocId,
+        'institutionId': 'default_institution',
+        'departmentId': 'DEP-CSE',
+        'departmentName': 'Computer Science & Engineering',
+        'subjectId': 'CS401',
+        'courseCode': 'CS401',
+        'subjectName': 'Advanced Data Structures',
+        'assessmentType': 'internal_1',
+        'academicYear': '2025–26',
+        'semester': 6,
+        'uploadedBy': 'DEMO-STF',
+        'uploadedByRole': 'staff',
+        'uploadedByName': 'Dr. Arun Kumar',
+        'fileName': 'CS401_IA1_Marks.xlsx',
+        'fileType': 'xlsx',
+        'fileSize': 24500,
+        'storagePath': 'academic_documents/marks/DEP-CSE/CS401_IA1_Marks.xlsx',
+        'processingStatus': 'completed',
+        'validationStatus': 'valid',
+        'recordCount': 68,
+        'successCount': 68,
+        'errorCount': 0,
+        'createdAt': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        'updatedAt': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+      }, SetOptions(merge: true));
+
+      // 22. Seed Multi-Tenant Public Registry and Institution Metadata
+      await _firestore.collection('public_tenants').doc('vsbec').set({
+        'institutionId': 'vsbec_001',
+        'slug': 'vsbec',
+        'name': 'VSB Engineering College',
+        'shortName': 'VSBEC',
+        'domain': 'vsbec.unisphere.org.in',
+        'tagline': 'Autonomous Institution',
+        'status': 'active',
+        'primaryColor': '#1e3a8a',
+        'secondaryColor': '#3b82f6',
+      }, SetOptions(merge: true));
+
+      await _firestore.collection('institutions').doc('vsbec_001').set({
+        'institutionId': 'vsbec_001',
+        'slug': 'vsbec',
+        'name': 'VSB Engineering College',
+        'shortName': 'VSBEC',
+        'domain': 'vsbec.unisphere.org.in',
+        'tagline': 'Autonomous Institution',
+        'status': 'active',
+      }, SetOptions(merge: true));
+
+      await _firestore.collection('settings').doc('institution').set({
+        'institutionId': 'vsbec_001',
+        'collegeName': 'VSB Engineering College',
+        'name': 'VSB Engineering College',
+        'tagline': 'Autonomous Institution',
+        'slug': 'vsbec',
+        'status': 'active',
+      }, SetOptions(merge: true));
+
+      debugPrint('✅ UniSphere Complete Database Seeding Succeeded across 22 Collections including multi-tenant registry!');
       return true;
 
     } catch (e) {

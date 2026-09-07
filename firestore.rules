@@ -209,9 +209,28 @@ service cloud.firestore {
       allow create, update, delete: if isStaff() || isHOD() || isAdmin();
     }
 
+    // Official marks document metadata uploaded by staff or HOD
+    match /marks_documents/{docId} {
+      allow read: if isSignedIn();
+      // Final Semester uploads strictly require HOD or Admin authority!
+      allow create, update: if isSignedIn() && (
+        (request.resource.data.assessmentType == 'final_semester' || request.resource.data.assessment_type == 'final_semester')
+          ? (isHOD() || isAdmin())
+          : (isStaff() || isHOD() || isAdmin())
+      );
+      allow delete: if isHOD() || isAdmin();
+    }
+
+    // Normalized marks records per student per exam
     match /marks/{markId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isStaff() || isHOD() || isAdmin();
+      // Final semester individual marks also restricted to HOD / Admin write
+      allow create, update: if isSignedIn() && (
+        (request.resource.data.assessmentType == 'final_semester' || request.resource.data.assessment_type == 'final_semester')
+          ? (isHOD() || isAdmin())
+          : (isStaff() || isHOD() || isAdmin())
+      );
+      allow delete: if isHOD() || isAdmin();
     }
 
     match /assignments/{assignmentId} {
@@ -220,7 +239,7 @@ service cloud.firestore {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 13. STAFF & STAFF ASSIGNMENTS COLLECTIONS
+    // 13. STAFF & STAFF ASSIGNMENTS COLLECTIONS (CONSOLIDATED)
     // ──────────────────────────────────────────────────────────────────────────
     match /staff/{staffId} {
       allow read: if isSignedIn();
@@ -228,9 +247,80 @@ service cloud.firestore {
       allow delete: if isAdmin() || isHOD();
     }
 
+    // Legacy faculty collection mapped to same permissions
+    match /faculty/{facultyId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(facultyId) || isHOD() || isAdmin();
+      allow delete: if isAdmin() || isHOD();
+    }
+
     match /staffAssignments/{assignmentId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isHOD() || isAdmin();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 14. DEPARTMENTS & ACADEMIC CHARTER
+    // ──────────────────────────────────────────────────────────────────────────
+    match /departments/{departmentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isHOD() || isAdmin();
+      allow delete: if isAdmin();
+
+      match /charter/{docId} {
+        allow read: if isSignedIn();
+        allow create, update: if isHOD() || isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 15. LEAVE & ON-DUTY (OD) REQUESTS (CONSOLIDATED)
+    // ──────────────────────────────────────────────────────────────────────────
+    match /leave_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isStaff() || isHOD() || isAdmin();
+      allow delete: if isAdmin() || isHOD();
+    }
+
+    // Legacy leave_applications collection mapped to same rules
+    match /leave_applications/{leaveId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isStaff() || isHOD() || isAdmin();
+      allow delete: if isAdmin() || isHOD();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 16. MULTI-TENANT & SYSTEM SETTINGS CONFIGURATION
+    // ──────────────────────────────────────────────────────────────────────────
+    // Public tenant metadata required for pre-login institution verification on subdomains
+    match /public_tenants/{slug} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /institutions/{institutionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if docId == 'institution' || isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /system_settings/{docId} {
+      allow read: if docId == 'institution' || isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Legacy audit_logs collection mapped to activityLogs rules
+    match /audit_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // Default Fallback: Authenticated access required

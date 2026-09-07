@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// A realistic Apple-style Glassmorphic container with frosted blur,
@@ -120,8 +121,11 @@ class AppleGlassCard extends StatelessWidget {
       child: RepaintBoundary(
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: kIsWeb ? (blur > 8 ? 8 : blur) : blur,
+                sigmaY: kIsWeb ? (blur > 8 ? 8 : blur) : blur,
+              ),
           child: CustomPaint(
             foregroundPainter: _AppleGlassSpecularBorderPainter(
               borderRadius: borderRadius,

@@ -9,6 +9,10 @@ import 'package:unisphere/widgets/common/main_sidebar.dart';
 import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/notification_bell_button.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
+import 'package:unisphere/core/responsive/responsive_breakpoints.dart';
+import 'package:unisphere/core/theme/app_animations.dart';
+import 'package:unisphere/widgets/common/app_desktop_shell.dart';
+import 'package:unisphere/widgets/common/app_desktop_header.dart';
 import 'package:unisphere/widgets/common/unisphere_bottom_nav_bar.dart';
 
 // Staff Modules
@@ -65,15 +69,17 @@ enum StaffNavKey {
 }
 
 class StaffDashboard extends ConsumerStatefulWidget {
-  const StaffDashboard({super.key});
+  final int initialIndex;
+  const StaffDashboard({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<StaffDashboard> createState() => _StaffDashboardState();
 }
 
 class _StaffDashboardState extends ConsumerState<StaffDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   bool _overrideTeachingMode = false;
+  bool _isSidebarCollapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
   final List<int> _navigationHistory = [0];
@@ -81,9 +87,18 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusManager.instance.primaryFocus?.unfocus();
     });
+  }
+
+  @override
+  void didUpdateWidget(StaffDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      setState(() => _currentIndex = widget.initialIndex);
+    }
   }
 
   void _handleNavigation(int index, {bool isBack = false}) {
@@ -208,7 +223,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final isDesktop = AppResponsive.isDesktop(context);
     final isAdvisor = ref.watch(isClassAdvisorProvider);
     final profileAsync = ref.watch(currentStaffProfileStreamProvider);
     final staff = profileAsync.valueOrNull;
@@ -505,6 +520,55 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
             onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
           );
       }
+    }
+
+    if (isDesktop) {
+      final user = ref.watch(authServiceProvider).currentUser;
+      final profileAsync = ref.watch(currentStaffProfileStreamProvider);
+      final isAdvisor = ref.watch(isClassAdvisorProvider);
+      final staff = profileAsync.valueOrNull;
+      final currentTitle = _currentIndex < sidebarItems.length
+          ? sidebarItems[_currentIndex].label
+          : 'Staff Portal';
+      final staffName = staff?.fullName ?? user?.name ?? 'Faculty Member';
+      final deptName = staff?.departmentName ?? user?.department ?? 'Computer Science';
+
+      final isHomeTab = _currentIndex == 0;
+      final roleHeaderTitle = (isAdvisor && !_overrideTeachingMode)
+          ? 'Class Advisor Portal'
+          : 'Faculty Management System';
+
+      return AppDesktopShell(
+        sidebar: _buildSidebar(sidebarItems),
+        header: AppDesktopHeader(
+          onBack: _currentIndex != 0 ? _handleBackNavigation : null,
+          breadcrumbs: isHomeTab
+              ? ['UniSphere', 'ERP Portal']
+              : ['UniSphere', roleHeaderTitle, currentTitle],
+          title: isHomeTab ? roleHeaderTitle : currentTitle,
+          subtitle: (isAdvisor && !_overrideTeachingMode)
+              ? 'Class Advisor Workspace • Student Governance'
+              : 'Faculty Academic Workspace',
+          departmentName: deptName,
+          roleName: isAdvisor ? 'Advisor' : 'Staff',
+          roleColor: AppColors.staffRole,
+          userName: staffName,
+          userPhotoUrl: staff?.photoPath,
+          extraActions: [
+            IconButton(
+              icon: const Icon(Icons.school_rounded, color: AppColors.staffRole, size: 22),
+              tooltip: 'Department Vision & POs',
+              onPressed: () => showDepartmentVisionSheet(context),
+            ),
+          ],
+          onProfileTap: () => _navigateToKey(StaffNavKey.profile, activeNavKeys),
+        ),
+        body: FadeSlideTransition(
+          transitionKey: ValueKey('staff_tab_$currentKey'),
+          duration: const Duration(milliseconds: 180),
+          child: screenForNavKey(currentKey),
+        ),
+      );
     }
 
     return PopScope(
@@ -1062,6 +1126,10 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
       userName: staff?.fullName ?? user?.name ?? 'Faculty Member',
       userEmail: isAdvisor ? 'Class Advisor • CSE' : 'Faculty • CSE',
       profileUrl: staff?.photoPath ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      isCollapsed: _isSidebarCollapsed,
+      onToggleCollapse: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+      roleBadge: isAdvisor ? 'ADVISOR' : 'STAFF',
+      roleColor: AppColors.staffRole,
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:unisphere/services/notification_automation_rules_service.dart';
 class NotificationSchedulerService {
   final NotificationAutomationRulesService _rulesService;
   Timer? _timer;
+  Timer? _initialTimer;
   bool _isRunning = false;
 
   NotificationSchedulerService({
@@ -18,8 +19,12 @@ class NotificationSchedulerService {
     _isRunning = true;
     debugPrint('NotificationSchedulerService: Started periodic background scheduler.');
 
-    // Run initial immediate check
-    _runScheduledJobs();
+    // Delay initial check by 10s to ensure startup paint and initial interactions are 100% unblocked
+    _initialTimer = Timer(const Duration(seconds: 10), () {
+      if (_isRunning) {
+        _runScheduledJobs();
+      }
+    });
 
     // Setup periodic timer
     _timer = Timer.periodic(interval, (_) => _runScheduledJobs());
@@ -27,6 +32,7 @@ class NotificationSchedulerService {
 
   /// Stop scheduler
   void stopScheduler() {
+    _initialTimer?.cancel();
     _timer?.cancel();
     _isRunning = false;
     debugPrint('NotificationSchedulerService: Stopped background scheduler.');

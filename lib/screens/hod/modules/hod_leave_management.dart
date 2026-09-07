@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/providers/post_od_provider.dart';
 import 'package:unisphere/providers/notification_provider.dart';
+import 'package:unisphere/repositories/staff_repository.dart';
 
 class HodLeaveManagement extends ConsumerStatefulWidget {
   const HodLeaveManagement({super.key});
@@ -15,8 +17,9 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
   String _activeTab = 'Faculty Requests';
   String _postOdFilter = 'All Outcomes';
 
-  final List<Map<String, dynamic>> _leaveRequests = [
+  final List<Map<String, dynamic>> _fallbackLeaveRequests = [
     {
+      'id': 'REQ-FAC-01',
       'name': 'Dr. Anita Roy',
       'role': 'Assistant Professor',
       'type': 'Faculty',
@@ -28,6 +31,7 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
       'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
     },
     {
+      'id': 'REQ-FAC-02',
       'name': 'Prof. Vikram Sharma',
       'role': 'Assistant Professor',
       'type': 'Faculty',
@@ -39,6 +43,7 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
       'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
     },
     {
+      'id': 'REQ-STU-01',
       'name': 'Karthik Raja',
       'role': 'Student (CS-B)',
       'type': 'Student',
@@ -54,12 +59,38 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
   @override
   Widget build(BuildContext context) {
     final postOdState = ref.watch(postOdProvider);
+    final leavesAsync = ref.watch(hodLeaveRequestsStreamProvider);
+    final rawLeaves = leavesAsync.valueOrNull ?? [];
 
-    final filtered = _leaveRequests.where((r) {
+    final allLeaves = rawLeaves.isNotEmpty
+        ? rawLeaves.map((l) {
+            final isFaculty = (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('fac') ||
+                (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('prof');
+            final cat = l['type'] ?? l['leaveCategory'] ?? 'Casual Leave';
+            return {
+              'id': l['id']?.toString() ?? '',
+              'name': l['studentName'] ?? l['name'] ?? 'Applicant',
+              'role': l['role'] ?? l['section'] ?? (isFaculty ? 'Faculty' : 'Student'),
+              'type': isFaculty ? 'Faculty' : 'Student',
+              'reason': l['reason'] ?? 'Department academic activity / leave',
+              'dates': l['duration'] ?? l['dates'] ?? 'Current Term',
+              'leaveCategory': cat,
+              'status': l['status'] ?? 'Pending Approval',
+              'document': l['document'] ?? 'Supporting_Document.pdf',
+              'photo': l['photo'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+              'remarks': l['remarks'],
+            };
+          }).toList()
+        : _fallbackLeaveRequests;
+
+    final filtered = allLeaves.where((r) {
       if (_activeTab == 'Faculty Requests') return r['type'] == 'Faculty';
       if (_activeTab == 'Student Requests') return r['type'] == 'Student';
-      return r['leaveCategory'] == 'On Duty (OD)';
+      return r['leaveCategory'].toString().contains('Duty') || r['leaveCategory'].toString().contains('OD');
     }).toList();
+
+    final pendingLeavesCount = allLeaves.where((r) => r['status'] == 'Pending Approval').length;
+    final approvedLeavesCount = allLeaves.where((r) => r['status'] == 'Approved').length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -78,7 +109,7 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 20),
-            _buildStatSummary(postOdState.outcomes),
+            _buildStatSummary(postOdState.outcomes, pendingLeavesCount, approvedLeavesCount),
             const SizedBox(height: 20),
             _buildCategoryTabs(),
             const SizedBox(height: 20),
@@ -102,16 +133,16 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
     );
   }
 
-  Widget _buildStatSummary(List<PostOdOutcomeModel> outcomes) {
+  Widget _buildStatSummary(List<PostOdOutcomeModel> outcomes, int pendingLeaves, int approvedLeaves) {
     final pendingOdOutcomes = outcomes.where((o) => o.hodStatus == 'Pending HOD Verification').length;
 
     return Row(
       children: [
-        _buildSmallStat('Pending Leaves', '8 Requests', AppColors.warning),
+        _buildSmallStat('Pending Leaves', '$pendingLeaves Requests', AppColors.warning),
         const SizedBox(width: 10),
         _buildSmallStat('Post-OD Outcomes', '$pendingOdOutcomes Review', const Color(0xFF2563EB)),
         const SizedBox(width: 10),
-        _buildSmallStat('Approved Today', '45 Requests', AppColors.success),
+        _buildSmallStat('Approved Today', '$approvedLeaves Requests', AppColors.success),
       ],
     );
   }
@@ -499,11 +530,21 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
   }
 
   Widget _buildLeaveCard(BuildContext context, Map<String, dynamic> item) {
+    final status = item['status'] as String? ?? 'Pending Approval';
+    final isPending = status == 'Pending Approval';
+    final isApproved = status == 'Approved';
+    final isRejected = status == 'Rejected';
+
+    final statusColor = isApproved
+        ? AppColors.success
+        : (isRejected ? AppColors.error : AppColors.warning);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        border: !isPending ? Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5) : null,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 6))],
       ),
       child: Column(
@@ -511,7 +552,12 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
         children: [
           Row(
             children: [
-              CircleAvatar(radius: 24, backgroundImage: NetworkImage(item['photo'])),
+              CircleAvatar(
+                radius: 24,
+                backgroundImage: NetworkImage(item['photo']),
+                onBackgroundImageError: (_, __) {},
+                child: item['photo'] == null ? const Icon(Icons.person) : null,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -524,8 +570,11 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                child: const Text('Pending', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  isPending ? 'Pending HOD' : status,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
+                ),
               ),
             ],
           ),
@@ -533,6 +582,20 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
           Text('Reason: ${item['reason']}', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
           const SizedBox(height: 6),
           Text('Duration: ${item['dates']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+          if (item['remarks'] != null && (item['remarks'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'HOD Remarks: ${item['remarks']}',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: statusColor),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
@@ -542,37 +605,152 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
                 const Icon(Icons.attach_file_rounded, size: 18, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Expanded(child: Text(item['document'], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-                const Icon(Icons.download_rounded, size: 18, color: AppColors.primary),
+                const Icon(Icons.visibility_outlined, size: 18, color: AppColors.primary),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() => _leaveRequests.remove(item));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leave Request Approved!'), backgroundColor: AppColors.success));
-                  },
-                  icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Approve'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+
+          if (isPending)
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final reqId = item['id'] as String? ?? '';
+                      setState(() {
+                        item['status'] = 'Approved';
+                        item['remarks'] = 'Approved by HOD.';
+                      });
+                      if (reqId.isNotEmpty) {
+                        try {
+                          await ref.read(staffRepositoryProvider).updateLeaveODStatus(
+                            requestId: reqId,
+                            status: 'Approved',
+                            reviewerName: 'HOD',
+                            remarks: 'Approved by HOD.',
+                          );
+                        } catch (e) {
+                          debugPrint('Error updating leave status: $e');
+                        }
+                      }
+                      ref.read(notificationProvider.notifier).addNotification(
+                            title: '✅ Leave/OD Request Approved by HOD',
+                            category: 'Department',
+                            summary: 'HOD approved ${item['leaveCategory']} for ${item['name']}.',
+                            fullDetails: 'Approved by Head of Department.',
+                            icon: Icons.check_circle_rounded,
+                            iconColor: AppColors.success,
+                            iconBgColor: const Color(0xFFECFDF5),
+                            badgeText: 'APPROVED',
+                            badgeColor: AppColors.success,
+                            badgeTextColor: Colors.white,
+                          );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('🎉 Leave request for ${item['name']} Approved!'), backgroundColor: AppColors.success),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('Approve'),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _leaveRequests.remove(item));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leave Request Rejected'), backgroundColor: AppColors.error));
-                  },
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showLeaveRejectDialog(context, item),
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  ),
                 ),
+              ],
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isApproved ? Icons.verified_rounded : Icons.cancel_rounded, size: 16, color: statusColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Request marked as $status',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: statusColor),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showLeaveRejectDialog(BuildContext context, Map<String, dynamic> item) {
+    final remarksCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Reject Request — ${item['name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Reason / Feedback for rejection:', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: remarksCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'e.g. Schedule clash with continuous internal assessment tests...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final remarks = remarksCtrl.text.trim().isEmpty ? 'Rejected by HOD.' : remarksCtrl.text.trim();
+              final reqId = item['id'] as String? ?? '';
+              setState(() {
+                item['status'] = 'Rejected';
+                item['remarks'] = remarks;
+              });
+              if (reqId.isNotEmpty) {
+                try {
+                  await ref.read(staffRepositoryProvider).updateLeaveODStatus(
+                    requestId: reqId,
+                    status: 'Rejected',
+                    reviewerName: 'HOD',
+                    remarks: remarks,
+                  );
+                } catch (e) {
+                  debugPrint('Error rejecting leave status: $e');
+                }
+              }
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Leave request for ${item['name']} Rejected.'), backgroundColor: AppColors.error),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Confirm Rejection'),
           ),
         ],
       ),

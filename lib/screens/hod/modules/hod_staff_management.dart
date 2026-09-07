@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/models.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/repositories/staff_repository.dart';
+import 'package:unisphere/repositories/department_repository.dart';
+import 'package:unisphere/services/auth_service.dart';
 
 class HodStaffManagement extends ConsumerStatefulWidget {
   const HodStaffManagement({super.key});
@@ -18,7 +21,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
   String _selectedStatus = 'All';
   String _selectedRoleFilter = 'All';
 
-  final List<Map<String, dynamic>> _facultyList = [
+  final List<Map<String, dynamic>> _fallbackFacultyList = [
     {
       'id': 'DEMO-STF',
       'employeeId': 'FAC-CSE-001',
@@ -35,7 +38,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       'rating': '4.9',
       'isClassAdvisor': true,
       'advisorSection': 'III CSE - A',
-      'advisorAcademicYear': '2025–26',
+      'advisorAcademicYear': '2026–27',
       'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     },
     {
@@ -92,14 +95,66 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       'rating': '4.8',
       'isClassAdvisor': true,
       'advisorSection': 'II CSE - B',
-      'advisorAcademicYear': '2025–26',
+      'advisorAcademicYear': '2026–27',
       'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    final filteredStaff = _facultyList.where((faculty) {
+    final staffAsync = ref.watch(hodStaffStreamProvider);
+    final assignmentsAsync = ref.watch(hodAssignmentsStreamProvider);
+    final assignments = assignmentsAsync.valueOrNull ?? [];
+
+    final dept = ref.watch(currentHodDepartmentProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final activeDeptName = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (currentUser?.departmentName ??
+            currentUser?.department ??
+            currentUser?.metadata?['departmentName']?.toString() ??
+            currentUser?.metadata?['department']?.toString() ??
+            dept?.name ??
+            'Department');
+    final activeDeptCode = (dept?.code != null && dept!.code.isNotEmpty && dept.code != 'CSE')
+        ? dept.code
+        : DepartmentRepository.deriveDepartmentCode(activeDeptName);
+
+    final rawStaffList = staffAsync.valueOrNull ?? [];
+    final List<Map<String, dynamic>> facultyList = rawStaffList.isNotEmpty
+        ? rawStaffList.map((s) {
+            final advisorAsgn = assignments.cast<StaffAssignmentModel?>().firstWhere(
+                  (a) => a != null && a.staffId == s.userId && a.isClassAdvisor && a.status == 'active',
+                  orElse: () => null,
+                );
+            final isAdvisor = advisorAsgn != null || s.isAdvisor;
+            return {
+              'id': s.userId,
+              'employeeId': s.employeeId.isNotEmpty ? s.employeeId : 'FAC-${s.userId}',
+              'name': s.fullName,
+              'designation': s.designation,
+              'department': s.departmentName.isNotEmpty ? s.departmentName : activeDeptCode,
+              'subjects': s.assignedSubjects,
+              'phone': '+91 98765 43210',
+              'email': '${s.userId.toLowerCase()}@unisphere.edu',
+              'attendance': 'Present',
+              'leaveStatus': 'Active',
+              'experience': '${s.experienceYears > 0 ? s.experienceYears : 8} Years',
+              'workload': '16 hrs/week',
+              'rating': '4.9',
+              'isClassAdvisor': isAdvisor,
+              'advisorSection': advisorAsgn?.section ?? advisorAsgn?.className ?? s.advisorSection ?? 'III $activeDeptCode - A',
+              'advisorAcademicYear': advisorAsgn?.academicYear ?? s.advisorAcademicYear ?? '2026–27',
+              'photo': s.photoPath ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+            };
+          }).toList()
+        : _fallbackFacultyList.map((f) => {
+            ...f,
+            'department': activeDeptCode,
+            'advisorSection': f['advisorSection']?.toString().replaceAll('CSE', activeDeptCode),
+          }).toList();
+
+    final filteredStaff = facultyList.where((faculty) {
       final matchesSearch = faculty['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           faculty['employeeId'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           faculty['subjects'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
@@ -144,41 +199,55 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                 return _buildFacultyCard(context, item);
               },
             ),
+            const SizedBox(height: 80),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        onPressed: () => _showAddFacultyModal(context),
-        icon: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white),
-        label: Text(
-          'Add New Faculty',
-          style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'DEPARTMENT ADMINISTRATION',
-          style: GoogleFonts.manrope(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textSecondary,
-            letterSpacing: 1.2,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'DEPARTMENT ADMINISTRATION',
+                style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Faculty & Staff Directory',
+                style: GoogleFonts.manrope(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Staff & Responsibilities Management',
-          style: GoogleFonts.manrope(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
+        ElevatedButton.icon(
+          onPressed: () => _showAddFacultyModal(context),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.hodRole,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+          label: Text(
+            'Add Faculty',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
       ],
@@ -267,9 +336,9 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.staffRole : Colors.white,
+          color: isSelected ? AppColors.hodRole : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isSelected ? AppColors.staffRole : AppColors.border),
+          border: Border.all(color: isSelected ? AppColors.hodRole : AppColors.border),
         ),
         child: Text(
           label,
@@ -283,11 +352,37 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
     );
   }
 
+  Widget _buildStaffAvatar(String? photo, String name, {double radius = 26}) {
+    final cleanPhoto = (photo ?? '').trim();
+    final isValidUrl = cleanPhoto.isNotEmpty && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://'));
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'S';
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+      backgroundImage: isValidUrl ? NetworkImage(cleanPhoto) : null,
+      child: !isValidUrl
+          ? Text(
+              initial,
+              style: TextStyle(
+                fontSize: radius * 0.8,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            )
+          : null,
+    );
+  }
+
   Widget _buildFacultyCard(BuildContext context, Map<String, dynamic> item) {
-    final isPresent = item['attendance'] == 'Present';
+    final attendanceStr = item['attendance']?.toString() ?? 'Present';
+    final isPresent = attendanceStr == 'Present';
     final isAdvisor = item['isClassAdvisor'] == true;
     final advisorClass = item['advisorSection']?.toString() ?? 'III CSE - A';
     final advisorYear = item['advisorAcademicYear']?.toString() ?? '2025–26';
+    final staffName = item['name']?.toString() ?? 'Faculty Member';
+    final designation = item['designation']?.toString() ?? 'Faculty';
+    final employeeId = item['employeeId']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -308,11 +403,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                backgroundImage: NetworkImage(item['photo']),
-              ),
+              _buildStaffAvatar(item['photo']?.toString(), staffName, radius: 26),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -321,10 +412,15 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          item['name'],
-                          style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        Expanded(
+                          child: Text(
+                            staffName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -332,7 +428,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            item['attendance'],
+                            attendanceStr,
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -344,7 +440,9 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item['designation']} • ${item['employeeId']}',
+                      '$designation • $employeeId',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -365,7 +463,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: (item['subjects'] as List<String>).map((sub) {
+            children: (item['subjects'] as List? ?? []).map((sub) {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -373,7 +471,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  sub,
+                  sub.toString(),
                   style: GoogleFonts.manrope(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
                 ),
               );
@@ -387,7 +485,9 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
             style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -400,55 +500,59 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                   style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
               ),
-              if (isAdvisor) ...[
-                const SizedBox(width: 8),
+              if (isAdvisor)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.staffRole.withValues(alpha: 0.12),
+                    color: AppColors.hodRole.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.staffRole.withValues(alpha: 0.3)),
+                    border: Border.all(color: AppColors.hodRole.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.stars_rounded, size: 13, color: AppColors.staffRole),
+                      const Icon(Icons.stars_rounded, size: 13, color: AppColors.hodRole),
                       const SizedBox(width: 4),
-                      Text(
-                        'Class Advisor: $advisorClass ($advisorYear)',
-                        style: GoogleFonts.manrope(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.staffRole,
+                      Flexible(
+                        child: Text(
+                          'Class Advisor: $advisorClass ($advisorYear)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.hodRole,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 14),
 
           // Actions Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
             children: [
               OutlinedButton.icon(
                 onPressed: () => _showAssignResponsibilityModal(context, item),
-                icon: const Icon(Icons.assignment_ind_rounded, size: 15, color: AppColors.staffRole),
+                icon: const Icon(Icons.assignment_ind_rounded, size: 15, color: AppColors.hodRole),
                 label: Text(
                   isAdvisor ? 'Edit Assignment' : 'Assign Responsibility',
                   style: GoogleFonts.manrope(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.staffRole,
+                    color: AppColors.hodRole,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.staffRole),
+                  side: const BorderSide(color: AppColors.hodRole),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
               ),
               ElevatedButton.icon(
@@ -463,7 +567,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
               ),
             ],
@@ -529,10 +633,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundImage: NetworkImage(staffItem['photo']),
-                          ),
+                          _buildStaffAvatar(staffItem['photo']?.toString(), staffItem['name']?.toString() ?? '', radius: 20),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -670,11 +771,14 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                           child: ElevatedButton(
                             onPressed: () async {
                               final staffId = staffItem['id'] as String;
+                              final currentDeptId = ref.read(hodDepartmentIdProvider);
+                              final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+                              final hodName = currentUser?.fullName ?? currentUser?.name ?? 'Head of Department';
                               final assignment = StaffAssignmentModel(
                                 id: 'ASGN-${DateTime.now().millisecondsSinceEpoch}',
                                 staffId: staffId,
                                 staffName: staffItem['name'],
-                                departmentId: 'DEPT-CSE',
+                                departmentId: currentDeptId,
                                 assignmentType: selectedType == 'Class Advisor'
                                     ? StaffAssignmentType.classAdvisor
                                     : StaffAssignmentType.subjectFaculty,
@@ -682,7 +786,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                                 className: selectedClass,
                                 section: selectedClass,
                                 academicYear: selectedYear,
-                                assignedBy: 'Dr. S. Meenakshi (HOD)',
+                                assignedBy: '$hodName (HOD)',
                                 status: 'active',
                               );
 
@@ -707,7 +811,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.staffRole,
+                              backgroundColor: AppColors.hodRole,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -759,7 +863,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(
                     children: [
-                      CircleAvatar(radius: 26, backgroundImage: NetworkImage(item['photo'])),
+                      _buildStaffAvatar(item['photo']?.toString(), item['name']?.toString() ?? '', radius: 26),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(

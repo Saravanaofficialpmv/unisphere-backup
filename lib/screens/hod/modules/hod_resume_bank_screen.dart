@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/student_resume_model.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/resume_service.dart';
 import 'package:unisphere/widgets/resume/resume_document_view.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
@@ -19,7 +21,6 @@ class _HodResumeBankScreenState extends ConsumerState<HodResumeBankScreen> {
   String _selectedYear = 'All';
   String _selectedSection = 'All';
   String _selectedCompleteness = 'All';
-  final String _departmentName = 'Computer Science & Engineering';
 
   // Department Roster
   final List<Map<String, dynamic>> _deptStudents = [
@@ -173,6 +174,17 @@ class _HodResumeBankScreenState extends ConsumerState<HodResumeBankScreen> {
       return matchesSearch && matchesYear && matchesSection && matchesComp;
     }).toList();
 
+    final dept = ref.watch(currentHodDepartmentProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final deptName = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (currentUser?.departmentName ??
+            currentUser?.department ??
+            currentUser?.metadata?['departmentName']?.toString() ??
+            currentUser?.metadata?['department']?.toString() ??
+            dept?.name ??
+            'Department');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -208,7 +220,7 @@ class _HodResumeBankScreenState extends ConsumerState<HodResumeBankScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '$_departmentName • Placement Roster',
+                    '$deptName • Placement Roster',
                     style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

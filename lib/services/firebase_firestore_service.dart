@@ -450,6 +450,28 @@ class FirebaseFirestoreService implements SupabaseService {
       final docId = 'assign_${subject.replaceAll(' ', '_')}_${examType.replaceAll(' ', '_')}'.toLowerCase();
       final nowStr = DateTime.now().toIso8601String();
 
+      final cleanCode = subject.contains(' - ') ? subject.split(' - ').first.trim() : 'CS401';
+
+      // 1. Create metadata in marks_documents collection
+      await _firestore.collection('marks_documents').doc(docId).set({
+        'documentId': docId,
+        'fileName': fileName,
+        'fileType': fileType,
+        'subjectName': subject,
+        'courseCode': cleanCode,
+        'assessmentType': examType,
+        'uploadedByRole': 'staff',
+        'uploadedByName': 'Faculty Staff',
+        'processingStatus': 'completed',
+        'validationStatus': 'valid',
+        'recordCount': studentRecords.length,
+        'successCount': studentRecords.length,
+        'errorCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 2. Keep backward-compatible assignment container
       await _firestore.collection('assignments').doc(docId).set({
         'title': title,
         'subject': subject,
@@ -461,7 +483,7 @@ class FirebaseFirestoreService implements SupabaseService {
         'studentRecords': studentRecords,
       }, SetOptions(merge: true));
 
-      // Also update individual 'marks' collection documents for student real-time streaming
+      // 3. Save normalized records in canonical marks collection
       for (var record in studentRecords) {
         final regNo = record['regNo'] ?? '';
         if (regNo.isNotEmpty) {
@@ -470,16 +492,31 @@ class FirebaseFirestoreService implements SupabaseService {
           final rawTotal = double.tryParse(record['initial']?.split('/')[1].split(' ')[0].trim() ?? '50') ?? 50;
 
           await _firestore.collection('marks').doc(markDocId).set({
+            'id': markDocId,
+            'markId': markDocId,
             'student_uid': regNo,
+            'studentUid': regNo,
             'register_number': regNo,
+            'registerNumber': regNo,
             'subject_name': subject,
+            'subjectName': subject,
+            'course_code': cleanCode,
+            'courseCode': cleanCode,
             'obtained_marks': rawObtained.toInt(),
+            'obtainedMarks': rawObtained.toInt(),
             'total_marks': rawTotal.toInt(),
+            'totalMarks': rawTotal.toInt(),
+            'maximumMarks': rawTotal,
             'exam_type': examType,
+            'examType': examType,
+            'assessmentType': examType,
             'retest_mark': record['retest'],
             'converted_mark': record['conv'],
             'status': record['status'],
+            'documentId': docId,
+            'enteredByRole': 'staff',
             'updated_at': nowStr,
+            'updatedAt': nowStr,
           }, SetOptions(merge: true));
         }
       }
@@ -563,66 +600,43 @@ class FirebaseFirestoreService implements SupabaseService {
         (profileMap['personal'] as Map)['batch'] = batch;
       }
 
-      // 1. Store details under regNo in student_profiles collection (as primary unique ID)
-      if (regNo.isNotEmpty) {
-        await _firestore.collection('student_profiles').doc(regNo).set(profileMap, SetOptions(merge: true));
-      }
-
-      // 2. Also store details under uid for UID-based lookups
-      if (uid.isNotEmpty) {
-        await _firestore.collection('student_profiles').doc(uid).set(profileMap, SetOptions(merge: true));
-      }
-
-      // 3. Store details under regNo in students collection
+      final canonicalId = uid.isNotEmpty ? uid : regNo;
       final fatherPhoto = profileMap['fatherPhotoUrl'] ?? profileMap['parents']?['father']?['photoUrl'];
       final motherPhoto = profileMap['motherPhotoUrl'] ?? profileMap['parents']?['mother']?['photoUrl'];
 
-      if (regNo.isNotEmpty) {
-        await _firestore.collection('students').doc(regNo).set({
-          'register_number': regNo,
-          'user_id': uid,
-          'batch': batch,
-          'details': profileMap,
-          if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
-          if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
-          'updated_at': nowStr,
-        }, SetOptions(merge: true));
-      }
+      // 1. Store details in student_profiles collection under canonical ID
+      await _firestore.collection('student_profiles').doc(canonicalId).set(profileMap, SetOptions(merge: true));
 
-      // 4. Update user document profile completion status, batch & metadata
-      if (uid.isNotEmpty) {
-        await _firestore.collection('users').doc(uid).set({
-          'profileCompletionStatus': 'submitted',
-          'batch': batch,
-          if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
-          if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
-          'metadata': {
-            'registerNumber': regNo.isNotEmpty ? regNo : null,
-            'batch': batch,
-            'profileCompletionPercentage': 100,
-            if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
-            if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
-            'submittedAt': nowStr,
-          }
-        }, SetOptions(merge: true));
-      }
+      // 2. Store details in students collection under canonical ID
+      await _firestore.collection('students').doc(canonicalId).set({
+        'studentId': canonicalId,
+        'userId': uid.isNotEmpty ? uid : canonicalId,
+        'register_number': regNo,
+        'registerNumber': regNo,
+        'batch': batch,
+        'details': profileMap,
+        if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+        if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
+        'updated_at': nowStr,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      if (regNo.isNotEmpty) {
-        await _firestore.collection('users').doc(regNo).set({
-          'profileCompletionStatus': 'submitted',
+      // 3. Update user document profile completion status, batch & metadata
+      await _firestore.collection('users').doc(canonicalId).set({
+        'profileCompletionStatus': 'submitted',
+        'batch': batch,
+        'registerNumber': regNo,
+        if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
+        if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
+        'metadata': {
+          'registerNumber': regNo.isNotEmpty ? regNo : null,
           'batch': batch,
+          'profileCompletionPercentage': 100,
           if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
           if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
-          'metadata': {
-            'registerNumber': regNo,
-            'batch': batch,
-            'profileCompletionPercentage': 100,
-            if (fatherPhoto != null && fatherPhoto.toString().isNotEmpty) 'fatherPhotoUrl': fatherPhoto,
-            if (motherPhoto != null && motherPhoto.toString().isNotEmpty) 'motherPhotoUrl': motherPhoto,
-            'submittedAt': nowStr,
-          }
-        }, SetOptions(merge: true));
-      }
+          'submittedAt': nowStr,
+        }
+      }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('Firestore submitFullStudentProfile error: $e');
     }
@@ -698,49 +712,24 @@ class FirebaseFirestoreService implements SupabaseService {
         'membershipUpdatedAt': nowStr,
       };
 
-      // 1. Save in users collection (under uid and regNo metadata)
-      if (studentUid.isNotEmpty) {
-        await _firestore.collection('users').doc(studentUid).set({
+      final canonicalId = studentUid.isNotEmpty ? studentUid : cleanReg;
+      if (canonicalId.isNotEmpty) {
+        // 1. Save in users collection
+        await _firestore.collection('users').doc(canonicalId).set({
           'metadata': membershipData,
         }, SetOptions(merge: true));
-      }
-      if (cleanReg.isNotEmpty) {
-        await _firestore.collection('users').doc(cleanReg).set({
-          'metadata': membershipData,
-        }, SetOptions(merge: true));
-      }
 
-      // 2. Save in student_profiles collection (under regNo and studentUid)
-      if (cleanReg.isNotEmpty) {
-        await _firestore.collection('student_profiles').doc(cleanReg).set({
+        // 2. Save in student_profiles collection
+        await _firestore.collection('student_profiles').doc(canonicalId).set({
           'membership': membershipData,
           'membershipId': membershipId,
           'membershipOrg': membershipOrg,
           'hasMembership': hasMembership,
           'updatedAt': nowStr,
         }, SetOptions(merge: true));
-      }
-      if (studentUid.isNotEmpty) {
-        await _firestore.collection('student_profiles').doc(studentUid).set({
-          'membership': membershipData,
-          'membershipId': membershipId,
-          'membershipOrg': membershipOrg,
-          'hasMembership': hasMembership,
-          'updatedAt': nowStr,
-        }, SetOptions(merge: true));
-      }
 
-      // 3. Save in students collection (under regNo and studentUid)
-      if (cleanReg.isNotEmpty) {
-        await _firestore.collection('students').doc(cleanReg).set({
-          'membership_id': membershipId,
-          'membership_org': membershipOrg,
-          'has_membership': hasMembership,
-          'updated_at': nowStr,
-        }, SetOptions(merge: true));
-      }
-      if (studentUid.isNotEmpty) {
-        await _firestore.collection('students').doc(studentUid).set({
+        // 3. Save in students collection
+        await _firestore.collection('students').doc(canonicalId).set({
           'membership_id': membershipId,
           'membership_org': membershipOrg,
           'has_membership': hasMembership,
@@ -891,8 +880,8 @@ class FirebaseFirestoreService implements SupabaseService {
               profileData[field] = val;
             }
 
-            // Also record audit history entry
-            await _firestore.collection('audit_logs').add({
+            // Also record activity log history entry
+            await _firestore.collection('activityLogs').add({
               'studentUid': studentUid,
               'requestId': requestId,
               'fieldName': '$cat.$field',
@@ -917,6 +906,9 @@ class FirebaseFirestoreService implements SupabaseService {
   // ==========================================
   Future<void> seedInitialDataIfEmpty() async {
     try {
+      // 1. Ensure public tenant record for VSBEC is seeded
+      await _seedVsbecTenantIfMissing();
+
       final annSnapshot = await _firestore
           .collection('announcements')
           .limit(1)
@@ -930,6 +922,48 @@ class FirebaseFirestoreService implements SupabaseService {
       if (!e.toString().contains('TimeoutException')) {
         debugPrint('Firestore seedInitialDataIfEmpty notice: $e');
       }
+    }
+  }
+
+  Future<void> _seedVsbecTenantIfMissing() async {
+    try {
+      final doc = await _firestore.collection('public_tenants').doc('vsbec').get();
+      if (!doc.exists) {
+        await _firestore.collection('public_tenants').doc('vsbec').set({
+          'institutionId': 'vsbec_001',
+          'slug': 'vsbec',
+          'name': 'VSB Engineering College',
+          'shortName': 'VSBEC',
+          'domain': 'vsbec.unisphere.org.in',
+          'tagline': 'Autonomous Institution',
+          'status': 'active',
+          'primaryColor': '#1e3a8a',
+          'secondaryColor': '#3b82f6',
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        await _firestore.collection('institutions').doc('vsbec_001').set({
+          'institutionId': 'vsbec_001',
+          'slug': 'vsbec',
+          'name': 'VSB Engineering College',
+          'shortName': 'VSBEC',
+          'domain': 'vsbec.unisphere.org.in',
+          'tagline': 'Autonomous Institution',
+          'status': 'active',
+        }, SetOptions(merge: true));
+
+        await _firestore.collection('settings').doc('institution').set({
+          'institutionId': 'vsbec_001',
+          'collegeName': 'VSB Engineering College',
+          'name': 'VSB Engineering College',
+          'tagline': 'Autonomous Institution',
+          'slug': 'vsbec',
+          'status': 'active',
+        }, SetOptions(merge: true));
+        debugPrint('✅ Seeded public_tenants/vsbec metadata successfully.');
+      }
+    } catch (e) {
+      debugPrint('Notice seeding vsbec tenant: $e');
     }
   }
 
@@ -1022,7 +1056,7 @@ class FirebaseFirestoreService implements SupabaseService {
         'type': 'AUTOMATED',
       });
 
-      await _firestore.collection('audit_logs').add({
+      await _firestore.collection('activityLogs').add({
         'actionType': 'hod_profile_verification_approval',
         'studentUid': actualUid.toString(),
         'hodUid': hodUid,
@@ -1105,7 +1139,7 @@ class FirebaseFirestoreService implements SupabaseService {
         'type': 'AUTOMATED',
       });
 
-      await _firestore.collection('audit_logs').add({
+      await _firestore.collection('activityLogs').add({
         'actionType': 'hod_profile_verification_rejection',
         'studentUid': actualUid.toString(),
         'hodUid': hodUid,

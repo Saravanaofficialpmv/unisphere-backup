@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
+import 'package:unisphere/repositories/department_repository.dart';
 import 'package:unisphere/widgets/common/department_vision_sheet.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
 
-class HodCharterUploadScreen extends StatefulWidget {
+class HodCharterUploadScreen extends ConsumerStatefulWidget {
   const HodCharterUploadScreen({super.key});
 
   @override
-  State<HodCharterUploadScreen> createState() => _HodCharterUploadScreenState();
+  ConsumerState<HodCharterUploadScreen> createState() => _HodCharterUploadScreenState();
 }
 
-class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with SingleTickerProviderStateMixin {
+class _HodCharterUploadScreenState extends ConsumerState<HodCharterUploadScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _hasLoadedCharterFromRemote = false;
 
   // Controllers for Live Vision, Mission, PEOs & PSOs
   final TextEditingController _instVisionController = TextEditingController(
@@ -164,6 +168,8 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
         });
       });
 
+      await _publishChanges();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -175,24 +181,103 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
     }
   }
 
-  void _publishChanges() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 10),
-            Expanded(child: Text('Department CO/PO/PSO Charter published & synced live to Student, Staff & Parent portals!')),
-          ],
-        ),
-        backgroundColor: Color(0xFF10B981),
-        duration: Duration(seconds: 3),
-      ),
-    );
+  void _populateFromRemote(Map<String, dynamic> remote) {
+    if (_hasLoadedCharterFromRemote || remote.isEmpty) return;
+    _hasLoadedCharterFromRemote = true;
+
+    if (remote['instVision'] is String && (remote['instVision'] as String).isNotEmpty) {
+      _instVisionController.text = remote['instVision'];
+    }
+    if (remote['instMission'] is String && (remote['instMission'] as String).isNotEmpty) {
+      _instMissionController.text = remote['instMission'];
+    }
+    if (remote['vision'] is String && (remote['vision'] as String).isNotEmpty) {
+      _visionController.text = remote['vision'];
+    }
+    if (remote['missions'] is List && (remote['missions'] as List).isNotEmpty) {
+      final list = (remote['missions'] as List).map((e) => e.toString()).toList();
+      _missionControllers.clear();
+      for (final m in list) {
+        _missionControllers.add(TextEditingController(text: m));
+      }
+    }
+    if (remote['peos'] is List && (remote['peos'] as List).isNotEmpty) {
+      final list = (remote['peos'] as List).map((e) => e.toString()).toList();
+      _peoControllers.clear();
+      for (final p in list) {
+        _peoControllers.add(TextEditingController(text: p));
+      }
+    }
+    if (remote['psos'] is List && (remote['psos'] as List).isNotEmpty) {
+      final list = (remote['psos'] as List).map((e) => e.toString()).toList();
+      _psoControllers.clear();
+      for (final p in list) {
+        _psoControllers.add(TextEditingController(text: p));
+      }
+    }
+    if (remote['uploadedFiles'] is List && (remote['uploadedFiles'] as List).isNotEmpty) {
+      _uploadedFiles.clear();
+      for (final f in remote['uploadedFiles']) {
+        if (f is Map) {
+          _uploadedFiles.add(Map<String, String>.from(f.map((k, v) => MapEntry(k.toString(), v.toString()))));
+        }
+      }
+    }
+  }
+
+  Future<void> _publishChanges() async {
+    final deptId = ref.read(hodDepartmentIdProvider);
+    final charterData = {
+      'vision': _visionController.text.trim(),
+      'instVision': _instVisionController.text.trim(),
+      'instMission': _instMissionController.text.trim(),
+      'missions': _missionControllers.map((c) => c.text.trim()).toList(),
+      'peos': _peoControllers.map((c) => c.text.trim()).toList(),
+      'psos': _psoControllers.map((c) => c.text.trim()).toList(),
+      'coPoMatrix': _coPoMatrix,
+      'poPsoMatrix': _poPsoMatrix,
+      'uploadedFiles': _uploadedFiles,
+      'updatedBy': 'HOD',
+    };
+
+    try {
+      await ref.read(departmentRepositoryProvider).saveDepartmentCharter(deptId, charterData);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(child: Text('Department CO/PO/PSO Charter published & synced live to Student, Staff & Parent portals!')),
+              ],
+            ),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving charter: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final charterAsync = ref.watch(hodDepartmentCharterStreamProvider);
+    charterAsync.whenData((charter) {
+      if (charter.isNotEmpty) {
+        _populateFromRemote(charter);
+      }
+    });
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -202,7 +287,7 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
         foregroundColor: const Color(0xFF0F172A),
         actions: [
           IconButton(
-            icon: const Icon(Icons.preview_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.preview_rounded, color: AppColors.hodRole),
             tooltip: 'Preview Live Student View',
             onPressed: () => showDepartmentVisionSheet(context),
           ),
@@ -254,9 +339,9 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: AppColors.primary,
+              indicatorColor: AppColors.hodRole,
               indicatorWeight: 3,
-              labelColor: AppColors.primary,
+              labelColor: AppColors.hodRole,
               unselectedLabelColor: const Color(0xFF64748B),
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -301,7 +386,7 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
             icon: const Icon(Icons.rocket_launch_rounded, size: 20),
             label: const Text('Publish & Sync Live Outcomes to All Portals', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppColors.hodRole,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
@@ -323,10 +408,10 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
+            border: Border.all(color: AppColors.hodRole.withValues(alpha: 0.3), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.04),
+                color: AppColors.hodRole.withValues(alpha: 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -337,10 +422,10 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFEFF6FF),
+                  color: Color(0xFFFEF3C7),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 36),
+                child: const Icon(Icons.cloud_upload_rounded, color: AppColors.hodRole, size: 36),
               ),
               const SizedBox(height: 14),
               const Text(
@@ -361,7 +446,7 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
                       icon: const Icon(Icons.file_upload_rounded, size: 18),
                       label: const Text('Select PDF / Word File'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.hodRole,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -581,7 +666,7 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
               rows: List.generate(5, (coIdx) {
                 return DataRow(
                   cells: [
-                    DataCell(Text('CO ${coIdx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
+                    DataCell(Text('CO ${coIdx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.hodRole))),
                     ...List.generate(11, (poIdx) {
                       final val = _coPoMatrix[coIdx][poIdx];
                       return DataCell(
@@ -631,7 +716,7 @@ class _HodCharterUploadScreenState extends State<HodCharterUploadScreen> with Si
               rows: List.generate(11, (poIdx) {
                 return DataRow(
                   cells: [
-                    DataCell(Text('PO ${poIdx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
+                    DataCell(Text('PO ${poIdx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.hodRole))),
                     ...List.generate(3, (psoIdx) {
                       final val = _poPsoMatrix[poIdx][psoIdx];
                       return DataCell(

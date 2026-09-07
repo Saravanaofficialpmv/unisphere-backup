@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/academic_schedule_model.dart';
 import 'package:unisphere/providers/academic_schedule_provider.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/screens/features/academic_schedule_detail_screen.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/academic_schedule_service.dart';
@@ -159,8 +160,14 @@ class _HodAcademicScheduleScreenState extends ConsumerState<HodAcademicScheduleS
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authServiceProvider).currentUser;
-    final userDept = user?.metadata?['department']?.toString() ?? 'Computer Science & Engineering';
+    final dept = ref.watch(currentHodDepartmentProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final userDept = (dept?.name != null && dept!.name.isNotEmpty && dept.name != 'Computer Science & Engineering')
+        ? dept.name
+        : (user?.departmentName ??
+            user?.department ??
+            user?.metadata?['department']?.toString() ??
+            'Department');
 
     final schedulesAsync = ref.watch(departmentAcademicSchedulesProvider(userDept));
 

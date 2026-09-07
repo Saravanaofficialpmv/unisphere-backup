@@ -245,10 +245,7 @@ class FadeSlideTransition extends StatelessWidget {
             position: slideAnimation,
             child: FadeTransition(
               opacity: fadeAnimation,
-              child: ColoredBox(
-                color: Colors.white,
-                child: incomingChild,
-              ),
+              child: incomingChild,
             ),
           ),
         );

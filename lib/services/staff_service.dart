@@ -9,6 +9,12 @@ final staffServiceProvider = Provider<StaffService>((ref) {
   return StaffService(repository: repo);
 });
 
+/// Real-time stream of all staff members
+final staffMembersStreamProvider = StreamProvider.autoDispose<List<StaffModel>>((ref) {
+  final service = ref.watch(staffServiceProvider);
+  return service.getStaffMembersStream();
+});
+
 class StaffService {
   final FirebaseFirestore? _firestore;
   final StaffRepository _repository;
@@ -57,6 +63,24 @@ class StaffService {
       debugPrint('StaffService getStaffMembers error: $e');
       return [];
     }
+  }
+
+  /// Real-time stream of staff members
+  Stream<List<StaffModel>> getStaffMembersStream({String? departmentId}) {
+    final firestore = _firestore;
+    if (firestore == null) return Stream.value([]);
+    Query query = firestore.collection('staff');
+    if (departmentId != null && departmentId.isNotEmpty) {
+      query = query.where('departmentId', isEqualTo: departmentId);
+    }
+    return query.snapshots().map((snap) {
+      return snap.docs
+          .map((d) => StaffModel.fromMap(d.data() as Map<String, dynamic>, d.id))
+          .toList();
+    }).handleError((e) {
+      debugPrint('StaffService getStaffMembersStream error: $e');
+      return <StaffModel>[];
+    });
   }
 
   /// Stream active responsibilities and assignments for a staff member

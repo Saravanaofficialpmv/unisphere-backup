@@ -15,7 +15,6 @@ export 'hod/hod_shell.dart';
 export 'hod/hod_home_dashboard.dart';
 export 'admin/admin_shell.dart';
 export 'admin/admin_dashboard.dart';
-export 'admin/admin_sidebar.dart';
 export 'parent/parent_dashboard.dart';
 
 // Feature & Detail Screens
