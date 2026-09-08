@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 
@@ -11,6 +12,7 @@ class WebLoginView extends StatefulWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool isLoading;
+  final bool isGoogleLoading;
   final bool obscurePassword;
   final bool isUserNotFoundError;
   final String? loginErrorMessage;
@@ -18,6 +20,7 @@ class WebLoginView extends StatefulWidget {
   final ValueChanged<UserRole> onRoleChanged;
   final VoidCallback onTogglePasswordVisibility;
   final VoidCallback onLoginPressed;
+  final VoidCallback onGoogleLoginPressed;
   final VoidCallback onForgotPasswordPressed;
   final Function(String email, String password, UserRole role) onDemoAutofill;
 
@@ -27,6 +30,7 @@ class WebLoginView extends StatefulWidget {
     required this.emailController,
     required this.passwordController,
     required this.isLoading,
+    this.isGoogleLoading = false,
     required this.obscurePassword,
     required this.isUserNotFoundError,
     this.loginErrorMessage,
@@ -34,6 +38,7 @@ class WebLoginView extends StatefulWidget {
     required this.onRoleChanged,
     required this.onTogglePasswordVisibility,
     required this.onLoginPressed,
+    required this.onGoogleLoginPressed,
     required this.onForgotPasswordPressed,
     required this.onDemoAutofill,
   });
@@ -325,7 +330,7 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
           const SizedBox(height: 24),
 
           _buildLoginButton(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           Center(
             child: TextButton(
@@ -345,6 +350,28 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
             ),
           ),
           const SizedBox(height: 12),
+
+          const Row(
+            children: [
+              Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Or continue with',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          _buildGoogleButton(),
+          const SizedBox(height: 16),
 
           _buildMobileExclusiveNotice(),
           const SizedBox(height: 18),
@@ -640,6 +667,74 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
                   letterSpacing: 0.2,
                   color: Colors.white,
                 ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    final isBusy = widget.isLoading || widget.isGoogleLoading;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: OutlinedButton(
+        onPressed: isBusy ? null : widget.onGoogleLoginPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1E293B),
+          side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 0,
+        ),
+        child: widget.isGoogleLoading
+            ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _brandPrimary),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Connecting with Google...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SvgPicture.asset(
+                    'assets/google_logo.svg',
+                    width: 18,
+                    height: 18,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.g_mobiledata_rounded,
+                      color: Color(0xFF4285F4),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
               ),
       ),
     );

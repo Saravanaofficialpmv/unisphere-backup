@@ -638,6 +638,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     context.push(uri.toString());
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading || _isGoogleLoading || _isAppleLoading) return;
+    setState(() => _isGoogleLoading = true);
+    try {
+      await ref.read(authServiceProvider).signInWithGoogle();
+      final user = ref.read(authServiceProvider).currentUser;
+      if (user != null && mounted) {
+        await ref.read(userSessionServiceProvider).recordLogin(user.uid);
+        _navigateToUserDashboard(user);
+      }
+    } catch (e) {
+      final cleanMsg = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
+      if (mounted) {
+        _showSnackBar(
+          cleanMsg.isNotEmpty ? cleanMsg : 'Google Sign-In could not be completed.',
+          AppColors.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: color, behavior: SnackBarBehavior.floating),
@@ -652,6 +675,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         emailController: _emailController,
         passwordController: _passwordController,
         isLoading: _isLoading,
+        isGoogleLoading: _isGoogleLoading,
         obscurePassword: _obscurePassword,
         isUserNotFoundError: _isUserNotFoundError,
         loginErrorMessage: _loginErrorMessage,
@@ -670,6 +694,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           _isSignUp = false;
           _handleSubmit();
         },
+        onGoogleLoginPressed: _handleGoogleSignIn,
         onForgotPasswordPressed: _navigateToForgotPassword,
         onDemoAutofill: (email, password, role) {
           setState(() {
@@ -1726,24 +1751,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildGoogleButton(
-                () async {
-                  if (_isLoading || _isGoogleLoading || _isAppleLoading) return;
-                  setState(() => _isGoogleLoading = true);
-                  try {
-                    await ref.read(authServiceProvider).signInWithGoogle();
-                    final user = ref.read(authServiceProvider).currentUser;
-                    if (user != null && mounted) {
-                      _navigateToUserDashboard(user);
-                    }
-                  } catch (e) {
-                    final cleanMsg = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
-                    if (mounted) _showSnackBar(cleanMsg.isNotEmpty ? cleanMsg : 'Google Sign-In could not be completed.', AppColors.error);
-                  } finally {
-                    if (mounted) setState(() => _isGoogleLoading = false);
-                  }
-                },
-              ),
+              child: _buildGoogleButton(_handleGoogleSignIn),
             ),
             const SizedBox(width: 16),
             Expanded(
