@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -55,6 +56,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<String> _roles = ['Student', 'Faculty', 'Department (HOD)', 'Parent'];
   final List<String> _departments = AppDepartments.list;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/login');
+      });
+    }
+  }
 
   void _addChildField() {
     HapticFeedback.lightImpact();

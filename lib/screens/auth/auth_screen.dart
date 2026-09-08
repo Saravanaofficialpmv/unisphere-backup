@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unisphere/screens/auth/widgets/web_login_view.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -644,6 +646,49 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return WebLoginView(
+        formKey: _loginFormKey,
+        emailController: _emailController,
+        passwordController: _passwordController,
+        isLoading: _isLoading,
+        obscurePassword: _obscurePassword,
+        isUserNotFoundError: _isUserNotFoundError,
+        loginErrorMessage: _loginErrorMessage,
+        selectedRole: _selectedRole,
+        onRoleChanged: (newRole) {
+          setState(() {
+            _selectedRole = newRole;
+          });
+        },
+        onTogglePasswordVisibility: () {
+          setState(() {
+            _obscurePassword = !_obscurePassword;
+          });
+        },
+        onLoginPressed: () {
+          _isSignUp = false;
+          _handleSubmit();
+        },
+        onForgotPasswordPressed: _navigateToForgotPassword,
+        onDemoAutofill: (email, password, role) {
+          setState(() {
+            _selectedRole = role;
+            _emailController.text = email;
+            _passwordController.text = password;
+            _loginErrorMessage = null;
+            _isUserNotFoundError = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Autofilled ${role.name.toUpperCase()} demo credentials! Tap Login to continue.'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(

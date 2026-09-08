@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,6 +70,7 @@ String? resolveRouteRedirect({required UserModel? user, required String matchedL
   if (isPreview || isSplash) return null;
 
   if (!isAuth) {
+    if (kIsWeb && (isOnboarding || isSignup)) return '/login';
     if (isLogin || isOnboarding || isSignup || isForgotPassword || isRequestSubmitted) return null;
     return '/login';
   }

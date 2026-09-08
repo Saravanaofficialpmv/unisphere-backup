@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,7 +59,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         _schedule(const Duration(milliseconds: 600), () {
           if (!mounted) return;
           if (user == null) {
-            context.go('/onboarding');
+            if (kIsWeb) {
+              context.go('/login');
+            } else {
+              context.go('/onboarding');
+            }
           } else {
             switch (user.role) {
               case UserRole.admin:
