@@ -67,7 +67,9 @@ class StaffAssignmentModel {
   final String staffId;
   final String staffName;
   final String departmentId;
+  final String? institutionId;
   final StaffAssignmentType assignmentType;
+  final String? responsibilityTitle;
   final String? subjectId;
   final String? subjectName;
   final String? subjectCode;
@@ -87,7 +89,9 @@ class StaffAssignmentModel {
     required this.staffId,
     required this.staffName,
     required this.departmentId,
+    this.institutionId,
     required this.assignmentType,
+    this.responsibilityTitle,
     this.subjectId,
     this.subjectName,
     this.subjectCode,
@@ -119,9 +123,11 @@ class StaffAssignmentModel {
       staffId: map['staffId'] ?? map['staff_id'] ?? '',
       staffName: map['staffName'] ?? map['staff_name'] ?? 'Staff Member',
       departmentId: map['departmentId'] ?? map['department_id'] ?? 'DEPT-CSE',
+      institutionId: map['institutionId'] ?? map['institution_id'],
       assignmentType: StaffAssignmentTypeExtension.fromString(
         map['assignmentType'] ?? map['assignment_type'],
       ),
+      responsibilityTitle: map['responsibilityTitle'] ?? map['responsibility_title'] ?? map['title'],
       subjectId: map['subjectId'] ?? map['subject_id'],
       subjectName: map['subjectName'] ?? map['subject_name'],
       subjectCode: map['subjectCode'] ?? map['subject_code'],
@@ -147,8 +153,12 @@ class StaffAssignmentModel {
       'staff_name': staffName,
       'departmentId': departmentId,
       'department_id': departmentId,
+      if (institutionId != null) 'institutionId': institutionId,
+      if (institutionId != null) 'institution_id': institutionId,
       'assignmentType': assignmentType.value,
       'assignment_type': assignmentType.value,
+      if (responsibilityTitle != null) 'responsibilityTitle': responsibilityTitle,
+      if (responsibilityTitle != null) 'responsibility_title': responsibilityTitle,
       'subjectId': subjectId,
       'subject_id': subjectId,
       'subjectName': subjectName,

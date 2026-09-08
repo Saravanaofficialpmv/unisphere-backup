@@ -29,6 +29,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
   final String classesLabel;
   final IconData? classesIcon;
   final IconData? classesActiveIcon;
+  final Color? activeColor;
   final VoidCallback onHomeTap;
   final VoidCallback onClassesTap;
   final VoidCallback onCenterTap;
@@ -43,6 +44,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
     this.classesLabel = 'Classes',
     this.classesIcon,
     this.classesActiveIcon,
+    this.activeColor,
     required this.onHomeTap,
     required this.onClassesTap,
     required this.onCenterTap,
@@ -55,6 +57,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final double barWidth = math.min(390.0, screenWidth - 24.0);
     const double barHeight = 72.0;
+    final primaryActiveColor = activeColor ?? const Color(0xFF2563EB);
 
     return AnimatedSlide(
       duration: const Duration(milliseconds: 280),
@@ -78,7 +81,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
               ),
               // Electric blue subtle glow
               BoxShadow(
-                color: const Color(0xFF0066FF).withValues(alpha: 0.10),
+                color: primaryActiveColor.withValues(alpha: 0.12),
                 blurRadius: 18,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -94,8 +97,8 @@ class UnisphereBottomNavBar extends StatelessWidget {
                   // Translucent ice-blue frosted glass surface
                   gradient: LinearGradient(
                     colors: [
-                      Colors.white.withValues(alpha: 0.88),
-                      const Color(0xFFEFF6FF).withValues(alpha: 0.78),
+                      Colors.white.withValues(alpha: 0.92),
+                      const Color(0xFFEFF6FF).withValues(alpha: 0.82),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -115,6 +118,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
                         label: 'Home',
                         icon: Icons.home_outlined,
                         activeIcon: Icons.home_rounded,
+                        activeColor: primaryActiveColor,
                         isActive: activeSlot == UnisphereNavSlot.home,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -129,6 +133,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
                         label: classesLabel,
                         icon: classesIcon ?? Icons.assignment_outlined,
                         activeIcon: classesActiveIcon ?? Icons.assignment_rounded,
+                        activeColor: primaryActiveColor,
                         isActive: activeSlot == UnisphereNavSlot.classes,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -139,6 +144,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
 
                     // 3. Center Elevated Unisphere "U" Logo Button
                     _CenterActionButton(
+                      activeColor: primaryActiveColor,
                       onTap: () {
                         HapticFeedback.mediumImpact();
                         onCenterTap();
@@ -151,6 +157,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
                         label: 'Notifications',
                         icon: Icons.notifications_none_rounded,
                         activeIcon: Icons.notifications_rounded,
+                        activeColor: primaryActiveColor,
                         isActive: activeSlot == UnisphereNavSlot.notifications,
                         hasBadge: unreadNotificationsCount > 0,
                         onTap: () {
@@ -166,6 +173,7 @@ class UnisphereBottomNavBar extends StatelessWidget {
                         label: 'Profile',
                         icon: Icons.person_outline_rounded,
                         activeIcon: Icons.person_rounded,
+                        activeColor: primaryActiveColor,
                         isActive: activeSlot == UnisphereNavSlot.profile,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -191,6 +199,7 @@ class _NavItem extends StatefulWidget {
   final IconData activeIcon;
   final bool isActive;
   final bool hasBadge;
+  final Color activeColor;
   final VoidCallback onTap;
 
   const _NavItem({
@@ -199,6 +208,7 @@ class _NavItem extends StatefulWidget {
     required this.activeIcon,
     required this.isActive,
     this.hasBadge = false,
+    this.activeColor = const Color(0xFF2563EB),
     required this.onTap,
   });
 
@@ -230,7 +240,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF0066FF);
+    final activeColor = widget.activeColor;
     const inactiveColor = Color(0xFF475569);
 
     return GestureDetector(
@@ -260,7 +270,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: activeColor.withValues(alpha: 0.12),
+                        color: activeColor.withValues(alpha: 0.14),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -347,9 +357,13 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
 
 /// Center elevated floating action button with Unisphere "U" Logo
 class _CenterActionButton extends StatefulWidget {
+  final Color activeColor;
   final VoidCallback onTap;
 
-  const _CenterActionButton({required this.onTap});
+  const _CenterActionButton({
+    this.activeColor = const Color(0xFF2563EB),
+    required this.onTap,
+  });
 
   @override
   State<_CenterActionButton> createState() => _CenterActionButtonState();
@@ -380,6 +394,8 @@ class _CenterActionButtonState extends State<_CenterActionButton>
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = widget.activeColor;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _controller.forward(),
@@ -401,8 +417,8 @@ class _CenterActionButtonState extends State<_CenterActionButton>
               // Glowing outer halo dish
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF0066FF).withValues(alpha: 0.35),
-                  const Color(0xFF0066FF).withValues(alpha: 0.12),
+                  activeColor.withValues(alpha: 0.35),
+                  activeColor.withValues(alpha: 0.12),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -413,7 +429,7 @@ class _CenterActionButtonState extends State<_CenterActionButton>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0066FF).withValues(alpha: 0.45),
+                  color: activeColor.withValues(alpha: 0.45),
                   blurRadius: 18,
                   spreadRadius: 1.5,
                   offset: const Offset(0, 3),
@@ -424,12 +440,12 @@ class _CenterActionButtonState extends State<_CenterActionButton>
               child: Container(
                 width: 44,
                 height: 44,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      Color(0xFF0066FF), // Electric Blue
-                      Color(0xFF004BE4), // Royal Navy Blue
+                      activeColor,
+                      const Color(0xFF1D4ED8), // Royal Deep Navy
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,

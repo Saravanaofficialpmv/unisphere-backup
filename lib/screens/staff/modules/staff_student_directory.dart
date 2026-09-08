@@ -6,7 +6,16 @@ import 'package:unisphere/widgets/student/student_full_detail_modal.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
 class StaffStudentDirectory extends ConsumerStatefulWidget {
-  const StaffStudentDirectory({super.key});
+  final String? initialSection;
+  final String? initialYear;
+  final VoidCallback? onBack;
+
+  const StaffStudentDirectory({
+    super.key,
+    this.initialSection,
+    this.initialYear,
+    this.onBack,
+  });
 
   @override
   ConsumerState<StaffStudentDirectory> createState() => _StaffStudentDirectoryState();
@@ -14,8 +23,29 @@ class StaffStudentDirectory extends ConsumerStatefulWidget {
 
 class _StaffStudentDirectoryState extends ConsumerState<StaffStudentDirectory> {
   String _searchQuery = '';
-  String _selectedYear = 'All';
-  String _selectedSection = 'All';
+  late String _selectedYear;
+  late String _selectedSection;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedYear = widget.initialYear ?? 'All';
+
+    final initSec = widget.initialSection;
+    if (initSec != null && initSec.isNotEmpty) {
+      if (initSec.contains('CS-A') || initSec.endsWith('- A') || initSec.endsWith('A')) {
+        _selectedSection = 'CS-A';
+      } else if (initSec.contains('CS-B') || initSec.endsWith('- B') || initSec.endsWith('B')) {
+        _selectedSection = 'CS-B';
+      } else if (initSec.contains('CS-C') || initSec.endsWith('- C') || initSec.endsWith('C')) {
+        _selectedSection = 'CS-C';
+      } else {
+        _selectedSection = initSec;
+      }
+    } else {
+      _selectedSection = 'All';
+    }
+  }
 
   final List<Map<String, dynamic>> _studentList = [
     {
@@ -187,6 +217,24 @@ class _StaffStudentDirectoryState extends ConsumerState<StaffStudentDirectory> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: widget.onBack != null
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
+                onPressed: widget.onBack,
+              ),
+              title: Text(
+                _selectedSection != 'All' ? 'Class Directory • $_selectedSection' : 'Student Directory',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            )
+          : null,
       body: AppLiquidPullToRefresh(
         gifAsset: 'assets/tibsy-dp.gif',
         onRefresh: () async {
@@ -259,13 +307,22 @@ class _StaffStudentDirectoryState extends ConsumerState<StaffStudentDirectory> {
   }
 
   Widget _buildFilters() {
+    final availableSections = ['All', 'CS-A', 'CS-B', 'CS-C'];
+    if (!availableSections.contains(_selectedSection)) {
+      availableSections.add(_selectedSection);
+    }
+    final availableYears = ['All', '1st Year', '2nd Year', '3rd Year', '4th Year'];
+    if (!availableYears.contains(_selectedYear)) {
+      availableYears.add(_selectedYear);
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildFilterDropdown('Year', _selectedYear, ['All', '1st Year', '2nd Year', '3rd Year', '4th Year'], (v) => setState(() => _selectedYear = v!)),
+          _buildFilterDropdown('Year', _selectedYear, availableYears, (v) => setState(() => _selectedYear = v!)),
           const SizedBox(width: 10),
-          _buildFilterDropdown('Section', _selectedSection, ['All', 'CS-A', 'CS-B', 'CS-C'], (v) => setState(() => _selectedSection = v!)),
+          _buildFilterDropdown('Section', _selectedSection, availableSections, (v) => setState(() => _selectedSection = v!)),
         ],
       ),
     );

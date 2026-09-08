@@ -8,7 +8,6 @@ import 'package:unisphere/screens/staff/modules/advisor/advisor_academic_perform
 import 'package:unisphere/screens/staff/modules/advisor/advisor_announcements.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_attendance.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_attention_section.dart';
-import 'package:unisphere/screens/staff/modules/advisor/advisor_class_overview.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_leave_od.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_student_directory.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_tasks.dart';
@@ -93,9 +92,9 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
-                      Color(0xFF1E1B4B),
-                      Color(0xFF2E1065),
-                      Color(0xFF4C1D95),
+                      Color(0xFF0F172A), // Slate 900
+                      Color(0xFF1E3A8A), // Blue 900
+                      Color(0xFF1D4ED8), // Blue 700
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -103,7 +102,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF4C1D95).withValues(alpha: 0.25),
+                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.30),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -117,7 +116,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFFDDD6FE),
+                        color: const Color(0xFFDBEAFE),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -136,7 +135,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFFC4B5FD),
+                        color: const Color(0xFFBFDBFE),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -150,8 +149,12 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.staffRole,
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.30),
+                              width: 1,
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -159,7 +162,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                               const Icon(
                                 Icons.stars_rounded,
                                 size: 13,
-                                color: Colors.white,
+                                color: Color(0xFFFDE047),
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -176,7 +179,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Divider(height: 1, color: Color(0xFF4C1D95)),
+                    Divider(height: 1, color: Colors.white.withValues(alpha: 0.15)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -190,7 +193,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                                 style: GoogleFonts.manrope(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
-                                  color: const Color(0xFFC4B5FD),
+                                  color: const Color(0xFFBFDBFE),
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -209,7 +212,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                           OutlinedButton(
                             onPressed: widget.onSwitchToTeachingMode,
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFFC4B5FD)),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.40)),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -241,8 +244,8 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
                       icon: Icons.groups_rounded,
                       iconColor: AppColors.staffRole,
                       gradientColors: const [
-                        Color(0xFF6366F1),
-                        Color(0xFF8B5CF6),
+                        Color(0xFF2563EB),
+                        Color(0xFF1D4ED8),
                       ],
                       isDense: true,
                       onTap: () => setState(() => _activeDirectoryFilter = 'all'),
@@ -297,14 +300,7 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
               ),
               const SizedBox(height: 20),
 
-              // ── 3. Class Overview ──
-              AdvisorClassOverviewSection(
-                onViewAll: () => setState(() => _activeDirectoryFilter = 'all'),
-                onFilterCategory: (filter) => setState(() => _activeDirectoryFilter = filter),
-              ),
-              const SizedBox(height: 20),
-
-              // ── 4. Class Attendance Ring + Students Requiring Attention ──
+              // ── 3. Class Attendance Ring + Students Requiring Attention ──
               AdvisorClassAttendanceSection(
                 onViewAllStudents: () => setState(() => _activeDirectoryFilter = 'all'),
               ),

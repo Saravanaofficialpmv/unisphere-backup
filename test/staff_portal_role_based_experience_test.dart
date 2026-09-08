@@ -10,6 +10,7 @@ import 'package:unisphere/screens/staff/modules/staff_home/staff_home_dashboard.
 import 'package:unisphere/screens/staff/modules/staff_home/staff_today_schedule_screen.dart';
 import 'package:unisphere/screens/staff/modules/staff_home/staff_pending_tasks_screen.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_dashboard.dart';
+import 'package:unisphere/screens/staff/modules/staff_attendance_marking.dart';
 import 'package:unisphere/screens/staff/staff_dashboard.dart';
 import 'package:unisphere/screens/staff/staff_profile_screen.dart';
 import 'package:unisphere/services/auth_service.dart';
@@ -888,6 +889,265 @@ void main() {
 
       // Snack bar should show
       expect(find.text('Marks pending marked as done.'), findsOneWidget);
+    });
+
+    testWidgets('17. Today\'s Classes detail workflow: View Students action triggers class-specific student directory', (tester) async {
+      tester.view.physicalSize = const Size(400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      String? selectedClassSection;
+
+      final sessions = [
+        {
+          'id': 'SCH-01',
+          'startTime': '09:00 AM',
+          'endTime': '10:00 AM',
+          'subjectName': 'Machine Learning',
+          'subjectCode': 'CS8691',
+          'className': 'III CSE - A',
+          'room': 'CS Lab 2',
+          'isAttendanceTaken': true,
+          'attendancePercent': 95,
+        },
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            staffTodayScheduleStreamProvider.overrideWith((ref) => Stream.value(sessions)),
+          ],
+          child: MaterialApp(
+            home: StaffTodayScheduleScreen(
+              onViewClassStudents: (section) => selectedClassSection = section,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Machine Learning'), findsOneWidget);
+      expect(find.textContaining('CS8691'), findsOneWidget);
+      expect(find.text('III CSE - A'), findsOneWidget);
+      expect(find.text('CS Lab 2'), findsOneWidget);
+      expect(find.text('View Students'), findsOneWidget);
+
+      await tester.tap(find.text('View Students'));
+      await tester.pumpAndSettle();
+
+      expect(selectedClassSection, equals('III CSE - A'));
+    });
+
+    testWidgets('18. Attendance screen detail workflow: renders single-source metrics, classes requiring attendance, and interactive roster', (tester) async {
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final sessions = [
+        {
+          'id': 'SCH-01',
+          'startTime': '09:00 AM',
+          'endTime': '10:00 AM',
+          'subjectName': 'Machine Learning',
+          'subjectCode': 'CS8691',
+          'className': 'III CSE - A',
+          'room': 'CS Lab 2',
+          'isAttendanceTaken': true,
+          'attendancePercent': 95,
+        },
+        {
+          'id': 'SCH-02',
+          'startTime': '11:00 AM',
+          'endTime': '12:00 PM',
+          'subjectName': 'Data Structures',
+          'subjectCode': 'CS8392',
+          'className': 'II CSE - B',
+          'room': 'LH-204',
+          'isAttendanceTaken': false,
+          'attendancePercent': 0,
+        },
+      ];
+
+      final customSubjects = [
+        {'id': 'SUB-1', 'name': 'Machine Learning', 'code': 'CS8691', 'class': 'III CSE - A', 'attendance': 89},
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            isClassAdvisorProvider.overrideWithValue(false),
+            staffTodayScheduleStreamProvider.overrideWith((ref) => Stream.value(sessions)),
+            staffSubjectsStreamProvider.overrideWith((ref) => Stream.value(customSubjects)),
+          ],
+          child: const MaterialApp(
+            home: StaffAttendanceMarkingModule(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify Header and Single-Source Metrics
+      expect(find.text('Faculty Attendance Control'), findsOneWidget);
+      expect(find.text("Today's Attendance"), findsOneWidget);
+      expect(find.text("This Week's Attendance"), findsOneWidget);
+      expect(find.text("This Month's Attendance"), findsOneWidget);
+      // Metric matches single source of truth (89%)
+      expect(find.text('89%'), findsOneWidget);
+
+      // Verify Classes Requiring Attendance section
+      expect(find.text('CLASSES REQUIRING ATTENDANCE'), findsOneWidget);
+      expect(find.text('View Attendance'), findsOneWidget);
+      expect(find.text('Take Attendance'), findsOneWidget);
+
+      // Verify Roster & Batch controls
+      expect(find.text('All Present'), findsOneWidget);
+      expect(find.text('All Absent'), findsOneWidget);
+
+      final submitBtn = find.text('Submit Session Attendance');
+      expect(submitBtn, findsOneWidget);
+
+      // Tap All Absent
+      await tester.tap(find.text('All Absent'));
+      await tester.pumpAndSettle();
+
+      // Tap All Present
+      await tester.tap(find.text('All Present'));
+      await tester.pumpAndSettle();
+
+      // Submit attendance
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Attendance submitted!'), findsOneWidget);
+    });
+
+    testWidgets('19. StaffDashboard bottom summary cards full detail workflow and back navigation', (tester) async {
+      tester.view.physicalSize = const Size(400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final normalStaff = StaffModel(
+        userId: 'STF-001',
+        employeeId: 'STF-001',
+        fullName: 'Dr. Arun Kumar',
+        departmentId: 'DEPT-CSE',
+        departmentName: 'Computer Science & Engineering',
+        designation: 'Assistant Professor',
+        specialization: 'Computer Science',
+        assignedClasses: const ['III CSE - A'],
+        assignedSubjects: const ['Data Structures'],
+        isAdvisor: false,
+      );
+
+      final authUser = UserModel(
+        uid: 'STF-001',
+        email: 'arunkumar@vsb.edu.in',
+        fullName: 'Dr. Arun Kumar',
+        role: UserRole.staff,
+      );
+
+      final sessions = [
+        {
+          'id': 'SCH-01',
+          'startTime': '09:00 AM',
+          'endTime': '10:00 AM',
+          'subjectName': 'Data Structures',
+          'subjectCode': 'CS8392',
+          'className': 'III CSE - A',
+          'room': 'LH-204',
+          'isAttendanceTaken': false,
+          'attendancePercent': 0,
+        },
+      ];
+
+      final tasks = [
+        {
+          'id': 'PW-01',
+          'title': 'Marks pending',
+          'subtitle': 'Data Structures • Internal 1',
+          'dueDate': 'Due Sep 12',
+          'priority': 'high',
+          'action': 'upload_marks',
+        },
+      ];
+
+      final subjects = [
+        {'id': 'SUB-1', 'name': 'Data Structures', 'code': 'CS8392', 'class': 'III CSE - A', 'attendance': 92},
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            isClassAdvisorProvider.overrideWithValue(false),
+            currentUserProvider.overrideWith((ref) => Stream.value(authUser)),
+            currentStaffProfileStreamProvider.overrideWith((ref) => Stream.value(normalStaff)),
+            staffTodayScheduleStreamProvider.overrideWith((ref) => Stream.value(sessions)),
+            staffPendingWorkStreamProvider.overrideWith((ref) => Stream.value(tasks)),
+            staffSubjectsStreamProvider.overrideWith((ref) => Stream.value(subjects)),
+          ],
+          child: const MaterialApp(
+            home: StaffDashboard(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // ── Step 1: Tap Today's Classes Card -> Today's Schedule Screen -> Back ──
+      final todayClassesCard = find.text("Today's Classes");
+      expect(todayClassesCard, findsOneWidget);
+      await tester.tap(todayClassesCard);
+      await tester.pumpAndSettle();
+
+      expect(find.text("Today's Teaching Schedule"), findsOneWidget);
+      expect(find.textContaining('Data Structures'), findsOneWidget);
+
+      // Back to Dashboard
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text("TODAY'S SCHEDULE"), findsOneWidget);
+
+      // ── Step 2: Tap Pending Tasks Card -> Pending Tasks Screen -> Back ──
+      final pendingTasksCard = find.text("Pending Tasks");
+      expect(pendingTasksCard, findsOneWidget);
+      await tester.tap(pendingTasksCard);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Task Review Center'), findsAtLeast(1));
+      expect(find.text('Marks pending'), findsOneWidget);
+
+      // Back to Dashboard
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text("TODAY'S SCHEDULE"), findsOneWidget);
+
+      // ── Step 3: Tap Attendance Card -> Attendance Screen -> Back ──
+      final attendanceCard = find.text("Attendance").first;
+      expect(attendanceCard, findsOneWidget);
+      await tester.tap(attendanceCard);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Faculty Attendance Control'), findsOneWidget);
+
+      // Back to Dashboard
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text("TODAY'S SCHEDULE"), findsOneWidget);
+
+      // ── Step 4: Tap View My Profile Button -> Profile Screen -> Back ──
+      final viewProfileBtn = find.text('View My Profile');
+      expect(viewProfileBtn, findsOneWidget);
+      await tester.tap(viewProfileBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Active Faculty'), findsOneWidget);
+
+      // Back to Dashboard
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text("TODAY'S SCHEDULE"), findsOneWidget);
     });
   });
 }

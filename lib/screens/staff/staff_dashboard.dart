@@ -80,8 +80,8 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
   late int _currentIndex;
   bool _overrideTeachingMode = false;
   bool _isSidebarCollapsed = false;
+  String? _selectedClassFilter;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey<NavigatorState> _innerNavigatorKey = GlobalKey<NavigatorState>();
   final List<int> _navigationHistory = [0];
 
   @override
@@ -102,9 +102,6 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
   }
 
   void _handleNavigation(int index, {bool isBack = false}) {
-    if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-      _innerNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-    }
     if (index == _currentIndex) return;
 
     if (!isBack) {
@@ -120,10 +117,6 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
   }
 
   void _handleBackNavigation() {
-    if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-      _innerNavigatorKey.currentState?.pop();
-      return;
-    }
     if (_navigationHistory.isNotEmpty) {
       final prev = _navigationHistory.removeLast();
       _handleNavigation(prev, isBack: true);
@@ -446,10 +439,13 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           return StaffTodayScheduleScreen(
             onBack: _handleBackNavigation,
             onNavigateToKey: (key) => _navigateToKey(key, activeNavKeys),
-            onViewClassStudents: (section) => _navigateToKey(
-              isAdvisor ? StaffNavKey.advisorDirectory : StaffNavKey.studentDirectory,
-              activeNavKeys,
-            ),
+            onViewClassStudents: (section) {
+              setState(() => _selectedClassFilter = section);
+              _navigateToKey(
+                isAdvisor ? StaffNavKey.advisorDirectory : StaffNavKey.studentDirectory,
+                activeNavKeys,
+              );
+            },
           );
 
         case StaffNavKey.pendingTasks:
@@ -459,7 +455,10 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           );
 
         case StaffNavKey.advisorDirectory:
-          return AdvisorStudentDirectoryScreen(onBack: _handleBackNavigation);
+          return AdvisorStudentDirectoryScreen(
+            onBack: _handleBackNavigation,
+            initialFilter: _selectedClassFilter != null ? 'all' : null,
+          );
 
         case StaffNavKey.parentCommunication:
           return AdvisorParentCommunicationScreen(onBack: _handleBackNavigation);
@@ -483,7 +482,9 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           return AcademicScheduleDetailScreen(onBack: _handleBackNavigation);
 
         case StaffNavKey.attendance:
-          return const StaffAttendanceMarkingModule();
+          return StaffAttendanceMarkingModule(
+            onBack: _handleBackNavigation,
+          );
 
         case StaffNavKey.marks:
           return const StaffMarksUploadModule();
@@ -500,7 +501,10 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           return StaffQuestionPaperUploadScreen(onBack: _handleBackNavigation);
 
         case StaffNavKey.studentDirectory:
-          return const StaffStudentDirectory();
+          return StaffStudentDirectory(
+            initialSection: _selectedClassFilter,
+            onBack: _handleBackNavigation,
+          );
 
         case StaffNavKey.syllabus:
           return const HodSyllabusManagementScreen();
@@ -590,8 +594,8 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
           scrolledUnderElevation: 0,
           toolbarHeight: 64,
           automaticallyImplyLeading: false,
-          leadingWidth: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false)) ? 54 : 0,
-          titleSpacing: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false)) ? 8 : 16,
+          leadingWidth: _currentIndex != 0 ? 54 : 0,
+          titleSpacing: _currentIndex != 0 ? 8 : 16,
           centerTitle: false,
           shape: const Border(
             bottom: BorderSide(
@@ -599,7 +603,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
               width: 1,
             ),
           ),
-          leading: (_currentIndex != 0 || (_innerNavigatorKey.currentState?.canPop() ?? false))
+          leading: _currentIndex != 0
               ? Builder(
                   builder: (context) => Container(
                     margin: const EdgeInsets.only(left: 12, top: 12, bottom: 12),
@@ -607,13 +611,7 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        onTap: () {
-                          if (_innerNavigatorKey.currentState?.canPop() ?? false) {
-                            _innerNavigatorKey.currentState?.pop();
-                          } else {
-                            _handleBackNavigation();
-                          }
-                        },
+                        onTap: _handleBackNavigation,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
@@ -853,43 +851,15 @@ class _StaffDashboardState extends ConsumerState<StaffDashboard> {
             ),
           ],
         ),
-        body: isDesktop
-            ? Row(
-                children: [
-                  _buildSidebar(sidebarItems),
-                  const VerticalDivider(width: 1, thickness: 1, color: AppColors.border),
-                  Expanded(
-                    child: ClipRect(
-                      child: Navigator(
-                        key: _innerNavigatorKey,
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (_) => FadeSlideTransition(
-                            transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
-                            duration: const Duration(milliseconds: 180),
-                            child: screenForNavKey(currentKey),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Stack(
-                children: [
-                  Positioned.fill(
-                    child: ClipRect(
-                      child: Navigator(
-                        key: _innerNavigatorKey,
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (_) => FadeSlideTransition(
-                            transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
-                            duration: const Duration(milliseconds: 180),
-                            child: screenForNavKey(currentKey),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: FadeSlideTransition(
+                transitionKey: ValueKey('staff_tab_${currentKey.name}_$_currentIndex'),
+                duration: const Duration(milliseconds: 180),
+                child: screenForNavKey(currentKey),
+              ),
+            ),
                   if (currentKey != StaffNavKey.profile)
                     Positioned(
                       bottom: math.max(16.0, MediaQuery.of(context).padding.bottom + 10.0),

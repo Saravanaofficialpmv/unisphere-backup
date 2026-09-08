@@ -438,24 +438,111 @@ class StaffRepository {
   // 9. DEFAULT / SEEDED DATA HELPERS
   // ─────────────────────────────────────────────────────────────────────────────
 
+  static List<StaffModel> _resolveDefaultStaffList(String departmentId, {String? institutionId}) {
+    final cleanDept = departmentId.isNotEmpty ? departmentId : 'DEPT-CSE';
+    final cleanInst = institutionId ?? 'INST-UNI-01';
+
+    return [
+      StaffModel(
+        userId: 'UNI-STF-CSE-001',
+        employeeId: 'UNI-STF-CSE-001',
+        fullName: 'Arun Kumar',
+        email: 'arun@college.edu',
+        departmentId: cleanDept,
+        departmentName: 'Computer Science & Engineering',
+        institutionId: cleanInst,
+        designation: 'Assistant Professor',
+        specialization: 'Machine Learning & AI',
+        assignedClasses: ['III CSE - A', 'IV CSE - A'],
+        assignedSubjects: ['Machine Learning', 'Data Structures', 'Artificial Intelligence'],
+        isAdvisor: true,
+        advisorSection: 'III CSE - A',
+        advisorClassId: 'CLASS-III-CSE-A',
+        advisorAcademicYear: '2025–26',
+        experienceYears: 8,
+        officeLocation: 'Academic Block 3, Cabin 401',
+        photoPath: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      ),
+      StaffModel(
+        userId: 'UNI-STF-CSE-002',
+        employeeId: 'UNI-STF-CSE-002',
+        fullName: 'Priya Devi',
+        email: 'priya@college.edu',
+        departmentId: cleanDept,
+        departmentName: 'Computer Science & Engineering',
+        institutionId: cleanInst,
+        designation: 'Associate Professor',
+        specialization: 'Cloud Computing & Distributed Systems',
+        assignedClasses: ['II CSE - B', 'III CSE - B'],
+        assignedSubjects: ['Cloud Computing', 'Operating Systems', 'Database Management'],
+        isAdvisor: false,
+        experienceYears: 10,
+        officeLocation: 'Academic Block 3, Cabin 405',
+        photoPath: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+      ),
+      StaffModel(
+        userId: 'UNI-STF-CSE-003',
+        employeeId: 'UNI-STF-CSE-003',
+        fullName: 'Dr. K. Tharani Kumar',
+        email: 'tharani.kumar@college.edu',
+        departmentId: cleanDept,
+        departmentName: 'Computer Science & Engineering',
+        institutionId: cleanInst,
+        designation: 'Assistant Professor',
+        specialization: 'Artificial Intelligence & Machine Learning',
+        assignedClasses: ['III CSE - A', 'II CSE - B', 'IV CSE - A'],
+        assignedSubjects: ['Machine Learning', 'Data Structures', 'Artificial Intelligence'],
+        isAdvisor: true,
+        advisorSection: 'III CSE - A',
+        advisorClassId: 'CLASS-III-CSE-A',
+        advisorAcademicYear: '2025–26',
+        experienceYears: 8,
+        officeLocation: 'Academic Block 3, Cabin 402',
+        photoPath: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      ),
+      StaffModel(
+        userId: 'UNI-STF-CSE-004',
+        employeeId: 'UNI-STF-CSE-004',
+        fullName: 'Prof. Rajesh Kumar',
+        email: 'rajesh.k@college.edu',
+        departmentId: cleanDept,
+        departmentName: 'Computer Science & Engineering',
+        institutionId: cleanInst,
+        designation: 'Associate Professor',
+        specialization: 'Data Structures & Algorithms',
+        assignedClasses: ['II CSE - A', 'IV CSE - B'],
+        assignedSubjects: ['Data Structures', 'Design and Analysis of Algorithms'],
+        isAdvisor: false,
+        experienceYears: 9,
+        officeLocation: 'Academic Block 3, Cabin 408',
+        photoPath: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+      ),
+      StaffModel(
+        userId: 'UNI-STF-CSE-005',
+        employeeId: 'UNI-STF-CSE-005',
+        fullName: 'Dr. Anita Roy',
+        email: 'anita.roy@college.edu',
+        departmentId: cleanDept,
+        departmentName: 'Computer Science & Engineering',
+        institutionId: cleanInst,
+        designation: 'Assistant Professor',
+        specialization: 'AI & Data Science',
+        assignedClasses: ['II CSE - B'],
+        assignedSubjects: ['AI Fundamentals', 'Python for Data Science'],
+        isAdvisor: true,
+        advisorSection: 'II CSE - B',
+        advisorClassId: 'CLASS-II-CSE-B',
+        advisorAcademicYear: '2025–26',
+        experienceYears: 6,
+        officeLocation: 'Academic Block 3, Cabin 412',
+        photoPath: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
+      ),
+    ];
+  }
+
   static StaffModel _resolveDefaultStaff(String uid) {
-    return StaffModel(
-      userId: uid.isNotEmpty ? uid : 'DEMO-STF',
-      employeeId: 'STF-CSE-1024',
-      fullName: 'Dr. K. Tharani Kumar',
-      departmentId: 'DEPT-CSE',
-      departmentName: 'Computer Science & Engineering',
-      designation: 'Assistant Professor',
-      specialization: 'Artificial Intelligence & Machine Learning',
-      assignedClasses: ['III CSE - A', 'II CSE - B', 'IV CSE - A'],
-      assignedSubjects: ['Machine Learning', 'Data Structures', 'Artificial Intelligence'],
-      isAdvisor: true,
-      advisorSection: 'III CSE - A',
-      advisorClassId: 'CLASS-III-CSE-A',
-      advisorAcademicYear: '2025–26',
-      experienceYears: 8,
-      officeLocation: 'Academic Block 3, Cabin 402',
-    );
+    final list = _resolveDefaultStaffList('DEPT-CSE');
+    return list.firstWhere((s) => s.userId == uid || s.employeeId == uid, orElse: () => list.first);
   }
 
   static List<StaffAssignmentModel> _resolveDefaultAssignments(String staffId) {
@@ -463,9 +550,10 @@ class StaffRepository {
     return [
       StaffAssignmentModel(
         id: 'ASGN-ADVISOR-01',
-        staffId: staffId.isNotEmpty ? staffId : 'DEMO-STF',
-        staffName: 'Dr. Arun Kumar',
+        staffId: staffId.isNotEmpty ? staffId : 'UNI-STF-CSE-001',
+        staffName: 'Arun Kumar',
         departmentId: 'DEPT-CSE',
+        institutionId: 'INST-UNI-01',
         assignmentType: StaffAssignmentType.classAdvisor,
         classId: 'CLASS-III-CSE-A',
         className: 'III CSE - A',
@@ -478,9 +566,10 @@ class StaffRepository {
       ),
       StaffAssignmentModel(
         id: 'ASGN-SUB-01',
-        staffId: staffId.isNotEmpty ? staffId : 'DEMO-STF',
-        staffName: 'Dr. Arun Kumar',
+        staffId: staffId.isNotEmpty ? staffId : 'UNI-STF-CSE-001',
+        staffName: 'Arun Kumar',
         departmentId: 'DEPT-CSE',
+        institutionId: 'INST-UNI-01',
         assignmentType: StaffAssignmentType.subjectFaculty,
         subjectId: 'SUB-CS8691',
         subjectName: 'Machine Learning',
@@ -495,9 +584,10 @@ class StaffRepository {
       ),
       StaffAssignmentModel(
         id: 'ASGN-SUB-02',
-        staffId: staffId.isNotEmpty ? staffId : 'DEMO-STF',
-        staffName: 'Dr. Arun Kumar',
+        staffId: staffId.isNotEmpty ? staffId : 'UNI-STF-CSE-001',
+        staffName: 'Arun Kumar',
         departmentId: 'DEPT-CSE',
+        institutionId: 'INST-UNI-01',
         assignmentType: StaffAssignmentType.subjectFaculty,
         subjectId: 'SUB-CS8392',
         subjectName: 'Data Structures',
@@ -511,17 +601,13 @@ class StaffRepository {
         status: 'active',
       ),
       StaffAssignmentModel(
-        id: 'ASGN-SUB-03',
-        staffId: staffId.isNotEmpty ? staffId : 'DEMO-STF',
-        staffName: 'Dr. Arun Kumar',
+        id: 'ASGN-DEPT-01',
+        staffId: staffId.isNotEmpty ? staffId : 'UNI-STF-CSE-002',
+        staffName: 'Priya Devi',
         departmentId: 'DEPT-CSE',
-        assignmentType: StaffAssignmentType.subjectFaculty,
-        subjectId: 'SUB-CS8791',
-        subjectName: 'Artificial Intelligence',
-        subjectCode: 'CS8791',
-        classId: 'CLASS-IV-CSE-A',
-        className: 'IV CSE - A',
-        section: 'Sec A',
+        institutionId: 'INST-UNI-01',
+        assignmentType: StaffAssignmentType.departmentResponsibility,
+        responsibilityTitle: 'Exam Coordinator',
         academicYear: '2025–26',
         assignedBy: 'Dr. S. Meenakshi (HOD)',
         startDate: DateTime(now.year, 6, 1),
@@ -720,63 +806,6 @@ class StaffRepository {
       gender: 'Female',
       comingMode: 'Day Scholar',
     ),
-    StudentModel(
-      studentId: '23CSE052',
-      userId: 'USR-23CSE052',
-      registerNumber: '23CSE052',
-      fullName: 'Saran Kumar',
-      rollNumber: '23CSE052',
-      departmentId: 'DEPT-CSE',
-      departmentName: 'Computer Science & Engineering',
-      batchId: 'BATCH-2023-27',
-      batch: '2023–2027',
-      semester: 'Semester V',
-      section: 'III CSE - A',
-      admissionYear: 2023,
-      cgpa: '9.4',
-      attendancePercent: '96',
-      academicStatus: 'Active',
-      gender: 'Male',
-      comingMode: 'Day Scholar',
-    ),
-    StudentModel(
-      studentId: '23CSE038',
-      userId: 'USR-23CSE038',
-      registerNumber: '23CSE038',
-      fullName: 'Nandhini R',
-      rollNumber: '23CSE038',
-      departmentId: 'DEPT-CSE',
-      departmentName: 'Computer Science & Engineering',
-      batchId: 'BATCH-2023-27',
-      batch: '2023–2027',
-      semester: 'Semester V',
-      section: 'III CSE - A',
-      admissionYear: 2023,
-      cgpa: '9.2',
-      attendancePercent: '98',
-      academicStatus: 'Active',
-      gender: 'Female',
-      comingMode: 'Day Scholar',
-    ),
-    StudentModel(
-      studentId: '23CSE029',
-      userId: 'USR-23CSE029',
-      registerNumber: '23CSE029',
-      fullName: 'Meera Patel',
-      rollNumber: '23CSE029',
-      departmentId: 'DEPT-CSE',
-      departmentName: 'Computer Science & Engineering',
-      batchId: 'BATCH-2023-27',
-      batch: '2023–2027',
-      semester: 'Semester V',
-      section: 'III CSE - A',
-      admissionYear: 2023,
-      cgpa: '8.6',
-      attendancePercent: '92',
-      academicStatus: 'Active',
-      gender: 'Female',
-      comingMode: 'Hostel',
-    ),
   ];
 
   static final List<Map<String, dynamic>> _defaultLeaveODRequests = [
@@ -818,36 +847,50 @@ class StaffRepository {
     });
   }
 
-  /// Watch all staff members strictly scoped to a department
-  Stream<List<StaffModel>> watchStaffByDepartment(String departmentId) {
+  /// Watch all staff members strictly scoped to a department and institution
+  Stream<List<StaffModel>> watchStaffByDepartment(String departmentId, {String? institutionId}) {
     final firestore = _firestore;
     final cleanDept = departmentId.trim();
-    if (firestore == null) return Stream.value([_resolveDefaultStaff('')]);
+    final cleanInst = institutionId?.trim();
+    if (firestore == null) {
+      return Stream.value(_resolveDefaultStaffList(cleanDept, institutionId: cleanInst));
+    }
 
     return firestore.collection('staff').snapshots().map((snap) {
-      if (snap.docs.isEmpty) return [_resolveDefaultStaff('')];
+      if (snap.docs.isEmpty) {
+        return _resolveDefaultStaffList(cleanDept, institutionId: cleanInst);
+      }
       final list = snap.docs
           .map((d) => StaffModel.fromMap(d.data(), d.id))
-          .where((s) => _matchesStaffDepartment(s, cleanDept))
+          .where((s) {
+            final matchesDept = _matchesStaffDepartment(s, cleanDept);
+            final matchesInst = cleanInst == null || cleanInst.isEmpty || s.institutionId == null || s.institutionId!.isEmpty || s.institutionId == cleanInst;
+            return matchesDept && matchesInst;
+          })
           .toList();
-      return list.isNotEmpty ? list : [_resolveDefaultStaff('')];
+      return list.isNotEmpty ? list : _resolveDefaultStaffList(cleanDept, institutionId: cleanInst);
     }).handleError((e) {
       debugPrint('StaffRepository watchStaffByDepartment error: $e');
-      return <StaffModel>[_resolveDefaultStaff('')];
+      return _resolveDefaultStaffList(cleanDept, institutionId: cleanInst);
     });
   }
 
   /// Watch all staff assignments for a department
-  Stream<List<StaffAssignmentModel>> watchAssignmentsByDepartment(String departmentId) {
+  Stream<List<StaffAssignmentModel>> watchAssignmentsByDepartment(String departmentId, {String? institutionId}) {
     final firestore = _firestore;
     final cleanDept = departmentId.trim();
+    final cleanInst = institutionId?.trim();
     if (firestore == null) return Stream.value(_resolveDefaultAssignments(''));
 
     return firestore.collection('staffAssignments').snapshots().map((snap) {
       if (snap.docs.isEmpty) return _resolveDefaultAssignments('');
       final list = snap.docs
           .map((d) => StaffAssignmentModel.fromMap(d.data(), d.id))
-          .where((a) => cleanDept.isEmpty || a.departmentId.toLowerCase().contains(cleanDept.toLowerCase()))
+          .where((a) {
+            final matchesDept = cleanDept.isEmpty || a.departmentId.toLowerCase().contains(cleanDept.toLowerCase());
+            final matchesInst = cleanInst == null || cleanInst.isEmpty || a.institutionId == null || a.institutionId!.isEmpty || a.institutionId == cleanInst;
+            return matchesDept && matchesInst;
+          })
           .toList();
       return list.isNotEmpty ? list : _resolveDefaultAssignments('');
     }).handleError((e) {

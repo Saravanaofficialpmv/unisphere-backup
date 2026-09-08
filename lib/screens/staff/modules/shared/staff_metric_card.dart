@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/core/theme/app_animations.dart';
 
 class StaffMetricCard extends StatelessWidget {
   final String title;
@@ -48,14 +49,13 @@ class StaffMetricCard extends StatelessWidget {
       }
     }
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
+    return Semantics(
+      label: '$title: $value ${subtitle ?? ""}',
+      button: true,
+      enabled: onTap != null,
+      child: AppPressable(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: effectiveGradients.first.withValues(alpha: 0.12),
-        highlightColor: effectiveGradients.first.withValues(alpha: 0.06),
         child: Container(
           padding: EdgeInsets.symmetric(
             horizontal: isDense ? 9 : 11,

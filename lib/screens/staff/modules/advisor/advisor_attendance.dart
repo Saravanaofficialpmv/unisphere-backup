@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
 
 class AdvisorClassAttendanceSection extends ConsumerWidget {
@@ -140,8 +141,8 @@ class AdvisorClassAttendanceSection extends ConsumerWidget {
                             Container(
                               width: 28,
                               height: 28,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F0FF),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEFF6FF),
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -150,7 +151,7 @@ class AdvisorClassAttendanceSection extends ConsumerWidget {
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF7C3AED),
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ),
@@ -189,14 +190,14 @@ class AdvisorClassAttendanceSection extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
-          // ── Bottom: Purple View All Students Pill Button ──
+          // ── Bottom: Blue View All Students Pill Button ──
           SizedBox(
             width: double.infinity,
             height: 46,
             child: ElevatedButton(
               onPressed: onViewAllStudents,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(

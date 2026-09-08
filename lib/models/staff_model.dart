@@ -2,8 +2,10 @@ class StaffModel {
   final String userId;
   final String employeeId;
   final String fullName;
+  final String? email;
   final String departmentId;
   final String departmentName;
+  final String? institutionId;
   final String designation;
   final String specialization;
   final String? photoPath;
@@ -24,8 +26,10 @@ class StaffModel {
     required this.userId,
     required this.employeeId,
     required this.fullName,
+    this.email,
     required this.departmentId,
     required this.departmentName,
+    this.institutionId,
     required this.designation,
     required this.specialization,
     this.photoPath,
@@ -57,8 +61,10 @@ class StaffModel {
     String? userId,
     String? employeeId,
     String? fullName,
+    String? email,
     String? departmentId,
     String? departmentName,
+    String? institutionId,
     String? designation,
     String? specialization,
     String? photoPath,
@@ -79,8 +85,10 @@ class StaffModel {
       userId: userId ?? this.userId,
       employeeId: employeeId ?? this.employeeId,
       fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
       departmentId: departmentId ?? this.departmentId,
       departmentName: departmentName ?? this.departmentName,
+      institutionId: institutionId ?? this.institutionId,
       designation: designation ?? this.designation,
       specialization: specialization ?? this.specialization,
       photoPath: photoPath ?? this.photoPath,
@@ -110,8 +118,10 @@ class StaffModel {
       userId: id,
       employeeId: map['employeeId'] ?? map['employee_id'] ?? id,
       fullName: map['fullName'] ?? map['name'] ?? map['full_name'] ?? 'Staff Member',
+      email: map['email']?.toString(),
       departmentId: map['departmentId'] ?? map['department_id'] ?? 'DEPT-CSE',
       departmentName: map['departmentName'] ?? map['department_name'] ?? 'Computer Science',
+      institutionId: map['institutionId'] ?? map['institution_id'],
       designation: map['designation'] ?? 'Assistant Professor',
       specialization: map['specialization'] ?? 'Computer Science',
       photoPath: map['photoPath'] ?? map['photo_path'],
@@ -138,10 +148,13 @@ class StaffModel {
       'employee_id': employeeId,
       'fullName': fullName,
       'name': fullName,
+      if (email != null) 'email': email,
       'departmentId': departmentId,
       'department_id': departmentId,
       'departmentName': departmentName,
       'department_name': departmentName,
+      if (institutionId != null) 'institutionId': institutionId,
+      if (institutionId != null) 'institution_id': institutionId,
       'designation': designation,
       'specialization': specialization,
       'photoPath': photoPath,

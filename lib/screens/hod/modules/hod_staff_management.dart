@@ -23,14 +23,14 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
 
   final List<Map<String, dynamic>> _fallbackFacultyList = [
     {
-      'id': 'DEMO-STF',
-      'employeeId': 'FAC-CSE-001',
-      'name': 'Dr. Arun Kumar',
+      'id': 'UNI-STF-CSE-001',
+      'employeeId': 'UNI-STF-CSE-001',
+      'name': 'Arun Kumar',
       'designation': 'Assistant Professor',
       'department': 'CSE',
       'subjects': ['Machine Learning', 'Data Structures', 'Artificial Intelligence'],
       'phone': '+91 98765 43210',
-      'email': 'arun.kumar@unisphere.edu',
+      'email': 'arun@college.edu',
       'attendance': 'Present',
       'leaveStatus': 'Active',
       'experience': '8 Years',
@@ -38,37 +38,59 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       'rating': '4.9',
       'isClassAdvisor': true,
       'advisorSection': 'III CSE - A',
-      'advisorAcademicYear': '2026–27',
+      'advisorAcademicYear': '2025–26',
+      'otherResponsibilities': <String>[],
       'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     },
     {
-      'id': 'FAC-CSE-002',
-      'employeeId': 'FAC-CSE-002',
-      'name': 'Dr. S. Meenakshi',
-      'designation': 'Professor & HOD',
+      'id': 'UNI-STF-CSE-002',
+      'employeeId': 'UNI-STF-CSE-002',
+      'name': 'Priya Devi',
+      'designation': 'Associate Professor',
       'department': 'CSE',
-      'subjects': ['Distributed Systems', 'Cloud Computing'],
+      'subjects': ['Cloud Computing', 'Distributed Systems'],
       'phone': '+91 98765 43211',
-      'email': 'meenakshi.s@unisphere.edu',
+      'email': 'priya@college.edu',
       'attendance': 'Present',
-      'leaveStatus': 'On Duty',
-      'experience': '14 Years',
-      'workload': '12 hrs/week',
+      'leaveStatus': 'Active',
+      'experience': '10 Years',
+      'workload': '14 hrs/week',
       'rating': '4.9',
       'isClassAdvisor': false,
       'advisorSection': null,
       'advisorAcademicYear': null,
+      'otherResponsibilities': ['Exam Coordinator'],
       'photo': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
     },
     {
-      'id': 'FAC-CSE-004',
-      'employeeId': 'FAC-CSE-004',
+      'id': 'UNI-STF-CSE-003',
+      'employeeId': 'UNI-STF-CSE-003',
+      'name': 'Dr. K. Tharani Kumar',
+      'designation': 'Assistant Professor',
+      'department': 'CSE',
+      'subjects': ['Artificial Intelligence', 'Data Analytics'],
+      'phone': '+91 98765 43212',
+      'email': 'tharani.kumar@college.edu',
+      'attendance': 'Present',
+      'leaveStatus': 'Active',
+      'experience': '8 Years',
+      'workload': '16 hrs/week',
+      'rating': '4.9',
+      'isClassAdvisor': true,
+      'advisorSection': 'III CSE - A',
+      'advisorAcademicYear': '2025–26',
+      'otherResponsibilities': ['Lab In-charge (AI Lab)'],
+      'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    },
+    {
+      'id': 'UNI-STF-CSE-004',
+      'employeeId': 'UNI-STF-CSE-004',
       'name': 'Prof. Rajesh Kumar',
       'designation': 'Associate Professor',
       'department': 'CSE',
       'subjects': ['Data Structures', 'Algorithms'],
       'phone': '+91 98765 11223',
-      'email': 'rajesh.k@unisphere.edu',
+      'email': 'rajesh.k@college.edu',
       'attendance': 'Present',
       'leaveStatus': 'Active',
       'experience': '9 Years',
@@ -77,17 +99,18 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       'isClassAdvisor': false,
       'advisorSection': null,
       'advisorAcademicYear': null,
-      'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      'otherResponsibilities': ['Timetable Coordinator'],
+      'photo': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
     },
     {
-      'id': 'FAC-CSE-008',
-      'employeeId': 'FAC-CSE-008',
+      'id': 'UNI-STF-CSE-005',
+      'employeeId': 'UNI-STF-CSE-005',
       'name': 'Dr. Anita Roy',
       'designation': 'Assistant Professor',
       'department': 'CSE',
       'subjects': ['Machine Learning', 'AI Fundamentals'],
       'phone': '+91 98765 88990',
-      'email': 'anita.roy@unisphere.edu',
+      'email': 'anita.roy@college.edu',
       'attendance': 'On Leave',
       'leaveStatus': 'Casual Leave Approved',
       'experience': '6 Years',
@@ -95,7 +118,8 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       'rating': '4.8',
       'isClassAdvisor': true,
       'advisorSection': 'II CSE - B',
-      'advisorAcademicYear': '2026–27',
+      'advisorAcademicYear': '2025–26',
+      'otherResponsibilities': <String>[],
       'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
     },
   ];
@@ -124,19 +148,24 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
     final List<Map<String, dynamic>> facultyList = rawStaffList.isNotEmpty
         ? rawStaffList.map((s) {
             final advisorAsgn = assignments.cast<StaffAssignmentModel?>().firstWhere(
-                  (a) => a != null && a.staffId == s.userId && a.isClassAdvisor && a.status == 'active',
+                  (a) => a != null && (a.staffId == s.userId || a.staffId == s.employeeId) && a.isClassAdvisor && a.status == 'active',
                   orElse: () => null,
                 );
+            final otherAsgns = assignments
+                .where((a) => (a.staffId == s.userId || a.staffId == s.employeeId) && a.status == 'active' && a.assignmentType != StaffAssignmentType.classAdvisor)
+                .map((a) => a.responsibilityTitle ?? a.subjectName ?? a.assignmentType.displayName)
+                .toList();
+
             final isAdvisor = advisorAsgn != null || s.isAdvisor;
             return {
               'id': s.userId,
-              'employeeId': s.employeeId.isNotEmpty ? s.employeeId : 'FAC-${s.userId}',
+              'employeeId': s.employeeId.isNotEmpty ? s.employeeId : 'UNI-STF-$activeDeptCode-${s.userId}',
               'name': s.fullName,
               'designation': s.designation,
               'department': s.departmentName.isNotEmpty ? s.departmentName : activeDeptCode,
               'subjects': s.assignedSubjects,
               'phone': '+91 98765 43210',
-              'email': '${s.userId.toLowerCase()}@unisphere.edu',
+              'email': s.email ?? '${s.fullName.toLowerCase().replaceAll(' ', '.').replaceAll('dr.', '')}@college.edu',
               'attendance': 'Present',
               'leaveStatus': 'Active',
               'experience': '${s.experienceYears > 0 ? s.experienceYears : 8} Years',
@@ -144,7 +173,8 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
               'rating': '4.9',
               'isClassAdvisor': isAdvisor,
               'advisorSection': advisorAsgn?.section ?? advisorAsgn?.className ?? s.advisorSection ?? 'III $activeDeptCode - A',
-              'advisorAcademicYear': advisorAsgn?.academicYear ?? s.advisorAcademicYear ?? '2026–27',
+              'advisorAcademicYear': advisorAsgn?.academicYear ?? s.advisorAcademicYear ?? '2025–26',
+              'otherResponsibilities': otherAsgns,
               'photo': s.photoPath ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
             };
           }).toList()
@@ -157,6 +187,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
     final filteredStaff = facultyList.where((faculty) {
       final matchesSearch = faculty['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           faculty['employeeId'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          faculty['email'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           faculty['subjects'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesDesignation = _selectedDesignation == 'All' || faculty['designation'].toString().contains(_selectedDesignation);
       final matchesStatus = _selectedStatus == 'All' || faculty['attendance'] == _selectedStatus;
@@ -381,8 +412,10 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
     final advisorClass = item['advisorSection']?.toString() ?? 'III CSE - A';
     final advisorYear = item['advisorAcademicYear']?.toString() ?? '2025–26';
     final staffName = item['name']?.toString() ?? 'Faculty Member';
+    final email = item['email']?.toString() ?? 'staff@college.edu';
     final designation = item['designation']?.toString() ?? 'Faculty';
     final employeeId = item['employeeId']?.toString() ?? '';
+    final otherResponsibilities = (item['otherResponsibilities'] as List?)?.map((e) => e.toString()).toList() ?? [];
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -401,7 +434,9 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: Avatar, Name, Email, ID & Status
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildStaffAvatar(item['photo']?.toString(), staffName, radius: 26),
               const SizedBox(width: 14),
@@ -417,7 +452,11 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                             staffName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                            style: GoogleFonts.manrope(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -438,12 +477,48 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.email_outlined, size: 12, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 2),
-                    Text(
-                      '$designation • $employeeId',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                    Row(
+                      children: [
+                        const Icon(Icons.badge_outlined, size: 12, color: AppColors.hodRole),
+                        const SizedBox(width: 4),
+                        Text(
+                          'ID: $employeeId',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.hodRole,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '• $designation',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -452,7 +527,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
           ),
           const SizedBox(height: 12),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // Assigned Subjects
           Text(
@@ -477,11 +552,11 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // Responsibilities Badge section
           Text(
-            'Responsibilities:',
+            'Active Responsibilities:',
             style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
@@ -496,7 +571,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'Faculty',
+                  'Subject Faculty',
                   style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
               ),
@@ -528,6 +603,30 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                     ],
                   ),
                 ),
+              for (final resp in otherResponsibilities)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.account_tree_outlined, size: 12, color: Color(0xFF7C3AED)),
+                      const SizedBox(width: 4),
+                      Text(
+                        resp,
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -538,36 +637,36 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
             runSpacing: 8,
             alignment: WrapAlignment.spaceBetween,
             children: [
-              OutlinedButton.icon(
+              ElevatedButton.icon(
                 onPressed: () => _showAssignResponsibilityModal(context, item),
-                icon: const Icon(Icons.assignment_ind_rounded, size: 15, color: AppColors.hodRole),
+                icon: const Icon(Icons.assignment_ind_rounded, size: 15, color: Colors.white),
                 label: Text(
-                  isAdvisor ? 'Edit Assignment' : 'Assign Responsibility',
+                  'Assign Work',
                   style: GoogleFonts.manrope(
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.hodRole,
+                    color: Colors.white,
                   ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.hodRole),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showFacultyDetailsModal(context, item),
-                icon: const Icon(Icons.badge_outlined, size: 15),
-                label: Text(
-                  'View Profile',
-                  style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700),
-                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.hodRole,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showFacultyDetailsModal(context, item),
+                icon: const Icon(Icons.badge_outlined, size: 15, color: AppColors.primary),
+                label: Text(
+                  'View Profile',
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 ),
               ),
             ],
@@ -578,9 +677,37 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
   }
 
   void _showAssignResponsibilityModal(BuildContext context, Map<String, dynamic> staffItem) {
-    String selectedType = 'Class Advisor';
+    // Branch Selection: 1. Subject Faculty, 2. Class Advisor, 3. Other Department Responsibility
+    String selectedBranch = staffItem['isClassAdvisor'] == true ? 'Class Advisor' : 'Subject Faculty';
     String selectedClass = staffItem['advisorSection'] ?? 'III CSE - A';
     String selectedYear = staffItem['advisorAcademicYear'] ?? '2025–26';
+    String selectedSubject = (staffItem['subjects'] as List?)?.isNotEmpty == true ? staffItem['subjects'][0] : 'Machine Learning';
+    String subjectCode = 'CS8691';
+    String selectedDeptResp = 'Exam Coordinator';
+    final customRespController = TextEditingController();
+
+    final List<Map<String, String>> presetSubjects = [
+      {'name': 'Machine Learning', 'code': 'CS8691'},
+      {'name': 'Data Structures', 'code': 'CS8392'},
+      {'name': 'Artificial Intelligence', 'code': 'CS8791'},
+      {'name': 'Cloud Computing', 'code': 'CS8651'},
+      {'name': 'Operating Systems', 'code': 'CS8492'},
+      {'name': 'Database Management Systems', 'code': 'CS8491'},
+      {'name': 'Design & Analysis of Algorithms', 'code': 'CS8451'},
+      {'name': 'Internet Programming', 'code': 'CS8652'},
+    ];
+
+    final List<String> presetDeptResponsibilities = [
+      'Exam Coordinator',
+      'Placement & Internship In-charge',
+      'Timetable & Workload Coordinator',
+      'Lab In-charge / Infrastructure',
+      'NBA / NAAC Accreditation Coordinator',
+      'Project & Hackathon In-charge',
+      'Department Symposium & Events Convenor',
+      'Research & Publication Coordinator',
+      'Other Custom Responsibility',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -607,13 +734,25 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'ASSIGN RESPONSIBILITY',
-                          style: GoogleFonts.manrope(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.textPrimary,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ASSIGN WORK & RESPONSIBILITY',
+                              style: GoogleFonts.manrope(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Assign teaching or administrative roles to faculty',
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                         IconButton(
                           icon: const Icon(Icons.close_rounded),
@@ -640,7 +779,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  staffItem['name'],
+                                  staffItem['name'] ?? '',
                                   style: GoogleFonts.manrope(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
@@ -648,10 +787,11 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                                   ),
                                 ),
                                 Text(
-                                  '${staffItem['designation']} • ${staffItem['department']}',
+                                  '${staffItem['email']} • ID: ${staffItem['employeeId']}',
                                   style: GoogleFonts.manrope(
                                     fontSize: 11.5,
                                     color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -660,100 +800,264 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // Responsibility Type Dropdown
+                    // 3-Way Work Branch Selector
                     Text(
-                      'Responsibility Type',
-                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
+                      'SELECT WORK CATEGORY',
+                      style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8),
                     ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedType,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Class Advisor', child: Text('Class Advisor')),
-                        DropdownMenuItem(value: 'Subject Faculty', child: Text('Subject Faculty')),
-                        DropdownMenuItem(value: 'Department Responsibility', child: Text('Department Responsibility')),
-                        DropdownMenuItem(value: 'Exam Responsibility', child: Text('Exam Responsibility')),
-                        DropdownMenuItem(value: 'Committee Member', child: Text('Committee Member')),
-                      ],
-                      onChanged: (val) => setModalState(() => selectedType = val!),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Department & Class Dropdown
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Department', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Text('CSE', style: GoogleFonts.manrope(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
+                          child: _buildWorkTypeTab(
+                            title: 'Subject Faculty',
+                            icon: Icons.menu_book_rounded,
+                            isSelected: selectedBranch == 'Subject Faculty',
+                            onTap: () => setModalState(() => selectedBranch = 'Subject Faculty'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Assigned Class', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                initialValue: selectedClass,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'III CSE - A', child: Text('III CSE - A')),
-                                  DropdownMenuItem(value: 'III CSE - B', child: Text('III CSE - B')),
-                                  DropdownMenuItem(value: 'II CSE - A', child: Text('II CSE - A')),
-                                  DropdownMenuItem(value: 'II CSE - B', child: Text('II CSE - B')),
-                                  DropdownMenuItem(value: 'IV CSE - A', child: Text('IV CSE - A')),
-                                ],
-                                onChanged: (val) => setModalState(() => selectedClass = val!),
-                              ),
-                            ],
+                          child: _buildWorkTypeTab(
+                            title: 'Class Advisor',
+                            icon: Icons.stars_rounded,
+                            isSelected: selectedBranch == 'Class Advisor',
+                            onTap: () => setModalState(() => selectedBranch = 'Class Advisor'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildWorkTypeTab(
+                            title: 'Other Dept',
+                            icon: Icons.account_tree_outlined,
+                            isSelected: selectedBranch == 'Other Dept',
+                            onTap: () => setModalState(() => selectedBranch = 'Other Dept'),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
 
-                    // Academic Year & Dates
-                    Text('Academic Year', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedYear,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    // ── Branch 1: Subject Faculty Form ──
+                    if (selectedBranch == 'Subject Faculty') ...[
+                      Text(
+                        'Select Subject / Course',
+                        style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: '2025–26', child: Text('2025–26')),
-                        DropdownMenuItem(value: '2026–27', child: Text('2026–27')),
-                        DropdownMenuItem(value: '2024–25', child: Text('2024–25')),
-                      ],
-                      onChanged: (val) => setModalState(() => selectedYear = val!),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedSubject,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        items: presetSubjects.map((sub) {
+                          return DropdownMenuItem(
+                            value: sub['name']!,
+                            child: Text('${sub['name']} (${sub['code']})', style: GoogleFonts.manrope(fontSize: 13)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setModalState(() {
+                            selectedSubject = val!;
+                            final match = presetSubjects.firstWhere((s) => s['name'] == val, orElse: () => {'code': 'CS8000'});
+                            subjectCode = match['code']!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Class / Section', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedClass,
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(value: 'III CSE - A', child: Text('III CSE - A')),
+                                    DropdownMenuItem(value: 'III CSE - B', child: Text('III CSE - B')),
+                                    DropdownMenuItem(value: 'II CSE - A', child: Text('II CSE - A')),
+                                    DropdownMenuItem(value: 'II CSE - B', child: Text('II CSE - B')),
+                                    DropdownMenuItem(value: 'IV CSE - A', child: Text('IV CSE - A')),
+                                    DropdownMenuItem(value: 'IV CSE - B', child: Text('IV CSE - B')),
+                                  ],
+                                  onChanged: (val) => setModalState(() => selectedClass = val!),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Academic Year', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedYear,
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(value: '2025–26', child: Text('2025–26')),
+                                    DropdownMenuItem(value: '2026–27', child: Text('2026–27')),
+                                    DropdownMenuItem(value: '2024–25', child: Text('2024–25')),
+                                  ],
+                                  onChanged: (val) => setModalState(() => selectedYear = val!),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
 
-                    // Actions (Cancel / Assign)
+                    // ── Branch 2: Class Advisor Form ──
+                    if (selectedBranch == 'Class Advisor') ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, color: Color(0xFFD97706), size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Class Advisors can endorse OD/leaves, monitor at-risk attendance, and manage class students.',
+                                style: GoogleFonts.manrope(fontSize: 11.5, color: const Color(0xFF92400E), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Assigned Class Section', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedClass,
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(value: 'III CSE - A', child: Text('III CSE - A')),
+                                    DropdownMenuItem(value: 'III CSE - B', child: Text('III CSE - B')),
+                                    DropdownMenuItem(value: 'II CSE - A', child: Text('II CSE - A')),
+                                    DropdownMenuItem(value: 'II CSE - B', child: Text('II CSE - B')),
+                                    DropdownMenuItem(value: 'IV CSE - A', child: Text('IV CSE - A')),
+                                    DropdownMenuItem(value: 'IV CSE - B', child: Text('IV CSE - B')),
+                                  ],
+                                  onChanged: (val) => setModalState(() => selectedClass = val!),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Academic Year', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedYear,
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(value: '2025–26', child: Text('2025–26')),
+                                    DropdownMenuItem(value: '2026–27', child: Text('2026–27')),
+                                    DropdownMenuItem(value: '2024–25', child: Text('2024–25')),
+                                  ],
+                                  onChanged: (val) => setModalState(() => selectedYear = val!),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // ── Branch 3: Other Department Responsibility Form ──
+                    if (selectedBranch == 'Other Dept') ...[
+                      Text(
+                        'Select Department Responsibility',
+                        style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedDeptResp,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        items: presetDeptResponsibilities.map((resp) {
+                          return DropdownMenuItem(
+                            value: resp,
+                            child: Text(resp, style: GoogleFonts.manrope(fontSize: 12.5)),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setModalState(() => selectedDeptResp = val!),
+                      ),
+                      if (selectedDeptResp == 'Other Custom Responsibility') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: customRespController,
+                          decoration: InputDecoration(
+                            labelText: 'Custom Responsibility Title',
+                            hintText: 'e.g. Industry Collaboration Lead',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Academic Year / Tenure', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedYear,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: '2025–26', child: Text('2025–26')),
+                              DropdownMenuItem(value: '2026–27', child: Text('2026–27')),
+                              DropdownMenuItem(value: '2024–25', child: Text('2024–25')),
+                            ],
+                            onChanged: (val) => setModalState(() => selectedYear = val!),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // Actions (Cancel / Confirm Assignment)
                     Row(
                       children: [
                         Expanded(
@@ -774,37 +1078,92 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                               final currentDeptId = ref.read(hodDepartmentIdProvider);
                               final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
                               final hodName = currentUser?.fullName ?? currentUser?.name ?? 'Head of Department';
-                              final assignment = StaffAssignmentModel(
-                                id: 'ASGN-${DateTime.now().millisecondsSinceEpoch}',
-                                staffId: staffId,
-                                staffName: staffItem['name'],
-                                departmentId: currentDeptId,
-                                assignmentType: selectedType == 'Class Advisor'
-                                    ? StaffAssignmentType.classAdvisor
-                                    : StaffAssignmentType.subjectFaculty,
-                                classId: 'CLASS-$selectedClass',
-                                className: selectedClass,
-                                section: selectedClass,
-                                academicYear: selectedYear,
-                                assignedBy: '$hodName (HOD)',
-                                status: 'active',
-                              );
 
-                              // Update local list for immediate visual responsiveness
-                              setState(() {
-                                staffItem['isClassAdvisor'] = selectedType == 'Class Advisor';
-                                staffItem['advisorSection'] = selectedClass;
-                                staffItem['advisorAcademicYear'] = selectedYear;
-                              });
+                              StaffAssignmentModel assignment;
+                              String successMessage = '';
 
-                              // Persist to repository
+                              if (selectedBranch == 'Subject Faculty') {
+                                assignment = StaffAssignmentModel(
+                                  id: 'ASGN-SUB-${DateTime.now().millisecondsSinceEpoch}',
+                                  staffId: staffId,
+                                  staffName: staffItem['name'],
+                                  departmentId: currentDeptId,
+                                  assignmentType: StaffAssignmentType.subjectFaculty,
+                                  subjectId: 'SUB-$subjectCode',
+                                  subjectName: selectedSubject,
+                                  subjectCode: subjectCode,
+                                  classId: 'CLASS-$selectedClass',
+                                  className: selectedClass,
+                                  section: selectedClass,
+                                  academicYear: selectedYear,
+                                  assignedBy: '$hodName (HOD)',
+                                  status: 'active',
+                                );
+                                successMessage = 'Assigned ${staffItem['name']} to $selectedSubject ($selectedClass)!';
+
+                                setState(() {
+                                  final currentSubs = List<String>.from(staffItem['subjects'] as List? ?? []);
+                                  if (!currentSubs.contains(selectedSubject)) {
+                                    currentSubs.add(selectedSubject);
+                                    staffItem['subjects'] = currentSubs;
+                                  }
+                                });
+                              } else if (selectedBranch == 'Class Advisor') {
+                                assignment = StaffAssignmentModel(
+                                  id: 'ASGN-ADV-${DateTime.now().millisecondsSinceEpoch}',
+                                  staffId: staffId,
+                                  staffName: staffItem['name'],
+                                  departmentId: currentDeptId,
+                                  assignmentType: StaffAssignmentType.classAdvisor,
+                                  classId: 'CLASS-$selectedClass',
+                                  className: selectedClass,
+                                  section: selectedClass,
+                                  academicYear: selectedYear,
+                                  assignedBy: '$hodName (HOD)',
+                                  status: 'active',
+                                );
+                                successMessage = 'Assigned ${staffItem['name']} as Class Advisor for $selectedClass!';
+
+                                setState(() {
+                                  staffItem['isClassAdvisor'] = true;
+                                  staffItem['advisorSection'] = selectedClass;
+                                  staffItem['advisorAcademicYear'] = selectedYear;
+                                });
+                              } else {
+                                final respTitle = selectedDeptResp == 'Other Custom Responsibility' && customRespController.text.trim().isNotEmpty
+                                    ? customRespController.text.trim()
+                                    : selectedDeptResp;
+
+                                assignment = StaffAssignmentModel(
+                                  id: 'ASGN-DEPT-${DateTime.now().millisecondsSinceEpoch}',
+                                  staffId: staffId,
+                                  staffName: staffItem['name'],
+                                  departmentId: currentDeptId,
+                                  assignmentType: StaffAssignmentType.departmentResponsibility,
+                                  responsibilityTitle: respTitle,
+                                  academicYear: selectedYear,
+                                  assignedBy: '$hodName (HOD)',
+                                  status: 'active',
+                                );
+                                successMessage = 'Assigned $respTitle to ${staffItem['name']}!';
+
+                                setState(() {
+                                  final currentResp = List<String>.from(staffItem['otherResponsibilities'] as List? ?? []);
+                                  if (!currentResp.contains(respTitle)) {
+                                    currentResp.add(respTitle);
+                                    staffItem['otherResponsibilities'] = currentResp;
+                                  }
+                                });
+                              }
+
+                              // Persist assignment to repository
                               await ref.read(staffRepositoryProvider).assignResponsibility(assignment);
 
                               if (context.mounted) {
                                 Navigator.pop(ctx);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Successfully assigned ${staffItem['name']} as $selectedType for $selectedClass!'),
+                                    content: Text(successMessage),
                                     backgroundColor: const Color(0xFF16A34A),
                                   ),
                                 );
@@ -817,7 +1176,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             child: Text(
-                              'Assign Responsibility',
+                              'Confirm Assignment',
                               style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -831,6 +1190,49 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildWorkTypeTab({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.hodRole.withValues(alpha: 0.1) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.hodRole : AppColors.border,
+            width: isSelected ? 1.8 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? AppColors.hodRole : AppColors.textSecondary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AppColors.hodRole : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

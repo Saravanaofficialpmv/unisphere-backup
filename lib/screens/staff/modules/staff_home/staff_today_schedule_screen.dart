@@ -354,15 +354,25 @@ class _StaffTodayScheduleScreenState extends ConsumerState<StaffTodayScheduleScr
                         ),
                       )
                     else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: sessions.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final session = sessions[index];
-                          final status = _calculateSessionStatus(session);
-                          return _buildSessionCard(context, session, status, isAdvisor, staffDept);
+                      Builder(
+                        builder: (context) {
+                          final sortedSessions = [...sessions]..sort((a, b) {
+                              final aStart = a['startTime']?.toString() ?? '';
+                              final bStart = b['startTime']?.toString() ?? '';
+                              return aStart.compareTo(bStart);
+                            });
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: sortedSessions.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final session = sortedSessions[index];
+                              final status = _calculateSessionStatus(session);
+                              return _buildSessionCard(context, session, status, isAdvisor, staffDept);
+                            },
+                          );
                         },
                       ),
 
