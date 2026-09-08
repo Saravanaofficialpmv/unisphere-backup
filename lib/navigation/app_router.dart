@@ -67,6 +67,20 @@ String? resolveRouteRedirect({required UserModel? user, required String matchedL
   final isOnboarding = matchedLocation == '/onboarding';
   final isPreview = matchedLocation == '/loader-preview';
 
+  if (kIsWeb && isSplash) {
+    if (isAuth) {
+      return switch (user.role) {
+        UserRole.admin => '/admin',
+        UserRole.hod => '/hod',
+        UserRole.student => '/student',
+        UserRole.staff || UserRole.advisor => '/staff',
+        UserRole.parent => '/parent',
+        _ => '/login',
+      };
+    }
+    return '/login';
+  }
+
   if (isPreview || isSplash) return null;
 
   if (!isAuth) {
@@ -117,7 +131,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authService = ref.watch(authServiceProvider);
 
   return GoRouter(
-    initialLocation: '/splash',
+    initialLocation: kIsWeb ? '/login' : '/splash',
     refreshListenable: refreshListenable,
     redirect: (context, state) async {
       await authService.ensureAuthReady();

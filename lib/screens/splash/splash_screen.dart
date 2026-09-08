@@ -25,6 +25,37 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final user = ref.read(authServiceProvider).currentUser;
+        if (user == null) {
+          context.go('/login');
+        } else {
+          switch (user.role) {
+            case UserRole.admin:
+              context.go('/admin');
+              break;
+            case UserRole.hod:
+              context.go('/hod');
+              break;
+            case UserRole.student:
+              context.go('/student');
+              break;
+            case UserRole.staff:
+            case UserRole.advisor:
+              context.go('/staff');
+              break;
+            case UserRole.parent:
+              context.go('/parent');
+              break;
+            default:
+              context.go('/login');
+          }
+        }
+      });
+      return;
+    }
     _startStartupSequence();
   }
 
