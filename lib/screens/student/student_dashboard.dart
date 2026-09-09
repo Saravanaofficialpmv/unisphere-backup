@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/core/theme/app_animations_kit.dart';
 import 'package:unisphere/widgets/common/app_progress_indicators.dart';
@@ -19,7 +18,7 @@ import 'package:unisphere/screens/features/certifications_screen.dart';
 import 'package:unisphere/screens/features/achievements_screen.dart';
 import 'package:unisphere/screens/features/events_screen.dart';
 import 'package:unisphere/screens/profile/profile_screen.dart';
-import 'package:unisphere/widgets/student/student_profile_completion_sheet.dart';
+import 'package:unisphere/widgets/student/student_profile_completion_banner.dart';
 import 'package:unisphere/screens/student/modules/student_attendance_screen.dart';
 import 'package:unisphere/screens/student/modules/student_announcements_screen.dart';
 import 'package:unisphere/widgets/common/notification_sheet.dart';
@@ -403,7 +402,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   int _academicOverviewPageIndex = 0;
   int _refreshEpoch = 0;
   bool _isReturningUser = false;
-  bool _dismissedVerifiedBanner = false;
 
   @override
   void initState() {
@@ -630,312 +628,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   }
 
   Widget _buildProfileCompletionBanner() {
-    final user = ref.watch(authServiceProvider).currentUser;
-    if (user?.role != UserRole.student) return const SizedBox.shrink();
-
-    final regNo = user?.metadata?['registerNumber']?.toString().trim() ?? '';
-    final studentId = regNo.isNotEmpty ? regNo : (user?.uid ?? '');
-
-    return StreamBuilder<Map<String, dynamic>?>(
-      stream: ref.watch(firebaseFirestoreServiceProvider).getFullStudentProfileStream(studentId),
-      builder: (context, snapshot) {
-        final profileDoc = snapshot.data ?? {};
-        final meta = user?.metadata ?? {};
-
-        // Resolve latest status from live Firestore doc or user metadata
-        final status = (profileDoc['verificationStatus'] ??
-                profileDoc['completionStatus'] ??
-                meta['verificationStatus'] ??
-                meta['profileCompletionStatus'] ??
-                'incomplete')
-            .toString()
-            .toLowerCase();
-
-        // 1. If submitted / pending HOD verification, hide this banner completely (Requirement: "once submitted then no need to show this here")
-        final isPending = status == 'pending_hod' ||
-            status == 'submitted' ||
-            status == 'pending' ||
-            status == 'under_review';
-        if (isPending) {
-          return const SizedBox.shrink();
-        }
-
-        // 2. If approved / verified, show approved badge for 1 day (24 hours), then auto-remove (Requirement: "once apprives then show that approved status ....then after 1day remove that also")
-        final isApproved = status == 'approved' || status == 'verified';
-        if (isApproved) {
-          if (_dismissedVerifiedBanner) return const SizedBox.shrink();
-
-          DateTime? verifiedAt;
-          final rawVerified = profileDoc['verifiedAt'] ?? meta['verifiedAt'] ?? meta['approvedAt'];
-          if (rawVerified is String) {
-            verifiedAt = DateTime.tryParse(rawVerified);
-          } else if (rawVerified is Timestamp) {
-            verifiedAt = rawVerified.toDate();
-          }
-
-          // If more than 24 hours have elapsed since approval, auto-remove the banner
-          if (verifiedAt != null) {
-            final elapsed = DateTime.now().difference(verifiedAt);
-            if (elapsed.inHours >= 24) {
-              return const SizedBox.shrink();
-            }
-          }
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF16A34A).withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFDCFCE7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 22),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '🟢 360° Profile Verified & Approved',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: Color(0xFF15803D)),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Your profile details have been verified and approved by HOD.',
-                        style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF16A34A)),
-                  tooltip: 'Dismiss',
-                  onPressed: () {
-                    setState(() {
-                      _dismissedVerifiedBanner = true;
-                    });
-                  },
-                ),
-              ],
-            ),
-          );
-        }
-
-        // 3. If rejected, show revision required banner with HOD reason and Edit/Resubmit button
-        final isRejected = status == 'rejected' || status == 'needs_revision' || status == 'correction_required';
-        if (isRejected) {
-          final reason = profileDoc['rejectionReason']?.toString() ??
-              meta['rejectionReason']?.toString() ??
-              'HOD requested revision of your uploaded profile details.';
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFDC2626).withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.error_outline_rounded, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '🔴 Profile Revision Required',
-                        style: TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Reason: $reason',
-                        style: const TextStyle(color: Colors.white70, fontSize: 11.5),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      useRootNavigator: true,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const StudentProfileCompletionSheet(),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFDC2626),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: const Size(0, 36),
-                  ),
-                  child: const Text('Edit & Resubmit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // 4. Default: Incomplete / Draft (Not submitted yet) -> Show "Complete Your Profile"
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1E3A8A).withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: LayoutBuilder(
-            builder: (context, bannerConstraints) {
-              final isNarrow = bannerConstraints.maxWidth < 360;
-              final actionButton = ElevatedButton(
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    useRootNavigator: true,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const StudentProfileCompletionSheet(),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: const Size(0, 36),
-                ),
-                child: const Text(
-                  'Complete Now →',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              );
-
-              if (isNarrow) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.assignment_ind_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            '🎓 Complete Your Profile',
-                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Fill in your personal, academic, accommodation & transport details for HOD verification.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    const SizedBox(height: 10),
-                    actionButton,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.assignment_ind_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '🎓 Complete Your Profile',
-                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Fill in your personal, academic, accommodation & transport details for HOD verification.',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  actionButton,
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
+    return const StudentProfileCompletionBanner();
   }
 
   Widget _buildMembershipReminderBanner() {
@@ -1099,8 +792,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   // ── Today's Classes (Live Cloud Firestore Sync) ───────────────────────
   Widget _buildTodaysClasses() {
     final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
-    final email = user?.email.toLowerCase().trim() ?? '';
-    final isDemo = email == 'saravanapmvofficial@gmail.com' || (user != null && user.uid == 'DEMO-STU');
+
 
     final meta = user?.metadata ?? {};
     final String userYear = meta['academicYear']?.toString().trim() ?? '3rd Year';
@@ -1177,32 +869,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       }
     }
 
-    if (isDemo) {
-      return Column(
-        children: [
-          _buildClassCard(
-            time: '09:00',
-            period: 'AM',
-            title: 'Advanced Mathematics',
-            timeRange: '09:00 AM – 10:30 AM',
-            room: 'Room 302',
-            accentColor: const Color(0xFF5C6BC0),
-            icon: Icons.calculate_rounded,
-            iconBg: const Color(0xFFEDE7F6),
-          ),
-          _buildClassCard(
-            time: '11:00',
-            period: 'AM',
-            title: 'Computer Science',
-            timeRange: '11:00 AM – 12:30 PM',
-            room: 'Lab 1',
-            accentColor: const Color(0xFF26A69A),
-            icon: Icons.computer_rounded,
-            iconBg: const Color(0xFFE0F2F1),
-          ),
-        ],
-      );
-    }
+
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -3716,228 +3383,10 @@ class _InteractiveTimetableState extends ConsumerState<InteractiveTimetable> {
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  final List<List<Map<String, dynamic>>> _timetableData = [
-    // Monday
-    [
-      {
-        'time': '09:00',
-        'period': 'AM',
-        'title': 'Advanced Mathematics',
-        'timeRange': '09:00 AM – 10:30 AM',
-        'room': 'Room 302',
-        'lecturer': 'Dr. Sarah Vance',
-        'accentColor': const Color(0xFF5C6BC0),
-        'icon': Icons.calculate_rounded,
-        'iconBg': const Color(0xFFEDE7F6),
-        'isLive': false,
-      },
-      {
-        'time': '11:00',
-        'period': 'AM',
-        'title': 'Computer Science',
-        'timeRange': '11:00 AM – 12:30 PM',
-        'room': 'Lab 1',
-        'lecturer': 'Prof. Alan Turing',
-        'accentColor': const Color(0xFF26A69A),
-        'icon': Icons.computer_rounded,
-        'iconBg': const Color(0xFFE0F2F1),
-        'isLive': true, // highlighted as ongoing
-      },
-      {
-        'time': '02:00',
-        'period': 'PM',
-        'title': 'Physics Lab',
-        'timeRange': '02:00 PM – 03:30 PM',
-        'room': 'Lab 3',
-        'lecturer': 'Dr. Marie Curie',
-        'accentColor': const Color(0xFFFFA726),
-        'icon': Icons.science_rounded,
-        'iconBg': const Color(0xFFFFF3E0),
-        'isLive': false,
-      },
-    ],
-    // Tuesday
-    [
-      {
-        'time': '09:30',
-        'period': 'AM',
-        'title': 'Database Systems',
-        'timeRange': '09:30 AM – 11:00 AM',
-        'room': 'Room 104',
-        'lecturer': 'Dr. Grace Hopper',
-        'accentColor': const Color(0xFF29B6F6),
-        'icon': Icons.storage_rounded,
-        'iconBg': const Color(0xFFE1F5FE),
-        'isLive': false,
-      },
-      {
-        'time': '11:30',
-        'period': 'AM',
-        'title': 'Software Engineering',
-        'timeRange': '11:30 AM – 01:00 PM',
-        'room': 'Room 205',
-        'lecturer': 'Prof. Margaret Hamilton',
-        'accentColor': const Color(0xFF66BB6A),
-        'icon': Icons.code_rounded,
-        'iconBg': const Color(0xFFE8F5E9),
-        'isLive': false,
-        'status': 'rescheduled',
-        'statusText': 'Rescheduled to 02:00 PM',
-      },
-      {
-        'time': '03:00',
-        'period': 'PM',
-        'title': 'Communication Skills',
-        'timeRange': '03:00 PM – 04:30 PM',
-        'room': 'Seminar Hall',
-        'lecturer': 'Prof. Dale Carnegie',
-        'accentColor': const Color(0xFFAB47BC),
-        'icon': Icons.record_voice_over_rounded,
-        'iconBg': const Color(0xFFF3E5F5),
-        'isLive': false,
-      },
-    ],
-    // Wednesday
-    [
-      {
-        'time': '09:00',
-        'period': 'AM',
-        'title': 'Advanced Mathematics',
-        'timeRange': '09:00 AM – 10:30 AM',
-        'room': 'Room 302',
-        'lecturer': 'Dr. Sarah Vance',
-        'accentColor': const Color(0xFF5C6BC0),
-        'icon': Icons.calculate_rounded,
-        'iconBg': const Color(0xFFEDE7F6),
-        'isLive': false,
-      },
-      {
-        'time': '11:00',
-        'period': 'AM',
-        'title': 'Computer Science',
-        'timeRange': '11:00 AM – 12:30 PM',
-        'room': 'Lab 1',
-        'lecturer': 'Prof. Alan Turing',
-        'accentColor': const Color(0xFF26A69A),
-        'icon': Icons.computer_rounded,
-        'iconBg': const Color(0xFFE0F2F1),
-        'isLive': false,
-      },
-      {
-        'time': '01:30',
-        'period': 'PM',
-        'title': 'Discrete Structures',
-        'timeRange': '01:30 PM – 03:00 PM',
-        'room': 'Room 310',
-        'lecturer': 'Dr. Ada Lovelace',
-        'accentColor': const Color(0xFFEC407A),
-        'icon': Icons.hub_rounded,
-        'iconBg': const Color(0xFFFCE4EC),
-        'isLive': false,
-      },
-    ],
-    // Thursday
-    [
-      {
-        'time': '10:00',
-        'period': 'AM',
-        'title': 'Database Systems',
-        'timeRange': '10:00 AM – 11:30 AM',
-        'room': 'Room 104',
-        'lecturer': 'Dr. Grace Hopper',
-        'accentColor': const Color(0xFF29B6F6),
-        'icon': Icons.storage_rounded,
-        'iconBg': const Color(0xFFE1F5FE),
-        'isLive': false,
-      },
-      {
-        'time': '12:00',
-        'period': 'PM',
-        'title': 'Software Engineering',
-        'timeRange': '12:00 PM – 01:30 PM',
-        'room': 'Room 205',
-        'lecturer': 'Prof. Margaret Hamilton',
-        'accentColor': const Color(0xFFEF5350),
-        'icon': Icons.code_rounded,
-        'iconBg': const Color(0xFFFFEBEE),
-        'isLive': false,
-        'status': 'cancelled',
-        'statusText': 'Cancelled Today',
-      },
-      {
-        'time': '02:30',
-        'period': 'PM',
-        'title': 'Web Development',
-        'timeRange': '02:30 PM – 04:00 PM',
-        'room': 'Lab 2',
-        'lecturer': 'Prof. Tim Berners-Lee',
-        'accentColor': const Color(0xFF26A69A),
-        'icon': Icons.web_rounded,
-        'iconBg': const Color(0xFFE0F2F1),
-        'isLive': false,
-      },
-    ],
-    // Friday
-    [
-      {
-        'time': '09:00',
-        'period': 'AM',
-        'title': 'Digital Logic Design',
-        'timeRange': '09:00 AM – 10:30 AM',
-        'room': 'Lab 4',
-        'lecturer': 'Dr. Claude Shannon',
-        'accentColor': const Color(0xFF26A69A),
-        'icon': Icons.memory_rounded,
-        'iconBg': const Color(0xFFE0F2F1),
-        'isLive': false,
-      },
-      {
-        'time': '11:00',
-        'period': 'AM',
-        'title': 'Discrete Structures',
-        'timeRange': '11:00 AM – 12:30 PM',
-        'room': 'Room 310',
-        'lecturer': 'Dr. Ada Lovelace',
-        'accentColor': const Color(0xFFEC407A),
-        'icon': Icons.hub_rounded,
-        'iconBg': const Color(0xFFFCE4EC),
-        'isLive': false,
-      },
-      {
-        'time': '02:00',
-        'period': 'PM',
-        'title': 'Seminar / Guest Lecture',
-        'timeRange': '02:00 PM – 03:30 PM',
-        'room': 'Auditorium',
-        'lecturer': 'Invited Speakers',
-        'accentColor': const Color(0xFF5C6BC0),
-        'icon': Icons.groups_rounded,
-        'iconBg': const Color(0xFFEDE7F6),
-        'isLive': false,
-      },
-    ],
-    // Saturday
-    [
-      {
-        'time': '10:00',
-        'period': 'AM',
-        'title': 'Project Work / Mentorship',
-        'timeRange': '10:00 AM – 12:00 PM',
-        'room': 'Lab 1',
-        'lecturer': 'Internal Faculty',
-        'accentColor': const Color(0xFFFF7043),
-        'icon': Icons.lightbulb_outline_rounded,
-        'iconBg': const Color(0xFFFBE9E7),
-        'isLive': false,
-      },
-    ],
-  ];
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
-    final email = user?.email.toLowerCase().trim() ?? '';
-    final isDemo = email == 'saravanapmvofficial@gmail.com' || (user != null && user.uid == 'DEMO-STU');
+
 
     final meta = user?.metadata ?? {};
     final userYear = meta['year']?.toString() ?? '3rd Year';
@@ -3965,8 +3414,6 @@ class _InteractiveTimetableState extends ConsumerState<InteractiveTimetable> {
           'isLive': false,
         };
       }).toList();
-    } else if (isDemo) {
-      classes = _timetableData[_selectedDayIndex % _timetableData.length];
     } else {
       classes = [];
     }

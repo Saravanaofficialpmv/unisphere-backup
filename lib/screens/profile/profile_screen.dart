@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -125,18 +127,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         currentUser?.role == UserRole.advisor) {
       return StaffProfileScreen(onBack: widget.onBack);
     }
-    final name = (currentUser?.name != null && currentUser!.name.trim().isNotEmpty) ? currentUser.name : 'Alex Johnson';
-    final email = (currentUser?.email != null && currentUser!.email.trim().isNotEmpty) ? currentUser.email : 'saravanapmvofficial@gmail.com';
-    final isDemo = email.toLowerCase().trim() == 'saravanapmvofficial@gmail.com';
-    final regNo = currentUser?.metadata?['registerNumber']?.toString().isNotEmpty == true 
-        ? currentUser!.metadata!['registerNumber'].toString() 
-        : (isDemo ? 'RA2111003010001' : (currentUser?.uid.startsWith('DEMO-') == true ? 'DEMO-REG-001' : 'RA2111003010001'));
-    final dept = currentUser?.metadata?['department']?.toString().isNotEmpty == true 
-        ? currentUser!.metadata!['department'].toString() 
-        : (isDemo ? 'Computer Science and Engineering' : 'Computer Science and Engineering');
-    final year = currentUser?.metadata?['year']?.toString().isNotEmpty == true 
-        ? currentUser!.metadata!['year'].toString() 
-        : (isDemo ? '3rd Year (Semester VI)' : '3rd Year (Semester VI)');
+    final name = (currentUser?.fullName != null && currentUser!.fullName.trim().isNotEmpty)
+        ? currentUser.fullName
+        : ((currentUser?.name != null && currentUser!.name.trim().isNotEmpty)
+            ? currentUser.name
+            : (currentUser?.email.split('@').first ?? 'User'));
+    final email = currentUser?.email ?? '';
+    final regNo = (currentUser?.metadata?['registerNumber'] ?? currentUser?.metadata?['regNo'] ?? '')
+        .toString()
+        .trim();
+    final dept = currentUser?.metadata?['department']?.toString().trim() ?? '';
+    final year = currentUser?.metadata?['year']?.toString().trim() ?? '';
     final photoUrl = _customPhotoPath ?? (currentUser?.profileImageUrl ?? currentUser?.metadata?['passportPhotoUrl'] ?? currentUser?.metadata?['photoUrl'] ?? '').toString().trim();
     final hasUploadedPhoto = photoUrl.isNotEmpty && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'));
 
@@ -1745,12 +1746,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Text(
                             status == 'verified' ? '🟢 Verified Academic Profile' : '🟡 Verification Pending',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF065F46)),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: status == 'verified' ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Approved by ${meta['verifiedBy'] ?? "Dr. R. Kumar (HOD, CSE)"} on 12 Sep 2022\nOfficial Seal ID: REG-UNI-2022-8812',
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF047857), height: 1.3),
+                            status == 'verified'
+                                ? 'Approved by ${meta['verifiedBy'] ?? "Department Authority"}${meta['verifiedAt'] != null ? " on ${meta['verifiedAt']}" : ""}${meta['sealId'] != null ? "\nOfficial Seal ID: ${meta['sealId']}" : ""}'
+                                : 'Pending departmental verification and endorsement.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: status == 'verified' ? const Color(0xFF047857) : const Color(0xFF92400E),
+                              height: 1.3,
+                            ),
                           ),
                         ],
                       ),
@@ -2179,22 +2190,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+  Future<void> _pickAndUploadPhoto([ImageSource source = ImageSource.gallery]) async {
     if (_isUploadingPhoto) return;
 
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-      if (picked == null) return;
-
       final currentUser = ref.read(authServiceProvider).currentUser;
       if (currentUser == null) {
         throw Exception('User session not found. Please log in again.');
+      }
+
+      Uint8List? imageBytes;
+      File? imageFile;
+
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        if (imageBytes == null) return;
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(
+          source: source,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 85,
+        );
+        if (picked == null) return;
+        imageFile = File(picked.path);
       }
 
       setState(() {
@@ -2205,10 +2233,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final existingPhotoUrl = _customPhotoPath ?? (currentUser.profileImageUrl ?? currentUser.metadata?['passportPhotoUrl'] ?? currentUser.metadata?['photoUrl'] ?? '').toString().trim();
 
       // 1. Upload new image to Firebase Storage and obtain valid HTTPS download URL
-      final uploadedUrl = await storageService.uploadProfilePhoto(
-        userId: currentUser.uid,
-        file: File(picked.path),
-      );
+      final uploadedUrl = kIsWeb
+          ? await storageService.uploadProfilePhotoBytes(
+              userId: currentUser.uid,
+              bytes: imageBytes!,
+            )
+          : await storageService.uploadProfilePhoto(
+              userId: currentUser.uid,
+              file: imageFile!,
+            );
 
       // 2. Persist download URL in Firestore
       try {

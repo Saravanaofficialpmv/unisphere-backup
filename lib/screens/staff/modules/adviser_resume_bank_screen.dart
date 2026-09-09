@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/student_resume_model.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
 import 'package:unisphere/services/resume_service.dart';
 import 'package:unisphere/widgets/resume/resume_completeness_card.dart';
 import 'package:unisphere/widgets/resume/resume_document_view.dart';
@@ -20,74 +21,17 @@ class _AdviserResumeBankScreenState extends ConsumerState<AdviserResumeBankScree
   String _searchQuery = '';
   String _selectedYear = 'All';
   String _selectedSection = 'All';
-  String _selectedStudentId = 'DEMO-STU';
+  String _selectedStudentId = '';
   StudentResumeModel? _activeResume;
   bool _isLoadingResume = false;
   bool _showSidePanel = true;
 
-  // Assigned student roster
-  final List<Map<String, dynamic>> _assignedStudents = [
-    {
-      'id': 'DEMO-STU',
-      'regNo': 'RA2111003010001',
-      'name': 'Alex Johnson',
-      'year': '3rd Year',
-      'section': 'Sec B',
-      'dept': 'Computer Science & Engineering',
-      'cgpa': '8.92',
-      'attendance': '88.5%',
-      'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    },
-    {
-      'id': '917721104012',
-      'regNo': '917721104012',
-      'name': 'Aravind Swamy',
-      'year': '3rd Year',
-      'section': 'Sec A',
-      'dept': 'Computer Science & Engineering',
-      'cgpa': '9.12',
-      'attendance': '96.5%',
-      'photo': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
-    },
-    {
-      'id': '917721104045',
-      'regNo': '917721104045',
-      'name': 'Priya Dharshini',
-      'year': '3rd Year',
-      'section': 'Sec A',
-      'dept': 'Computer Science & Engineering',
-      'cgpa': '8.85',
-      'attendance': '92.0%',
-      'photo': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    },
-    {
-      'id': '917722104022',
-      'regNo': '917722104022',
-      'name': 'Karthik Raja',
-      'year': '2nd Year',
-      'section': 'Sec B',
-      'dept': 'Computer Science & Engineering',
-      'cgpa': '7.45',
-      'attendance': '71.5%',
-      'photo': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    },
-    {
-      'id': '917723104089',
-      'regNo': '917723104089',
-      'name': 'Sneha Murali',
-      'year': '1st Year',
-      'section': 'Sec C',
-      'dept': 'Computer Science & Engineering',
-      'cgpa': '9.50',
-      'attendance': '98.0%',
-      'photo': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
-    _loadStudentResume(_selectedStudentId);
+    if (_selectedStudentId.isNotEmpty) {
+      _loadStudentResume(_selectedStudentId);
+    }
   }
 
   Future<void> _loadStudentResume(String studentId) async {
@@ -120,8 +64,35 @@ class _AdviserResumeBankScreenState extends ConsumerState<AdviserResumeBankScree
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 960;
+    final dbStudents = ref.watch(allStudentsStreamProvider).value ?? [];
+    final assignedStudents = dbStudents.map((u) {
+      final meta = u.metadata ?? {};
+      return {
+        'id': u.uid,
+        'regNo': (meta['registerNumber'] ?? meta['regNo'] ?? u.uid).toString(),
+        'name': u.fullName.isNotEmpty
+            ? u.fullName
+            : (u.name.isNotEmpty
+                ? u.name
+                : (u.email.contains('@') ? u.email.split('@').first : 'Student')),
+        'year': meta['year'] ?? (meta['semester'] ?? '1st Year'),
+        'section': meta['section'] ?? 'Sec A',
+        'dept': meta['department'] ?? u.departmentName ?? u.department ?? '',
+        'cgpa': meta['cgpa']?.toString() ?? '0.0',
+        'attendance': meta['attendance'] != null ? '${meta['attendance']}%' : '-',
+        'photo': u.profileImageUrl ?? meta['photoUrl'] ?? '',
+      };
+    }).toList();
 
-    final filteredStudents = _assignedStudents.where((s) {
+    if (_selectedStudentId.isEmpty && assignedStudents.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedStudentId.isEmpty) {
+          _loadStudentResume(assignedStudents.first['id'].toString());
+        }
+      });
+    }
+
+    final filteredStudents = assignedStudents.where((s) {
       final nameMatches = s['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           s['regNo'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
       final yearMatches = _selectedYear == 'All' || s['year'] == _selectedYear;

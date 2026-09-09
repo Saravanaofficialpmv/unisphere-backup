@@ -113,10 +113,10 @@ class _HodSettingsState extends ConsumerState<HodSettings> {
     final name = (currentUser?.fullName != null && currentUser!.fullName.isNotEmpty)
         ? currentUser.fullName
         : (currentUser?.name ?? 'Head of Department');
-    final email = currentUser?.email ?? 'hod@unisphere.edu';
-    final role = currentUser?.roleName ?? 'HOD / Department Admin';
-    final creationDate = currentUser?.formattedCreatedAt ?? '15 Jun 2021';
-    final uid = currentUser?.uid ?? 'DEMO-HOD';
+    final email = currentUser?.email ?? '-';
+    final role = currentUser?.roleName ?? 'HOD';
+    final creationDate = currentUser?.formattedCreatedAt ?? '-';
+    final uid = currentUser?.uid ?? '-';
 
     return Container(
       padding: const EdgeInsets.all(20),

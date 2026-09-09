@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/attendance_model.dart';
 import 'package:unisphere/models/user_model.dart';
+import 'package:unisphere/repositories/attendance_repository.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
 
@@ -56,15 +60,77 @@ class AttendanceSystemState {
 }
 
 class AttendanceSystemNotifier extends StateNotifier<AttendanceSystemState> {
-  AttendanceSystemNotifier({UserModel? user}) : super(_buildInitialState(user));
+  final AttendanceRepository _attendanceRepo = AttendanceRepository();
+  StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _leaveSub;
+
+  AttendanceSystemNotifier({UserModel? user}) : super(_buildInitialState(user)) {
+    _initStreams(user);
+  }
+
+  void _initStreams(UserModel? user) {
+    if (user == null) return;
+    final meta = user.metadata ?? <String, dynamic>{};
+    final regNo = meta['registerNumber']?.toString().trim() ??
+        meta['regNo']?.toString().trim() ??
+        user.uid;
+
+    if (regNo.isNotEmpty) {
+      _attendanceSub = _attendanceRepo.watchStudentAttendance(regNo).listen((records) {
+        if (records.isNotEmpty) {
+          final pct = _attendanceRepo.calculateAttendancePercentage(records);
+          final int activeAttended = ((pct / 100.0) * 90).round();
+
+          final updatedSemesters = state.studentSemesters.map((s) {
+            if (s.isCurrentSemester) {
+              return s.copyWith(attendedWorkingDays: activeAttended);
+            }
+            return s;
+          }).toList();
+
+          state = state.copyWith(
+            attendanceLogs: records,
+            studentSemesters: updatedSemesters,
+          );
+        }
+      }, onError: (e) {
+        debugPrint('Attendance stream listener error: $e');
+      });
+
+      try {
+        final firestore = FirebaseFirestore.instance;
+        _leaveSub = firestore
+            .collection('leave_requests')
+            .where(Filter.or(
+              Filter('studentId', isEqualTo: regNo),
+              Filter('student_id', isEqualTo: regNo),
+              Filter('studentUid', isEqualTo: regNo),
+              Filter('registerNumber', isEqualTo: regNo),
+            ))
+            .snapshots()
+            .listen((snap) {
+          if (snap.docs.isNotEmpty) {
+            final leaves = snap.docs.map((doc) => LeaveRequestModel.fromMap(doc.data(), doc.id)).toList();
+            state = state.copyWith(leaveRequests: leaves);
+          }
+        }, onError: (e) {
+          debugPrint('Leave requests stream error: $e');
+        });
+      } catch (_) {}
+    }
+  }
+
+  @override
+  void dispose() {
+    _attendanceSub?.cancel();
+    _leaveSub?.cancel();
+    super.dispose();
+  }
 
   static AttendanceSystemState _buildInitialState(UserModel? user) {
-    final email = user?.email.toLowerCase().trim() ?? '';
-    final isDemo = email == 'saravanapmvofficial@gmail.com' || (user != null && user.uid == 'DEMO-STU');
     final meta = user?.metadata ?? {};
-
     final double? dbAtt = double.tryParse(meta['attendance']?.toString() ?? '');
-    final double targetAtt = dbAtt ?? (isDemo ? 85.0 : 0.0);
+    final double targetAtt = dbAtt ?? 0.0;
     final int sem4Attended = ((targetAtt / 100.0) * 90).round();
 
     return AttendanceSystemState(
@@ -79,136 +145,20 @@ class AttendanceSystemNotifier extends StateNotifier<AttendanceSystemState> {
         8: const HodSemesterConfig(semesterNumber: 8, semesterName: 'Semester 8 (4th Year)', totalWorkingDays: 90),
       },
       studentSemesters: [
-        SemesterAttendance(
-          semesterNumber: 1,
-          semesterName: 'Semester 1',
-          attendedWorkingDays: isDemo ? 79 : 0,
-          totalWorkingDays: 90,
-          isCurrentSemester: false,
-          subjects: isDemo ? [
-            SubjectAttendance(code: 'GE101', name: 'Basic Electrical Engineering', facultyName: 'Dr. K. Sharma', credits: 4, attendedSessions: 43, totalSessions: 50, colorValue: 0xFF2563EB),
-            SubjectAttendance(code: 'GE102', name: 'Engineering Graphics', facultyName: 'Prof. V. Raman', credits: 3, attendedSessions: 45, totalSessions: 50, colorValue: 0xFF059669),
-            SubjectAttendance(code: 'GE103', name: 'Engineering Chemistry', facultyName: 'Dr. S. Priya', credits: 4, attendedSessions: 44, totalSessions: 50, colorValue: 0xFF7C3AED),
-            SubjectAttendance(code: 'MA101', name: 'Matrices & Calculus', facultyName: 'Prof. R. Menon', credits: 4, attendedSessions: 44, totalSessions: 50, colorValue: 0xFFD97706),
-          ] : [],
-        ),
-        SemesterAttendance(
-          semesterNumber: 2,
-          semesterName: 'Semester 2',
-          attendedWorkingDays: isDemo ? 82 : 0,
-          totalWorkingDays: 90,
-          isCurrentSemester: false,
-          subjects: isDemo ? [
-            SubjectAttendance(code: 'CS101', name: 'Python Programming', facultyName: 'Dr. M. Tech', credits: 4, attendedSessions: 47, totalSessions: 50, colorValue: 0xFF059669),
-            SubjectAttendance(code: 'CS102', name: 'Engineering Physics', facultyName: 'Dr. H. Verma', credits: 3, attendedSessions: 45, totalSessions: 50, colorValue: 0xFF2563EB),
-            SubjectAttendance(code: 'MA102', name: 'Differential Equations', facultyName: 'Prof. R. Menon', credits: 4, attendedSessions: 44, totalSessions: 50, colorValue: 0xFF7C3AED),
-            SubjectAttendance(code: 'CS103', name: 'Digital Electronics', facultyName: 'Prof. A. Joseph', credits: 3, attendedSessions: 46, totalSessions: 50, colorValue: 0xFFDC2626),
-          ] : [],
-        ),
-        SemesterAttendance(
-          semesterNumber: 3,
-          semesterName: 'Semester 3',
-          attendedWorkingDays: isDemo ? 85 : 0,
-          totalWorkingDays: 95,
-          isCurrentSemester: false,
-          subjects: isDemo ? [
-            SubjectAttendance(code: 'CS201', name: 'Data Structures & Algorithms', facultyName: 'Dr. Dennis Ritchie', credits: 4, attendedSessions: 46, totalSessions: 50, colorValue: 0xFF2563EB),
-            SubjectAttendance(code: 'CS202', name: 'Object Oriented Java', facultyName: 'Prof. James Gosling', credits: 4, attendedSessions: 44, totalSessions: 50, colorValue: 0xFF059669),
-            SubjectAttendance(code: 'CS203', name: 'Discrete Mathematics', facultyName: 'Dr. Donald Knuth', credits: 3, attendedSessions: 43, totalSessions: 50, colorValue: 0xFFD97706),
-            SubjectAttendance(code: 'CS204', name: 'Computer Architecture', facultyName: 'Dr. Hennessy', credits: 4, attendedSessions: 45, totalSessions: 50, colorValue: 0xFF7C3AED),
-          ] : [],
-        ),
-        SemesterAttendance(
-          semesterNumber: 4,
-          semesterName: 'Semester 4',
-          attendedWorkingDays: sem4Attended,
-          totalWorkingDays: 90,
-          isCurrentSemester: true,
-          subjects: [
-            SubjectAttendance(code: 'CS301', name: 'Computer Networks', facultyName: 'Dr. Robert Vance', credits: 4, attendedSessions: ((targetAtt / 100.0) * 42).round(), totalSessions: 42, colorValue: 0xFF2563EB),
-            SubjectAttendance(code: 'CS302', name: 'Database Systems', facultyName: 'Prof. Sarah Jenkins', credits: 4, attendedSessions: ((targetAtt / 100.0) * 40).round(), totalSessions: 40, colorValue: 0xFF059669),
-            SubjectAttendance(code: 'CS303', name: 'Web Technology', facultyName: 'Dr. Alan Turing', credits: 3, attendedSessions: ((targetAtt / 100.0) * 38).round(), totalSessions: 38, colorValue: 0xFFD97706),
-            SubjectAttendance(code: 'CS304', name: 'Software Engineering', facultyName: 'Prof. Michael Scott', credits: 3, attendedSessions: ((targetAtt / 100.0) * 40).round(), totalSessions: 40, colorValue: 0xFF7C3AED),
-            SubjectAttendance(code: 'CS305', name: 'AI & Machine Learning', facultyName: 'Dr. Grace Hopper', credits: 4, attendedSessions: ((targetAtt / 100.0) * 35).round(), totalSessions: 35, colorValue: 0xFFDC2626),
-          ],
-        ),
+        for (int i = 1; i <= 8; i++)
+          SemesterAttendance(
+            semesterNumber: i,
+            semesterName: 'Semester $i',
+            attendedWorkingDays: i == 4 ? sem4Attended : 0,
+            totalWorkingDays: i == 3 ? 95 : 90,
+            isCurrentSemester: i == 4,
+            subjects: const [],
+          ),
       ],
       selectedSemesterIndex: 3,
-      dailyLogs: isDemo ? [
-        DailyAttendanceLog(
-          id: 'd1',
-          dateStr: '13 Aug 2026',
-          date: DateTime.now(),
-          status: AttendanceStatus.present,
-          dayName: 'Thursday',
-          subjectsCovered: [
-            'CS301 - Computer Networks (09:00 AM)',
-            'CS302 - Database Systems (10:15 AM)',
-            'CS303 - Web Technology (11:30 AM)',
-            'CS304 - Software Engineering (02:00 PM)',
-            'CS305 - AI & Machine Learning (03:15 PM)',
-          ],
-          classInCharge: 'Dr. Robert Vance',
-          remarks: 'Present for all 5 timetable sessions',
-        ),
-        DailyAttendanceLog(
-          id: 'd2',
-          dateStr: '12 Aug 2026',
-          date: DateTime.now().subtract(const Duration(days: 1)),
-          status: AttendanceStatus.onDuty,
-          dayName: 'Wednesday',
-          subjectsCovered: [
-            'CS301 - Computer Networks',
-            'CS302 - Database Systems',
-            'CS303 - Web Technology',
-            'CS304 - Software Engineering',
-            'CS305 - AI & Machine Learning',
-          ],
-          classInCharge: 'Prof. Sarah Jenkins',
-          remarks: 'On Duty (OD): IIT Madras Inter-College Hackathon 2026',
-        ),
-        DailyAttendanceLog(
-          id: 'd3',
-          dateStr: '11 Aug 2026',
-          date: DateTime.now().subtract(const Duration(days: 2)),
-          status: AttendanceStatus.present,
-          dayName: 'Tuesday',
-          subjectsCovered: [
-            'CS301 - Computer Networks',
-            'CS302 - Database Systems',
-            'CS303 - Web Technology',
-            'CS304 - Software Engineering',
-            'CS305 - AI & Machine Learning',
-          ],
-          classInCharge: 'Dr. Alan Turing',
-          remarks: 'Present for all 5 timetable sessions',
-        ),
-        DailyAttendanceLog(
-          id: 'd4',
-          dateStr: '10 Aug 2026',
-          date: DateTime.now().subtract(const Duration(days: 3)),
-          status: AttendanceStatus.absent,
-          dayName: 'Monday',
-          subjectsCovered: [
-            'CS301 - Computer Networks',
-            'CS302 - Database Systems',
-            'CS303 - Web Technology',
-            'CS304 - Software Engineering',
-            'CS305 - AI & Machine Learning',
-          ],
-          classInCharge: 'Prof. Michael Scott',
-          remarks: 'Absent for full day (All 5 sessions marked Absent)',
-        ),
-      ] : [],
-      attendanceLogs: isDemo ? [
-        AttendanceRecord(id: '1', studentUid: '917722104022', studentName: 'Alex Johnson', subjectCode: 'CS301', subjectName: 'Computer Networks', date: DateTime.now().subtract(const Duration(hours: 4)), timeSlot: '09:00 - 10:00 AM', status: AttendanceStatus.present, facultyName: 'Dr. Robert Vance'),
-        AttendanceRecord(id: '2', studentUid: '917722104022', studentName: 'Alex Johnson', subjectCode: 'CS302', subjectName: 'Database Systems', date: DateTime.now().subtract(const Duration(hours: 2)), timeSlot: '10:15 - 11:15 AM', status: AttendanceStatus.present, facultyName: 'Prof. Sarah Jenkins'),
-        AttendanceRecord(id: '3', studentUid: '917722104022', studentName: 'Alex Johnson', subjectCode: 'CS303', subjectName: 'Web Technology', date: DateTime.now().subtract(const Duration(days: 1)), timeSlot: '11:30 AM - 12:30 PM', status: AttendanceStatus.absent, facultyName: 'Dr. Alan Turing'),
-      ] : [],
-      leaveRequests: isDemo ? [
-        LeaveRequestModel(id: 'l1', studentName: 'Alex Johnson', type: 'Medical Leave', duration: '04 Aug - 05 Aug 2026 (2 Days)', reason: 'High fever & doctor advised bed rest', status: 'Approved', appliedDate: '03 Aug 2026', hasAttachment: true),
-        LeaveRequestModel(id: 'l2', studentName: 'Alex Johnson', type: 'On Duty (OD)', duration: '28 Jul 2026 (1 Day)', reason: 'Attended Inter-College Hackathon at IIT Madras', status: 'Approved', appliedDate: '26 Jul 2026', hasAttachment: true),
-      ] : [],
+      dailyLogs: const [],
+      attendanceLogs: const [],
+      leaveRequests: const [],
     );
   }
 
@@ -260,14 +210,16 @@ class AttendanceSystemNotifier extends StateNotifier<AttendanceSystemState> {
     final newLogs = <AttendanceRecord>[];
 
     for (final s in studentResults) {
-      final isPresent = s['isPresent'] as bool;
+      final isPresent = s['isPresent'] as bool? ?? true;
       final status = isPresent ? AttendanceStatus.present : AttendanceStatus.absent;
+      final studentId = (s['id'] ?? s['studentId'] ?? s['studentUid'] ?? s['registerNumber'] ?? 'student_1').toString().trim();
+      final studentName = (s['name'] ?? s['studentName'] ?? 'Student').toString().trim();
 
       newLogs.add(
         AttendanceRecord(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + s['id'].toString(),
-          studentUid: s['id'] ?? 'student_1',
-          studentName: s['name'] ?? 'Student',
+          id: '${now.millisecondsSinceEpoch}_$studentId',
+          studentUid: studentId,
+          studentName: studentName,
           subjectCode: subjectCode,
           subjectName: subjectName,
           date: now,
@@ -281,6 +233,9 @@ class AttendanceSystemNotifier extends StateNotifier<AttendanceSystemState> {
     state = state.copyWith(
       attendanceLogs: [...newLogs, ...state.attendanceLogs],
     );
+
+    // Persist real-time records to Cloud Firestore and update student metrics
+    _attendanceRepo.markBatchAttendance(newLogs).ignore();
   }
 
   /// Student submits a new Leave / OD application
@@ -288,6 +243,17 @@ class AttendanceSystemNotifier extends StateNotifier<AttendanceSystemState> {
     state = state.copyWith(
       leaveRequests: [request, ...state.leaveRequests],
     );
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      firestore
+          .collection('leave_requests')
+          .doc(request.id)
+          .set(request.toMap(), SetOptions(merge: true))
+          .ignore();
+    } catch (e) {
+      debugPrint('Firestore save leave request error: $e');
+    }
   }
 }
 

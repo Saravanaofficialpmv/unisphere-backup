@@ -10,7 +10,6 @@ import 'package:unisphere/models/hackathon_model.dart';
 import 'package:unisphere/models/mark_model.dart';
 import 'package:unisphere/models/submission_model.dart';
 import 'package:unisphere/models/user_model.dart';
-import 'package:unisphere/services/database_seeder.dart';
 import 'package:unisphere/services/supabase_service.dart';
 
 final firebaseFirestoreServiceProvider = Provider<FirebaseFirestoreService>((ref) {
@@ -39,7 +38,6 @@ final allMarksStreamProvider = StreamProvider.autoDispose<List<MarkModel>>((ref)
 
 class FirebaseFirestoreService implements SupabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final MockSupabaseService _fallbackMock = MockSupabaseService();
 
   FirebaseFirestoreService();
 
@@ -59,12 +57,12 @@ class FirebaseFirestoreService implements SupabaseService {
                 return AnnouncementModel.fromMap(data);
               }).toList())
           .handleError((error) {
-        debugPrint('Firestore Announcements Error, serving fallback: $error');
-        return _fallbackMock.getAnnouncements();
+        debugPrint('Firestore Announcements Error: $error');
+        return <AnnouncementModel>[];
       });
     } catch (e) {
       debugPrint('Firestore getAnnouncements exception: $e');
-      return _fallbackMock.getAnnouncements();
+      return Stream.value(<AnnouncementModel>[]);
     }
   }
 
@@ -86,6 +84,14 @@ class FirebaseFirestoreService implements SupabaseService {
     }
   }
 
+  Future<void> deleteAnnouncement(String announcementId) async {
+    try {
+      await _firestore.collection('announcements').doc(announcementId).delete();
+    } catch (e) {
+      debugPrint('Firestore deleteAnnouncement error: $e');
+    }
+  }
+
   // ==========================================
   // ASSIGNMENTS & SUBMISSIONS
   // ==========================================
@@ -102,11 +108,12 @@ class FirebaseFirestoreService implements SupabaseService {
                 return AssignmentModel.fromMap(data);
               }).toList())
           .handleError((error) {
-        debugPrint('Firestore Assignments Error, serving fallback: $error');
-        return _fallbackMock.getAssignments();
+        debugPrint('Firestore Assignments Error: $error');
+        return <AssignmentModel>[];
       });
     } catch (e) {
-      return _fallbackMock.getAssignments();
+      debugPrint('Firestore getAssignments exception: $e');
+      return Stream.value(<AssignmentModel>[]);
     }
   }
 
@@ -139,9 +146,13 @@ class FirebaseFirestoreService implements SupabaseService {
                 data['id'] = doc.id;
                 return SubmissionModel.fromMap(data);
               }).toList())
-          .handleError((error) => _fallbackMock.getSubmissions(assignmentId));
+          .handleError((error) {
+        debugPrint('Firestore getSubmissions error: $error');
+        return <SubmissionModel>[];
+      });
     } catch (e) {
-      return _fallbackMock.getSubmissions(assignmentId);
+      debugPrint('Firestore getSubmissions exception: $e');
+      return Stream.value(<SubmissionModel>[]);
     }
   }
 
@@ -199,9 +210,13 @@ class FirebaseFirestoreService implements SupabaseService {
                 data['id'] = doc.id;
                 return MarkModel.fromMap(data);
               }).toList())
-          .handleError((error) => _fallbackMock.getMarks(studentUid));
+          .handleError((error) {
+        debugPrint('Firestore getMarks error: $error');
+        return <MarkModel>[];
+      });
     } catch (e) {
-      return _fallbackMock.getMarks(studentUid);
+      debugPrint('Firestore getMarks exception: $e');
+      return Stream.value(<MarkModel>[]);
     }
   }
 
@@ -218,7 +233,6 @@ class FirebaseFirestoreService implements SupabaseService {
         return <MarkModel>[];
       });
     } catch (e) {
-      debugPrint('Firestore getAllMarksStream exception: $e');
       return Stream.value(<MarkModel>[]);
     }
   }
@@ -226,7 +240,7 @@ class FirebaseFirestoreService implements SupabaseService {
   @override
   Future<void> addMarks(MarkModel mark) async {
     try {
-      await _firestore.collection('marks').doc(mark.id).set(mark.toMap());
+      await _firestore.collection('marks').doc(mark.id).set(mark.toMap(), SetOptions(merge: true));
     } catch (e) {
       debugPrint('Firestore addMarks exception: $e');
     }
@@ -247,9 +261,13 @@ class FirebaseFirestoreService implements SupabaseService {
                 data['id'] = doc.id;
                 return AttendanceRecord.fromMap(data);
               }).toList())
-          .handleError((error) => _fallbackMock.getAttendance(studentUid));
+          .handleError((error) {
+        debugPrint('Firestore getAttendance error: $error');
+        return <AttendanceRecord>[];
+      });
     } catch (e) {
-      return _fallbackMock.getAttendance(studentUid);
+      debugPrint('Firestore getAttendance exception: $e');
+      return Stream.value(<AttendanceRecord>[]);
     }
   }
 
@@ -340,7 +358,11 @@ class FirebaseFirestoreService implements SupabaseService {
           .map((snapshot) => snapshot.docs
               .map((doc) => UserModel.fromMap(doc.data(), doc.id))
               .where((u) => u.role == UserRole.student)
-              .toList());
+              .toList())
+          .handleError((e) {
+        debugPrint('Firestore getStudents error: $e');
+        return <UserModel>[];
+      });
     } catch (e) {
       debugPrint('Firestore getStudents error: $e');
       return Stream.value([]);
@@ -391,6 +413,9 @@ class FirebaseFirestoreService implements SupabaseService {
           }
         }
         return configs;
+      }).handleError((e) {
+        debugPrint('Firestore getSemesterWorkingDaysStream error: $e');
+        return <int, int>{};
       });
     } catch (e) {
       debugPrint('Firestore getSemesterWorkingDaysStream error: $e');
@@ -431,6 +456,9 @@ class FirebaseFirestoreService implements SupabaseService {
           data['id'] = doc.id;
           return data;
         }).toList();
+      }).handleError((e) {
+        debugPrint('Firestore getAllTimetablesStream error: $e');
+        return <Map<String, dynamic>>[];
       });
     } catch (e) {
       debugPrint('Firestore getAllTimetablesStream error: $e');
@@ -533,6 +561,9 @@ class FirebaseFirestoreService implements SupabaseService {
           data['id'] = doc.id;
           return data;
         }).toList();
+      }).handleError((e) {
+        debugPrint('Firestore getAllAssignmentsStream error: $e');
+        return <Map<String, dynamic>>[];
       });
     } catch (e) {
       debugPrint('Firestore getAllAssignmentsStream error: $e');
@@ -686,6 +717,9 @@ class FirebaseFirestoreService implements SupabaseService {
           return doc.data();
         }
         return null;
+      }).handleError((e) {
+        debugPrint('Firestore getFullStudentProfileStream error: $e');
+        return null;
       });
     } catch (e) {
       debugPrint('Firestore getFullStudentProfileStream error: $e');
@@ -834,6 +868,9 @@ class FirebaseFirestoreService implements SupabaseService {
           data['requestId'] = doc.id;
           return data;
         }).toList();
+      }).handleError((e) {
+        debugPrint('Firestore getProfileEditRequestsStream error: $e');
+        return <Map<String, dynamic>>[];
       });
     } catch (e) {
       debugPrint('Firestore getProfileEditRequestsStream error: $e');
@@ -906,22 +943,10 @@ class FirebaseFirestoreService implements SupabaseService {
   // ==========================================
   Future<void> seedInitialDataIfEmpty() async {
     try {
-      // 1. Ensure public tenant record for VSBEC is seeded
+      // Ensure public tenant record for VSBEC is initialized
       await _seedVsbecTenantIfMissing();
-
-      final annSnapshot = await _firestore
-          .collection('announcements')
-          .limit(1)
-          .get(const GetOptions(source: Source.serverAndCache))
-          .timeout(const Duration(seconds: 5));
-      if (annSnapshot.docs.isEmpty) {
-        debugPrint('Seeding initial Firestore database across all collections...');
-        await DatabaseSeeder.seedAllData().timeout(const Duration(seconds: 10));
-      }
     } catch (e) {
-      if (!e.toString().contains('TimeoutException')) {
-        debugPrint('Firestore seedInitialDataIfEmpty notice: $e');
-      }
+      debugPrint('Firestore seedInitialDataIfEmpty notice: $e');
     }
   }
 
@@ -978,6 +1003,9 @@ class FirebaseFirestoreService implements SupabaseService {
           data['studentUid'] = doc.id;
           return data;
         }).toList();
+      }).handleError((e) {
+        debugPrint('Firestore getPendingHodVerificationsStream error: $e');
+        return <Map<String, dynamic>>[];
       });
     } catch (e) {
       debugPrint('Firestore getPendingHodVerificationsStream error: $e');
@@ -1288,6 +1316,9 @@ class FirebaseFirestoreService implements SupabaseService {
         final data = snapshot.data()!;
         data['id'] = snapshot.id;
         return data;
+      }).handleError((e) {
+        debugPrint('Firestore watchStudentAcademicPerformanceStream error: $e');
+        return null;
       });
     } catch (e) {
       debugPrint('Firestore watchStudentAcademicPerformanceStream error: $e');

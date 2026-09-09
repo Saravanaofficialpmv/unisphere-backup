@@ -12,3 +12,4 @@ export 'staff_repository.dart';
 export 'department_repository.dart';
 export 'storage_repository.dart';
 export 'student_repository.dart';
+export 'exam_management_repository.dart';

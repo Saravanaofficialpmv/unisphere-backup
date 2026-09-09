@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/screens/auth/widgets/web_login_view.dart';
+import 'package:unisphere/screens/auth/widgets/workspace_selection_dialog.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unisphere/models/user_model.dart';
+import 'package:unisphere/repositories/department_repository.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/parent_service.dart';
 import 'package:unisphere/services/user_session_service.dart';
@@ -189,18 +191,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     }
 
-    if (!alreadyExists) {
-      const existingDemoRegs = [
-        'RA2111003010001',
-        '917721104012',
-        '917722104022',
-        '917721104045',
-      ];
-      if (existingDemoRegs.contains(clean) || existingDemoRegs.contains(clean.toUpperCase())) {
-        alreadyExists = true;
-      }
-    }
-
     if (mounted) {
       setState(() {
         _isCheckingStudentRegNo = false;
@@ -226,33 +216,40 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _rememberMe = false;
   String? _loginErrorMessage;
   bool _isUserNotFoundError = false;
+  int _flipTrigger = 0;
+  String? _unregisteredMessage;
 
   @override
   void initState() {
     super.initState();
     _isSignUp = widget.isInitialSignUp;
     _pageController = PageController(initialPage: _isSignUp ? 1 : 0);
-    _emailController = TextEditingController(text: _isSignUp ? '' : 'saravanapmvofficial@gmail.com');
-    _passwordController = TextEditingController(text: _isSignUp ? '' : 'Sivamani9698pmv\$');
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
     _nameController = TextEditingController(
       text: widget.initialFirstName != null ? '${widget.initialFirstName} ${widget.initialLastName ?? ''}'.trim() : '',
     );
     _regNoController = TextEditingController(text: widget.initialId);
-    _deptController = TextEditingController(text: widget.initialDepartment ?? 'Computer Science');
+    _deptController = TextEditingController(text: widget.initialDepartment ?? '');
     _confirmPasswordController = TextEditingController();
     _phoneController = TextEditingController(text: widget.initialPhone ?? '');
     _parentRelationship = widget.initialRelationship ?? 'Father';
 
     // Initialize Role based on onboarding query param
-    final roleLower = widget.initialRole?.toLowerCase();
-    if (roleLower == 'parent') {
-      _selectedRole = UserRole.parent;
-    } else if (roleLower == 'faculty' || roleLower == 'staff') {
-      _selectedRole = UserRole.staff;
-    } else if (roleLower == 'department (hod)' || roleLower == 'hod') {
-      _selectedRole = UserRole.hod;
+    final parsedInitRole = UserModel.parseRole(widget.initialRole);
+    if (parsedInitRole != UserRole.unknown) {
+      _selectedRole = parsedInitRole;
     } else {
-      _selectedRole = UserRole.student;
+      final roleLower = widget.initialRole?.toLowerCase();
+      if (roleLower == 'parent') {
+        _selectedRole = UserRole.parent;
+      } else if (roleLower == 'faculty' || roleLower == 'staff') {
+        _selectedRole = UserRole.staff;
+      } else if (roleLower == 'department (hod)' || roleLower == 'hod') {
+        _selectedRole = UserRole.hod;
+      } else {
+        _selectedRole = UserRole.student;
+      }
     }
 
     // Initialize child registration controllers
@@ -525,10 +522,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             try {
               final firestore = FirebaseFirestore.instance;
               await firestore.collection('users').doc(currentUser.uid).set(hodMap, SetOptions(merge: true));
+
+              final targetDeptId = DepartmentRepository.deriveDepartmentId(deptVal);
+              final targetDeptCode = DepartmentRepository.deriveDepartmentCode(deptVal);
+              await firestore.collection('departments').doc(targetDeptId).set({
+                'departmentId': targetDeptId,
+                'department_id': targetDeptId,
+                'name': deptVal,
+                'departmentName': deptVal,
+                'department_name': deptVal,
+                'code': targetDeptCode,
+                'departmentCode': targetDeptCode,
+                'department_code': targetDeptCode,
+                'hodId': currentUser.uid,
+                'hod_id': currentUser.uid,
+                'hodName': name.isNotEmpty ? name : 'Head of Department',
+                'hod_name': name.isNotEmpty ? name : 'Head of Department',
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
             } catch (_) {}
           }
         } else {
           final regNo = _regNoController.text.trim();
+          final deptVal = _deptController.text.trim();
           if (_selectedRole == UserRole.student) {
             if (regNo.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(regNo)) {
               _showSnackBar('Register number must be exactly 12 digits', AppColors.error);
@@ -541,9 +557,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               );
               return;
             }
+            if (deptVal.isEmpty) {
+              _showSnackBar('Please select your academic department', AppColors.error);
+              return;
+            }
+            final hasHod = await ref.read(departmentRepositoryProvider).hasActiveHod(deptVal);
+            if (!hasHod) {
+              _showSnackBar(
+                'The selected department "$deptVal" does not have an active Head of Department (HOD) yet. Please select an active department.',
+                AppColors.error,
+              );
+              return;
+            }
           }
-
-          final deptVal = _deptController.text.trim();
           await ref.read(authServiceProvider).registerWithEmail(
             email,
             password,
@@ -558,6 +584,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               'department': deptVal,
               'departmentName': deptVal,
               'collegeEmail': email,
+              'role': 'student',
+              'userRole': 'student',
               'profileCompletionStatus': 'incomplete',
               'profileCompletionPercentage': 10,
             },
@@ -597,18 +625,31 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _navigateToUserDashboard(currentUser);
       }
     } catch (e) {
-      final rawError = e.toString().replaceFirst('Exception: ', '').trim();
+      String rawError = e.toString().replaceFirst('Exception: ', '').trim();
+      // Remove raw Firebase error prefixes like [firebase_auth/invalid-credential]
+      rawError = rawError.replaceAll(RegExp(r'\[firebase_auth/[^\]]+\]\s*'), '').trim();
       final lowerErr = rawError.toLowerCase();
       final isUserNotFound = lowerErr.contains('user not found') ||
           lowerErr.contains('user-not-found') ||
           lowerErr.contains('no account is registered') ||
           lowerErr.contains('no user record');
 
+      final isAlreadyExists = lowerErr.contains('already exists') ||
+          lowerErr.contains('email-already-in-use') ||
+          lowerErr.contains('already in use');
+
       setState(() {
         if (!_isSignUp) {
           if (isUserNotFound) {
             _isUserNotFoundError = true;
             _loginErrorMessage = 'User not found. No account is registered with this email address. Please check your email or Sign Up.';
+            if (kIsWeb) {
+              final typed = _emailController.text.trim();
+              _unregisteredMessage = typed.isNotEmpty
+                  ? 'No Unisphere account was found for $typed.'
+                  : 'No account is registered with this email address.';
+              _flipTrigger++;
+            }
           } else {
             _isUserNotFoundError = false;
             _loginErrorMessage = rawError.startsWith('Authentication Notice:')
@@ -619,10 +660,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       });
 
       if (mounted) {
-        _showSnackBar(
-          isUserNotFound ? 'User not found. Please check your email or Sign Up.' : rawError,
-          AppColors.error,
-        );
+        if (isAlreadyExists) {
+          _showSnackBar(
+            'An account with this email already exists. Switching to Sign In...',
+            AppColors.primary,
+          );
+          _toggleAuthMode(false);
+        } else if (!kIsWeb || !isUserNotFound) {
+          _showSnackBar(
+            isUserNotFound ? 'User not found. Please check your email or Sign Up.' : rawError,
+            AppColors.error,
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -646,19 +695,197 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final user = ref.read(authServiceProvider).currentUser;
       if (user != null && mounted) {
         await ref.read(userSessionServiceProvider).recordLogin(user.uid);
-        _navigateToUserDashboard(user);
+        if (!mounted) return;
+
+        // Check if user has multiple roles or institutions to select
+        if (user.availableRoles.length > 1 || user.availableInstitutions.length > 1) {
+          final selection = await WorkspaceSelectionDialog.show(context, user: user);
+          if (selection == null) {
+            // User cancelled workspace selection -> sign out
+            await ref.read(authServiceProvider).signOut();
+            return;
+          }
+          final chosenUser = user.copyWith(role: selection.role);
+          _navigateToUserDashboard(chosenUser);
+        } else {
+          _navigateToUserDashboard(user);
+        }
+      }
+    } on GoogleSignInCancelledException {
+      if (mounted) {
+        _showSnackBar('Sign-in cancelled.', const Color(0xFF64748B));
+      }
+    } on UnisphereAccountNotRegisteredException catch (e) {
+      if (mounted) {
+        if (kIsWeb) {
+          setState(() {
+            _unregisteredMessage = e.email != null && e.email!.isNotEmpty
+                ? 'Your Google account (${e.email}) is not registered in Unisphere.'
+                : 'Your Google account is not registered in Unisphere.';
+            _flipTrigger++;
+          });
+        } else {
+          _showAccountNotRegisteredDialog(e.email);
+        }
+      }
+    } on UnisphereAccountDeactivatedException catch (e) {
+      if (mounted) {
+        _showAccountDeactivatedDialog(e.message);
       }
     } catch (e) {
       final cleanMsg = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
-      if (mounted) {
+      final lower = cleanMsg.toLowerCase();
+      if (lower.contains('popup-closed-by-user') || lower.contains('cancelled')) {
+        if (mounted) _showSnackBar('Sign-in cancelled.', const Color(0xFF64748B));
+      } else if (lower.contains('unregistered') || lower.contains('not registered')) {
+        if (kIsWeb) {
+          setState(() {
+            _unregisteredMessage = 'Account does not exist. Please download the mobile app to sign up or register.';
+            _flipTrigger++;
+          });
+        } else {
+          if (mounted) _showAccountNotRegisteredDialog(null);
+        }
+      } else if (mounted) {
         _showSnackBar(
-          cleanMsg.isNotEmpty ? cleanMsg : 'Google Sign-In could not be completed.',
+          cleanMsg.isNotEmpty ? cleanMsg : 'Unable to sign in with Google. Please try again.',
           AppColors.error,
         );
       }
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }
+  }
+
+  void _showAccountNotRegisteredDialog(String? email) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFEE2E2)),
+              ),
+              child: const Icon(
+                Icons.person_off_rounded,
+                color: Color(0xFFEF4444),
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Account not registered',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              email != null && email.isNotEmpty
+                  ? 'Your Google account ($email) is authenticated, but you do not currently have access to a Unisphere institution.'
+                  : 'Your Google account is authenticated, but you do not currently have access to a Unisphere institution.',
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: Color(0xFF475569),
+                height: 1.45,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please contact your institution administrator.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF334155),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: const Text('Understood', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAccountDeactivatedDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.block_rounded, color: Color(0xFFEF4444), size: 28),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Account Deactivated',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B), height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showSnackBar(String message, Color color) {
@@ -679,6 +906,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         obscurePassword: _obscurePassword,
         isUserNotFoundError: _isUserNotFoundError,
         loginErrorMessage: _loginErrorMessage,
+        flipTrigger: _flipTrigger,
+        unregisteredMessage: _unregisteredMessage,
+        onFlippedToFront: () {
+          if (mounted) {
+            setState(() {
+              _unregisteredMessage = null;
+            });
+          }
+        },
         selectedRole: _selectedRole,
         onRoleChanged: (newRole) {
           setState(() {
@@ -696,21 +932,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         },
         onGoogleLoginPressed: _handleGoogleSignIn,
         onForgotPasswordPressed: _navigateToForgotPassword,
-        onDemoAutofill: (email, password, role) {
-          setState(() {
-            _selectedRole = role;
-            _emailController.text = email;
-            _passwordController.text = password;
-            _loginErrorMessage = null;
-            _isUserNotFoundError = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Autofilled ${role.name.toUpperCase()} demo credentials! Tap Login to continue.'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
       );
     }
 
@@ -1017,106 +1238,100 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         const SizedBox(height: 28),
         _buildSocialLogins(),
-        const SizedBox(height: 28),
-        _buildDemoLogins(),
       ],
     );
   }
 
+  Widget _buildRoleHeader() {
+    final String roleTitle;
+    final IconData roleIcon;
+    switch (_selectedRole) {
+      case UserRole.student:
+        roleTitle = 'Student Registration';
+        roleIcon = Icons.school_rounded;
+        break;
+      case UserRole.staff:
+      case UserRole.advisor:
+        roleTitle = 'Faculty / Staff Registration';
+        roleIcon = Icons.badge_rounded;
+        break;
+      case UserRole.hod:
+        roleTitle = 'Department (HOD) Registration';
+        roleIcon = Icons.corporate_fare_rounded;
+        break;
+      case UserRole.parent:
+        roleTitle = 'Parent / Guardian Registration';
+        roleIcon = Icons.family_restroom_rounded;
+        break;
+      default:
+        roleTitle = 'Campus Registration';
+        roleIcon = Icons.person_outline_rounded;
+        break;
+    }
 
-
-  Widget _buildDemoLogins() {
-    return Center(
-      child: Column(
-        children: [
-          const Text('⚡ Real-Time Demo Access & Quick Login', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _demoChip('🎓 Student', 'saravanapmvofficial@gmail.com', 'Sivamani9698pmv\$'),
-              _demoChip('👨‍👩‍👧 Parent', 'heydigitals.care@gmail.com', 'Sivamani9698pmv\$'),
-              _demoChip('🏛️ Department (HOD)', 'unispherecrm.official@gmail.com', 'Unisphere@123'),
-              _demoChip('👨‍🏫 Staff', 'Awenests.care@gmail.com', 'Unisphere@123'),
-              _demoChip('👑 Admin', 'admin@unisphere.edu', 'AdminPass123!'),
-            ],
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _demoChip(String role, String email, String pass) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-              onTap: () {
-                _toggleAuthMode(false);
-                setState(() {
-                  _loginErrorMessage = null;
-                  _isUserNotFoundError = false;
-                });
-                _emailController.text = email;
-                _passwordController.text = pass;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Autofilled $role credentials! Tap Log In or Login ➔ to launch.'),
-                    duration: const Duration(seconds: 2),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(roleIcon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  roleTitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
                   ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Text(role, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Workspace profile selected during onboarding',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
-              onTap: () async {
-                setState(() {
-                  _isSignUp = false;
-                  _loginErrorMessage = null;
-                  _isUserNotFoundError = false;
-                  _emailController.text = email;
-                  _passwordController.text = pass;
-                  _isLoading = true;
-                });
-                try {
-                  await ref.read(authServiceProvider).signInWithEmail(email, pass);
-                } catch (e) {
-                  if (mounted) _showSnackBar('Demo Login Notice: ${e.toString()}', AppColors.error);
-                } finally {
-                  if (mounted) setState(() => _isLoading = false);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 13),
+                SizedBox(width: 4),
+                Text(
+                  'Active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF065F46),
+                  ),
                 ),
-                child: const Row(
-                  children: [
-                    Text('Login ➔', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  ],
-                ),
-              ),
+              ],
             ),
           ),
         ],
@@ -1129,6 +1344,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       key: const ValueKey('signup_form'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildRoleHeader(),
         if (_selectedRole == UserRole.parent) ...[
           const Text('Parent / Guardian Full Name', style: _labelStyle),
           const SizedBox(height: 8),
@@ -1569,9 +1785,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _deptController,
-                      hint: 'Enter department name',
+                      hint: 'Select active department',
                       icon: Icons.school_outlined,
-                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Enter Department' : null,
+                      readOnly: true,
+                      onTap: _openActiveDepartmentPicker,
+                      customSuffixIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                      validator: (val) => _isSignUp && (val == null || val.trim().isEmpty) ? 'Select Department' : null,
                     ),
                   ],
                 ),
@@ -1921,6 +2140,230 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  void _openActiveDepartmentPicker() async {
+    HapticFeedback.lightImpact();
+    final activeDepts = await ref.read(departmentRepositoryProvider).getDepartmentsWithActiveHod();
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = activeDepts.where((d) {
+              return d.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                  d.code.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                  (d.hodName != null && d.hodName!.toLowerCase().contains(searchQuery.toLowerCase()));
+            }).toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.72,
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Active Department',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${filtered.length} active',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        hintText: 'Search active department or HOD...',
+                        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
+                        ),
+                      ),
+                      onChanged: (val) => setModalState(() => searchQuery = val),
+                    ),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFFEF3C7),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.domain_disabled_rounded, size: 32, color: Color(0xFFD97706)),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Text(
+                                      searchQuery.isEmpty ? 'No Active Departments' : 'No Departments Found',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      searchQuery.isEmpty
+                                          ? 'A Head of Department (HOD) must register first to activate a department for student sign-up.'
+                                          : 'No active department matched "$searchQuery".',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final dept = filtered[index];
+                                final isSelected = _deptController.text.trim() == dept.name;
+
+                                return InkWell(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() {
+                                      _deptController.text = dept.name;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.school_outlined, size: 20, color: isSelected ? Colors.white : AppColors.primary),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                dept.name,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                                  color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: isSelected ? Colors.white.withValues(alpha: 0.2) : const Color(0xFF10B981).withValues(alpha: 0.12),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      dept.code,
+                                                      style: TextStyle(
+                                                        fontSize: 10.5,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: isSelected ? Colors.white : const Color(0xFF059669),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'HOD: ${dept.hodName ?? "Registered"}',
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontSize: 11.5,
+                                                        color: isSelected ? Colors.white70 : const Color(0xFF64748B),
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
@@ -1934,6 +2377,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     VoidCallback? onToggleVisibility,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     final effectiveBorderSide = customBorderColor != null
         ? BorderSide(color: customBorderColor, width: 1.5)
@@ -1941,6 +2386,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     return TextFormField(
       controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       cursorColor: AppColors.primary,

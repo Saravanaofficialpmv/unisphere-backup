@@ -27,7 +27,7 @@ class HodFacultyOverview extends ConsumerWidget {
       return s == 'approved' || s == 'pending';
     }).length;
     final presentToday = (totalFaculty - onLeaveCount).clamp(0, totalFaculty);
-    final classesToday = schedule.isNotEmpty ? schedule.length : (summary.totalClasses > 0 ? summary.totalClasses * 2 : 6);
+    final classesToday = schedule.isNotEmpty ? schedule.length : (summary.totalClasses > 0 ? summary.totalClasses * 2 : 0);
 
     return AppleGlassCard(
       borderRadius: 16,

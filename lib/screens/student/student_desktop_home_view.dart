@@ -8,6 +8,7 @@ import 'package:unisphere/widgets/common/app_kpi_card.dart';
 import 'package:unisphere/widgets/common/app_page_header.dart';
 import 'package:unisphere/widgets/common/app_responsive_grid.dart';
 import 'package:unisphere/widgets/common/latest_photo_gallery_card.dart';
+import 'package:unisphere/widgets/student/student_profile_completion_banner.dart';
 
 /// Professional desktop-first Home Command Center for the Student Portal.
 /// Designed specifically for widescreen viewports (>= 800px) with high data density.
@@ -24,20 +25,28 @@ class StudentDesktopHomeView extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
     final overviewData = ref.watch(academicOverviewProvider);
 
-    final String studentName = currentUser?.fullName ?? currentUser?.name ?? 'Alex Johnson';
-    final String regNo = currentUser?.metadata?['registerNumber']?.toString() ?? 'RA2111003010001';
+    final String studentName = currentUser?.fullName ??
+        currentUser?.name ??
+        (currentUser?.email.split('@').first ?? 'Student');
+    final String regNo = (currentUser?.metadata?['registerNumber'] ??
+            currentUser?.metadata?['regNo'] ??
+            '')
+        .toString()
+        .trim();
     final String deptName = currentUser?.metadata?['department']?.toString() ??
         currentUser?.departmentName ??
         currentUser?.department ??
-        'Computer Science & Engineering';
-    final String semester = currentUser?.metadata?['semester']?.toString() ?? 'Semester VI';
+        '';
+    final String semester = currentUser?.metadata?['semester']?.toString() ??
+        currentUser?.metadata?['year']?.toString() ??
+        '';
 
     final String cgpaValue = overviewData.cgpa > 0
         ? overviewData.cgpa.toStringAsFixed(2)
-        : '8.78';
+        : '-';
     final String attendanceValue = overviewData.attendancePercentage > 0
         ? '${overviewData.attendancePercentage.toStringAsFixed(1)}%'
-        : '92.4%';
+        : '-';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
@@ -47,10 +56,22 @@ class StudentDesktopHomeView extends ConsumerWidget {
           // 1. Page Header with Title and Quick Action Buttons
           AppPageHeader(
             title: 'Student Academic Command Center',
-            subtitle: 'Welcome back, $studentName • B.Tech $deptName • $semester • Reg: $regNo',
+            subtitle: 'Welcome back, $studentName${deptName.isNotEmpty ? ' • B.Tech $deptName' : ''}${semester.isNotEmpty ? ' • $semester' : ''}${regNo.isNotEmpty ? ' • Reg: $regNo' : ''}',
             icon: Icons.dashboard_rounded,
             accentColor: AppColors.studentRole,
             actions: [
+              OutlinedButton.icon(
+                onPressed: () => StudentProfileCompletionBanner.openSheet(context),
+                icon: const Icon(Icons.assignment_ind_outlined, size: 16),
+                label: const Text('Complete Profile'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1E40AF),
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  side: const BorderSide(color: Color(0xFFBFDBFE)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
               OutlinedButton.icon(
                 onPressed: () => onNavigateToTab(1),
                 icon: const Icon(Icons.calendar_month_rounded, size: 16),
@@ -87,7 +108,12 @@ class StudentDesktopHomeView extends ConsumerWidget {
             ],
           ),
 
-          // 2. High-Density KPI Row (4 Core Metrics)
+          // 2. Interactive Profile Completion Banner (Draft / Under Review / Revision / Verified)
+          const StudentProfileCompletionBanner(
+            margin: EdgeInsets.only(top: 20, bottom: 20),
+          ),
+
+          // 3. High-Density KPI Row (4 Core Metrics)
           AppResponsiveGrid(
             spacing: 16,
             runSpacing: 16,
@@ -252,58 +278,17 @@ class StudentDesktopHomeView extends ConsumerWidget {
           ),
           const SizedBox(height: 14),
           const Divider(height: 1, color: AppColors.divider),
-          const SizedBox(height: 14),
-          _buildScheduleRow('09:00 – 10:00 AM', 'Distributed Cloud Systems (CS3601)', 'Dr. R. Kumar', 'LH-204', 'COMPLETED', AppColors.success),
-          const SizedBox(height: 10),
-          _buildScheduleRow('10:15 – 11:15 AM', 'Deep Learning & Neural Nets (AI3502)', 'Dr. Tharani Kumar', 'Lab-3', 'ACTIVE NOW', AppColors.primary),
-          const SizedBox(height: 10),
-          _buildScheduleRow('11:30 – 12:30 PM', 'Computer Networks & Protocols (CS3602)', 'Prof. A. Sivamani', 'LH-204', 'UPCOMING', AppColors.textSecondary),
-          const SizedBox(height: 10),
-          _buildScheduleRow('01:30 – 03:30 PM', 'Full Stack Capstone Project Lab', 'Prof. Sarah Jenkins', 'Center of Excellence', 'UPCOMING', AppColors.textSecondary),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScheduleRow(String time, String subject, String faculty, String room, String status, Color statusColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundSubtle,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Row(
-        children: [
           Container(
-            width: 130,
-            padding: const EdgeInsets.only(right: 12),
-            child: Text(
-              time,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-            ),
-          ),
-          Container(width: 1, height: 24, color: AppColors.border),
-          const SizedBox(width: 12),
-          Expanded(
+            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+            alignment: Alignment.center,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(subject, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                const SizedBox(height: 2),
-                Text('$faculty • Room $room', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                Icon(Icons.event_available_outlined, size: 36, color: Colors.grey.shade400),
+                const SizedBox(height: 8),
+                const Text('No classes scheduled for today', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                const SizedBox(height: 4),
+                const Text('Check the full timetable for upcoming schedules.', style: TextStyle(fontSize: 11, color: AppColors.textTertiary)),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusColor),
             ),
           ),
         ],
@@ -528,6 +513,11 @@ class StudentDesktopHomeView extends ConsumerWidget {
     String dept,
     String sem,
   ) {
+    final meta = user?.metadata ?? {};
+    final batch = meta['batch']?.toString() ?? (meta['year'] != null ? '${meta['year']}' : '—');
+    final advisor = meta['advisorName']?.toString() ?? meta['advisor']?.toString() ?? '—';
+    final email = (user?.email != null && user!.email.isNotEmpty) ? user.email : '—';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -580,13 +570,13 @@ class StudentDesktopHomeView extends ConsumerWidget {
           const SizedBox(height: 14),
           const Divider(height: 1, color: AppColors.divider),
           const SizedBox(height: 12),
-          _buildProfileDetailRow('Department', dept),
+          _buildProfileDetailRow('Department', dept.isNotEmpty ? dept : '—'),
           const SizedBox(height: 6),
-          _buildProfileDetailRow('Current Batch', '2022–2026 (3rd Year)'),
+          _buildProfileDetailRow('Current Batch', batch),
           const SizedBox(height: 6),
-          _buildProfileDetailRow('Academic Advisor', 'Dr. K. Tharani Kumar'),
+          _buildProfileDetailRow('Academic Advisor', advisor),
           const SizedBox(height: 6),
-          _buildProfileDetailRow('College Email', user?.email ?? 'saravanapmvofficial@gmail.com'),
+          _buildProfileDetailRow('College Email', email),
         ],
       ),
     );

@@ -20,7 +20,7 @@ final currentStudentResumeStreamProvider = StreamProvider.autoDispose<StudentRes
   final user = authState.value ?? ref.watch(authServiceProvider).currentUser;
   final identifier = user?.metadata?['registerNumber']?.toString().isNotEmpty == true
       ? user!.metadata!['registerNumber'].toString()
-      : (user?.uid.isNotEmpty == true ? user!.uid : 'DEMO-STU');
+      : (user?.uid ?? '');
 
   final resumeService = ref.watch(resumeServiceProvider);
   return resumeService.watchResumeForStudent(identifier, currentUserFallback: user);
@@ -72,236 +72,77 @@ class ResumeService {
     String? customLeetCode,
     String? customLinkedin,
   }) {
-    final cleanId = (studentId ?? user?.metadata?['registerNumber']?.toString() ?? user?.uid ?? '927622BCS045').trim();
+    final cleanId = (studentId ?? user?.metadata?['registerNumber']?.toString() ?? user?.uid ?? '').trim();
     final userMeta = user?.metadata ?? {};
 
-    String rawName = customName ?? user?.name ?? user?.fullName ?? '';
-    if (rawName.isEmpty || rawName == 'User' || rawName.toLowerCase().contains('official')) {
-      rawName = 'Saravana Selvaraju';
-    }
-    final fullName = rawName.trim();
-
-    final headline = userMeta['headline']?.toString().isNotEmpty == true
-        ? userMeta['headline'].toString()
-        : 'Full-Stack Software Engineer | Flutter & Mobile Systems Specialist';
-
-    final collegeEmail = (user?.email.isNotEmpty == true) ? user!.email : 'saravanapmvofficial@gmail.com';
+    final fullName = (customName ?? user?.fullName ?? user?.name ?? 'Student').trim();
+    final headline = userMeta['headline']?.toString() ?? '';
+    final collegeEmail = user?.email ?? '';
     final personalEmail = userMeta['personalEmail']?.toString();
-    final primaryMobile = (user?.phone.isNotEmpty == true) ? user!.phone : '+91 98765 43210';
+    final primaryMobile = user?.phone ?? '';
     final isPhoneVisible = userMeta['isPhoneVisible'] != false;
-
-    const location = 'Karur, Tamil Nadu, India';
+    final location = userMeta['location']?.toString() ?? '';
 
     final rawLinkedin = customLinkedin ?? userMeta['linkedinUrl']?.toString();
     final linkedinUrl = rawLinkedin != null && rawLinkedin.isNotEmpty
         ? (rawLinkedin.startsWith('http') ? rawLinkedin : 'https://$rawLinkedin')
-        : 'https://www.linkedin.com/in/saravana-selvaraju/';
+        : '';
 
-    final githubUser = customGithub ?? (userMeta['githubUsername']?.toString().isNotEmpty == true
-        ? userMeta['githubUsername'].toString()
-        : 'Saravanaofficialpmv');
-    final githubUrl = githubUser.startsWith('http') ? githubUser : 'https://github.com/$githubUser';
+    final githubUser = customGithub ?? userMeta['githubUsername']?.toString() ?? '';
+    final githubUrl = githubUser.isNotEmpty
+        ? (githubUser.startsWith('http') ? githubUser : 'https://github.com/$githubUser')
+        : '';
 
-    final leetcodeUser = customLeetCode ?? (userMeta['leetcodeUsername']?.toString().isNotEmpty == true
-        ? userMeta['leetcodeUsername'].toString()
-        : 'saravanapmv');
-    final leetcodeUrl = leetcodeUser.startsWith('http') ? leetcodeUser : 'https://leetcode.com/u/$leetcodeUser';
+    final leetcodeUser = customLeetCode ?? userMeta['leetcodeUsername']?.toString() ?? '';
+    final leetcodeUrl = leetcodeUser.isNotEmpty
+        ? (leetcodeUser.startsWith('http') ? leetcodeUser : 'https://leetcode.com/u/$leetcodeUser')
+        : '';
 
-    final portfolioUrl = userMeta['portfolioUrl']?.toString().isNotEmpty == true
-        ? userMeta['portfolioUrl'].toString()
-        : '$githubUrl?tab=repositories';
+    final portfolioUrl = userMeta['portfolioUrl']?.toString() ?? '';
 
     final header = ResumeHeader(
       fullName: fullName,
       headline: headline,
       collegeEmail: collegeEmail,
       personalEmail: personalEmail,
-      phone: isPhoneVisible ? primaryMobile : null,
+      phone: isPhoneVisible && primaryMobile.isNotEmpty ? primaryMobile : null,
       isPhoneVisible: isPhoneVisible,
       location: location,
-      linkedinUrl: linkedinUrl,
-      githubUrl: githubUrl,
-      leetcodeUrl: leetcodeUrl,
-      portfolioUrl: portfolioUrl,
-      languages: const ['Tamil (Native)', 'English (Professional Working)'],
-      professionalInterests: const [
-        'Mobile Application Architecture',
-        'Distributed Cloud Systems',
-        'Artificial Intelligence & MLOps',
-        'Scalable Backend Engineering',
-      ],
+      linkedinUrl: linkedinUrl.isNotEmpty ? linkedinUrl : null,
+      githubUrl: githubUrl.isNotEmpty ? githubUrl : null,
+      leetcodeUrl: leetcodeUrl.isNotEmpty ? leetcodeUrl : null,
+      portfolioUrl: portfolioUrl.isNotEmpty ? portfolioUrl : null,
+      languages: const [],
+      professionalInterests: const [],
     );
 
-    final deptName = customDepartment ?? userMeta['department']?.toString() ?? 'Computer Science & Engineering';
-    final currentSem = userMeta['semester']?.toString() ?? 'Semester VI';
-    final currentYear = customYear ?? userMeta['year']?.toString() ?? '3rd Year';
-    final cgpa = customCgpa ?? userMeta['cgpa']?.toString() ?? '8.72';
+    final deptName = customDepartment ?? userMeta['department']?.toString() ?? userMeta['departmentName']?.toString() ?? '';
+    final currentSem = userMeta['semester']?.toString() ?? '';
+    final currentYear = customYear ?? userMeta['year']?.toString() ?? '';
+    final cgpa = customCgpa ?? userMeta['cgpa']?.toString() ?? '';
 
     final List<ResumeEducationItem> educationList = [
-      ResumeEducationItem(
-        degree: 'Bachelor of Engineering in $deptName',
-        institution: 'VSB Engineering College (Autonomous)',
-        boardOrUniversity: 'Anna University, Chennai (Accredited by NAAC \'A\' Grade & NBA)',
-        period: '2022 – 2026 (Expected)',
-        score: cgpa,
-        scoreLabel: 'Current CGPA: $cgpa / 10.0',
-        currentYearOrSem: '$currentYear ($currentSem)',
-        isPrimaryCollege: true,
-      ),
-      const ResumeEducationItem(
-        degree: 'Higher Secondary Certificate (HSC – Class XII, Physics, Chemistry, Maths & CS)',
-        institution: 'VSB Higher Secondary School, Karur',
-        boardOrUniversity: 'Tamil Nadu Directorate of Government Examinations',
-        period: '2020 – 2022',
-        score: '92.0%',
-        scoreLabel: 'Score: 552 / 600 (92.0%)',
-      ),
-      const ResumeEducationItem(
-        degree: 'Secondary School Leaving Certificate (SSLC – Class X)',
-        institution: 'Government Higher Secondary School, Karur',
-        boardOrUniversity: 'Tamil Nadu State Board of School Examinations',
-        period: '2019 – 2020',
-        score: '93.0%',
-        scoreLabel: 'Score: 465 / 500 (93.0%)',
-      ),
+      if (deptName.isNotEmpty)
+        ResumeEducationItem(
+          degree: 'Bachelor of Engineering in $deptName',
+          institution: 'VSB Engineering College (Autonomous)',
+          boardOrUniversity: 'Anna University',
+          period: userMeta['batch']?.toString() ?? '',
+          score: cgpa.isNotEmpty ? cgpa : '-',
+          scoreLabel: cgpa.isNotEmpty ? 'CGPA: $cgpa' : '',
+          currentYearOrSem: currentYear.isNotEmpty ? '$currentYear${currentSem.isNotEmpty ? ' ($currentSem)' : ''}' : currentSem,
+          isPrimaryCollege: true,
+        ),
     ];
 
-    final List<ResumeExperienceItem> experienceList = [
-      const ResumeExperienceItem(
-        id: 'exp-1',
-        organization: 'UniSphere Tech Innovations Lab',
-        role: 'Lead Full-Stack Mobile Engineer Intern',
-        type: 'Internship',
-        duration: 'Jan 2026 – Present',
-        location: 'Karur, Tamil Nadu (On-site)',
-        bulletPoints: [
-          'Spearheaded the development of a comprehensive campus ERP suite serving 3,000+ students and 150+ faculty members using Flutter & Firebase Firestore.',
-          'Engineered low-latency real-time attendance verification algorithms and dynamic automated notification scheduling triggers.',
-          'Integrated biometric authentication, cloud document verification pipelines, and multi-tier role-based access control (RBAC).',
-        ],
-      ),
-      const ResumeExperienceItem(
-        id: 'exp-2',
-        organization: 'Google Developer Student Clubs (GDSC) - VSBEC',
-        role: 'Mobile & Cloud Track Lead',
-        type: 'Leadership & Work Experience',
-        duration: 'Aug 2025 – Jan 2026',
-        location: 'VSBEC Campus',
-        bulletPoints: [
-          'Mentored 60+ junior engineering students in Dart, Flutter cross-platform architecture, and Cloud Firestore integration.',
-          'Organized hands-on hackathons and technical coding bootcamps focusing on clean software development practices.',
-        ],
-      ),
-    ];
-
-    final List<ResumeProjectItem> projectList = [
-      ResumeProjectItem(
-        id: 'proj-1',
-        title: 'UniSphere - Smart Campus ERP Platform',
-        role: 'Lead Architect & Mobile Engineer',
-        description: 'A unified mobile & web campus management system built with Flutter, Firebase Firestore, and real-time push analytics.',
-        technologies: const ['Flutter', 'Firebase', 'Dart', 'Riverpod', 'Cloud Firestore', 'RBAC'],
-        githubUrl: githubUrl,
-        status: 'Completed',
-        outcomes: const [
-          'Automated attendance tracking, GPA planning, and NPTEL credential verification for 5 departments.',
-          'Implemented end-to-end resume generation engine with authentic A4 print-ready visualization.',
-        ],
-      ),
-      ResumeProjectItem(
-        id: 'proj-2',
-        title: 'AI Automated Attendance & Facial Recognition System',
-        role: 'AI Systems Engineer',
-        description: 'Deep learning vision model integrated with mobile camera streams for contactless biometric attendance verification.',
-        technologies: const ['Python', 'OpenCV', 'TensorFlow', 'Flutter', 'REST APIs'],
-        githubUrl: githubUrl,
-        status: 'Ongoing',
-        outcomes: const [
-          'Achieved 98.4% model accuracy in varied lighting conditions with sub-second facial match latency.',
-        ],
-      ),
-    ];
-
-    final List<ResumeCertificationItem> certList = [
-      const ResumeCertificationItem(
-        id: 'cert-1',
-        title: 'NPTEL Cloud Computing & Distributed Systems',
-        provider: 'IIT Kharagpur / NPTEL (Elite + Gold Medal)',
-        type: 'NPTEL / SWAYAM',
-        certificateId: 'NPTEL26CS45S1299834',
-        issueDate: '2026-04',
-        isVerified: true,
-      ),
-      const ResumeCertificationItem(
-        id: 'cert-2',
-        title: 'AWS Certified Solutions Architect – Associate',
-        provider: 'Amazon Web Services',
-        type: 'Industry Certification',
-        certificateId: 'AWS-ASA-99823412',
-        issueDate: '2026-05',
-        isVerified: true,
-      ),
-      const ResumeCertificationItem(
-        id: 'cert-3',
-        title: 'Google Cloud Professional Data Engineer',
-        provider: 'Google Cloud',
-        type: 'Industry Certification',
-        certificateId: 'GCP-PDE-8823194',
-        issueDate: '2026-07',
-        isVerified: true,
-      ),
-    ];
-
-    final List<ResumeActivityItem> activityList = [
-      const ResumeActivityItem(
-        id: 'act-1',
-        title: 'Smart Campus AI Hackathon 2026',
-        category: 'Hackathon Grand Winner',
-        organizer: 'UniSphere National Innovation Council',
-        roleOrRank: '1st Prize (Team CyberKnights)',
-        date: 'Feb 2026',
-        description: 'Won ₹50,000 first prize for deploying a scalable smart campus IoT & analytics prototype on GCP.',
-      ),
-      const ResumeActivityItem(
-        id: 'act-2',
-        title: 'Dean\'s List Academic Honor',
-        category: 'Academic Distinction',
-        organizer: 'Office of the Academic Dean, VSBEC',
-        roleOrRank: 'Honor Scholar (CGPA >= 8.50)',
-        date: 'Jan 2026',
-        description: 'Maintained distinction grade across consecutive semesters with zero backlogs.',
-      ),
-      const ResumeActivityItem(
-        id: 'act-3',
-        title: 'Code Master Coding Achievement',
-        category: 'Technical Honor',
-        organizer: 'Department of Computer Science & Engineering',
-        roleOrRank: 'Top Performer',
-        date: 'Dec 2025',
-        description: 'Solved 130+ LeetCode DSA problems with 98.4% unit test pass rate.',
-      ),
-    ];
-
-    const allSkills = [
-      'Dart', 'Python', 'C++', 'Java', 'SQL', 'JavaScript',
-      'Flutter', 'React', 'HTML5/CSS3', 'REST APIs',
-      'Firebase Firestore', 'PostgreSQL', 'Node.js',
-      'Google Cloud (GCP)', 'AWS', 'TensorFlow', 'OpenCV', 'Docker',
-      'Git', 'GitHub', 'VS Code', 'Figma', 'Linux', 'Agile Methodologies',
-    ];
-
+    final List<ResumeExperienceItem> experienceList = const [];
+    final List<ResumeProjectItem> projectList = const [];
+    final List<ResumeCertificationItem> certList = const [];
+    final List<ResumeActivityItem> activityList = const [];
+    final List<String> allSkills = const [];
     final categorizedSkills = _categorizeSkills(allSkills);
 
-    final summary = _generateSynthesizedSummary(
-      fullName: fullName,
-      deptName: deptName,
-      year: currentYear,
-      cgpa: cgpa,
-      projectsCount: projectList.length,
-      certsCount: certList.length,
-      topTechs: allSkills.take(5).toList(),
-      experienceList: experienceList,
-    );
+    final summary = headline;
 
     final completeness = _calculateCompleteness(
       fullName: fullName,
@@ -324,7 +165,7 @@ class ResumeService {
       registerNumber: userMeta['registerNumber']?.toString() ?? cleanId,
       department: deptName,
       academicYear: currentYear,
-      section: userMeta['section']?.toString() ?? 'Sec B',
+      section: userMeta['section']?.toString() ?? '',
       header: header,
       professionalSummary: summary,
       education: educationList,
@@ -514,62 +355,59 @@ class ResumeService {
 
     // ── Build Header ──
     final rawFullName = personalObj['fullName']?.toString() ??
-        user?.name ??
         user?.fullName ??
+        user?.name ??
         student?.fullName ??
-        'Saravana Selvaraju';
+        '';
 
-    final fullName = rawFullName.trim().isNotEmpty ? rawFullName.trim() : 'Saravana Selvaraju';
+    final fullName = rawFullName.trim().isNotEmpty ? rawFullName.trim() : (user?.email.split('@').first ?? '');
 
     final headline = userMeta['headline']?.toString().isNotEmpty == true
         ? userMeta['headline'].toString()
         : (userMeta['linkedinHeadline']?.toString().isNotEmpty == true
             ? userMeta['linkedinHeadline'].toString()
-            : 'Full-Stack Software Engineer | Flutter & Mobile Systems Specialist');
+            : '');
 
     final collegeEmail = personalObj['collegeEmail']?.toString().isNotEmpty == true
         ? personalObj['collegeEmail'].toString()
-        : (user?.email.isNotEmpty == true ? user!.email : 'saravanapmvofficial@gmail.com');
+        : (user?.email.isNotEmpty == true ? user!.email : '');
 
     final personalEmail = contactObj['personalEmail']?.toString() ?? userMeta['personalEmail']?.toString();
-    final primaryMobile = contactObj['primaryMobile']?.toString() ?? user?.phone ?? '+91 98765 43210';
+    final primaryMobile = contactObj['primaryMobile']?.toString() ?? user?.phone ?? '';
     final isPhoneVisible = userMeta['isPhoneVisible'] != false;
 
     final permAddr = (contactObj['permanentAddress'] as Map<String, dynamic>?) ?? {};
-    final city = permAddr['city']?.toString() ?? 'Karur';
-    final state = permAddr['state']?.toString() ?? 'Tamil Nadu';
-    final country = permAddr['country']?.toString() ?? 'India';
-    final location = '$city, $state, $country';
+    final city = permAddr['city']?.toString() ?? '';
+    final state = permAddr['state']?.toString() ?? '';
+    final country = permAddr['country']?.toString() ?? '';
+    final location = [city, state, country].where((s) => s.isNotEmpty).join(', ');
 
-    final rawLinkedin = userMeta['linkedinUrl']?.toString();
-    final linkedinUrl = rawLinkedin != null && rawLinkedin.isNotEmpty
+    final rawLinkedin = userMeta['linkedinUrl']?.toString() ?? '';
+    final linkedinUrl = rawLinkedin.isNotEmpty
         ? (rawLinkedin.startsWith('http') ? rawLinkedin : 'https://$rawLinkedin')
-        : 'https://www.linkedin.com/in/saravana-selvaraju/';
+        : '';
 
-    final githubUser = userMeta['githubUsername']?.toString().isNotEmpty == true
-        ? userMeta['githubUsername'].toString()
-        : 'Saravanaofficialpmv';
-    final githubUrl = githubUser.startsWith('http') ? githubUser : 'https://github.com/$githubUser';
+    final githubUser = userMeta['githubUsername']?.toString() ?? '';
+    final githubUrl = githubUser.isNotEmpty
+        ? (githubUser.startsWith('http') ? githubUser : 'https://github.com/$githubUser')
+        : '';
 
-    final leetcodeUser = userMeta['leetcodeUsername']?.toString().isNotEmpty == true
-        ? userMeta['leetcodeUsername'].toString()
-        : 'saravanapmv';
-    final leetcodeUrl = leetcodeUser.startsWith('http') ? leetcodeUser : 'https://leetcode.com/u/$leetcodeUser';
+    final leetcodeUser = userMeta['leetcodeUsername']?.toString() ?? '';
+    final leetcodeUrl = leetcodeUser.isNotEmpty
+        ? (leetcodeUser.startsWith('http') ? leetcodeUser : 'https://leetcode.com/u/$leetcodeUser')
+        : '';
 
-    final portfolioUrl = userMeta['portfolioUrl']?.toString().isNotEmpty == true
-        ? userMeta['portfolioUrl'].toString()
-        : '$githubUrl?tab=repositories';
+    final portfolioUrl = userMeta['portfolioUrl']?.toString() ?? '';
 
     final languages = <String>[
-      if (personalObj['motherTongue'] != null) '${personalObj['motherTongue']} (Native)' else 'Tamil (Native)',
-      'English (Professional Working)',
+      if (personalObj['motherTongue'] != null) '${personalObj['motherTongue']} (Native)',
+      if (userMeta['languages'] is List)
+        ...(userMeta['languages'] as List).map((e) => e.toString()),
     ];
 
     final interests = <String>[
-      'Mobile Application Architecture',
-      'Distributed Cloud Systems',
-      'Artificial Intelligence & MLOps',
-      'Scalable Backend Engineering',
+      if (userMeta['interests'] is List)
+        ...(userMeta['interests'] as List).map((e) => e.toString()),
     ];
 
     final header = ResumeHeader(
@@ -577,7 +415,7 @@ class ResumeService {
       headline: headline,
       collegeEmail: collegeEmail,
       personalEmail: personalEmail,
-      phone: isPhoneVisible ? primaryMobile : null,
+      phone: isPhoneVisible && primaryMobile.isNotEmpty ? primaryMobile : null,
       isPhoneVisible: isPhoneVisible,
       location: location,
       linkedinUrl: linkedinUrl,
@@ -589,45 +427,37 @@ class ResumeService {
     );
 
     // ── Build Education ──
-    final deptName = student?.departmentName ?? userMeta['department']?.toString() ?? 'Computer Science & Engineering';
-    final currentSem = student?.semester ?? userMeta['semester']?.toString() ?? 'Semester VI';
-    final currentYear = userMeta['year']?.toString() ?? '3rd Year';
-    final admissionYear = student?.admissionYear ?? 2022;
-    final gradYear = admissionYear + 4;
-    final cgpa = student?.cgpa ?? userMeta['cgpa']?.toString() ?? '8.92';
+    final deptName = student?.departmentName ?? userMeta['department']?.toString() ?? '';
+    final currentSem = student?.semester ?? userMeta['semester']?.toString() ?? '';
+    final currentYear = userMeta['year']?.toString() ?? '';
+    final admissionYear = student?.admissionYear;
+    final gradYear = admissionYear != null ? admissionYear + 4 : null;
+    final cgpa = student?.cgpa ?? userMeta['cgpa']?.toString() ?? '';
 
-    final List<ResumeEducationItem> educationList = [
-      ResumeEducationItem(
-        degree: 'Bachelor of Engineering in $deptName',
+    final List<ResumeEducationItem> educationList = [];
+    if (deptName.isNotEmpty || cgpa.isNotEmpty) {
+      educationList.add(ResumeEducationItem(
+        degree: deptName.isNotEmpty ? 'Bachelor of Engineering in $deptName' : 'Bachelor of Engineering',
         institution: 'VSB Engineering College (Autonomous)',
-        boardOrUniversity: 'Anna University, Chennai (Accredited by NAAC \'A\' Grade & NBA)',
-        period: '$admissionYear – $gradYear (Expected)',
+        boardOrUniversity: 'Anna University, Chennai',
+        period: admissionYear != null ? '$admissionYear – $gradYear' : '',
         score: cgpa,
-        scoreLabel: 'Current CGPA: $cgpa / 10.0',
-        currentYearOrSem: '$currentYear ($currentSem)',
+        scoreLabel: cgpa.isNotEmpty ? 'Current CGPA: $cgpa / 10.0' : '',
+        currentYearOrSem: [currentYear, currentSem].where((s) => s.isNotEmpty).join(' '),
         isPrimaryCollege: true,
-      ),
-    ];
+      ));
+    }
 
     // 12th / Diploma
     final twelfthObj = (educationObj['twelfthOrDiploma'] as Map<String, dynamic>?) ?? {};
     if (twelfthObj.isNotEmpty && twelfthObj['institutionName']?.toString().isNotEmpty == true) {
       educationList.add(ResumeEducationItem(
-        degree: 'Higher Secondary Certificate (HSC – Class XII)',
-        institution: twelfthObj['institutionName']?.toString() ?? 'VSB Higher Sec School',
-        boardOrUniversity: twelfthObj['boardOrUniversity']?.toString() ?? 'Tamil Nadu State Board',
-        period: twelfthObj['passingYear']?.toString() ?? '2022',
-        score: '${twelfthObj['percentage'] ?? 92.0}%',
-        scoreLabel: 'Score: ${twelfthObj['marksObtained'] ?? 552} / ${twelfthObj['totalMarks'] ?? 600} (${twelfthObj['percentage'] ?? 92.0}%)',
-      ));
-    } else {
-      educationList.add(const ResumeEducationItem(
-        degree: 'Higher Secondary Certificate (HSC – Class XII, Physics, Chemistry, Maths & CS)',
-        institution: 'VSB Higher Secondary School, Karur',
-        boardOrUniversity: 'Tamil Nadu Directorate of Government Examinations',
-        period: '2020 – 2022',
-        score: '92.0%',
-        scoreLabel: 'Score: 552 / 600 (92.0%)',
+        degree: twelfthObj['course']?.toString() ?? 'Higher Secondary Certificate (HSC – Class XII)',
+        institution: twelfthObj['institutionName']?.toString() ?? '',
+        boardOrUniversity: twelfthObj['boardOrUniversity']?.toString() ?? '',
+        period: twelfthObj['passingYear']?.toString() ?? '',
+        score: twelfthObj['percentage'] != null ? '${twelfthObj['percentage']}%' : '',
+        scoreLabel: twelfthObj['percentage'] != null ? 'Score: ${twelfthObj['percentage']}%' : '',
       ));
     }
 
@@ -636,51 +466,31 @@ class ResumeService {
     if (tenthObj.isNotEmpty && tenthObj['institutionName']?.toString().isNotEmpty == true) {
       educationList.add(ResumeEducationItem(
         degree: 'Secondary School Leaving Certificate (SSLC – Class X)',
-        institution: tenthObj['institutionName']?.toString() ?? 'Government Higher Sec School',
-        boardOrUniversity: tenthObj['boardOrUniversity']?.toString() ?? 'State Board of School Examinations',
-        period: tenthObj['passingYear']?.toString() ?? '2020',
-        score: '${tenthObj['percentage'] ?? 93.0}%',
-        scoreLabel: 'Score: ${tenthObj['marksObtained'] ?? 465} / ${tenthObj['totalMarks'] ?? 500} (${tenthObj['percentage'] ?? 93.0}%)',
-      ));
-    } else {
-      educationList.add(const ResumeEducationItem(
-        degree: 'Secondary School Leaving Certificate (SSLC – Class X)',
-        institution: 'Government Higher Secondary School, Karur',
-        boardOrUniversity: 'Tamil Nadu State Board of School Examinations',
-        period: '2019 – 2020',
-        score: '93.0%',
-        scoreLabel: 'Score: 465 / 500 (93.0%)',
+        institution: tenthObj['institutionName']?.toString() ?? '',
+        boardOrUniversity: tenthObj['boardOrUniversity']?.toString() ?? '',
+        period: tenthObj['passingYear']?.toString() ?? '',
+        score: tenthObj['percentage'] != null ? '${tenthObj['percentage']}%' : '',
+        scoreLabel: tenthObj['percentage'] != null ? 'Score: ${tenthObj['percentage']}%' : '',
       ));
     }
 
     // ── Build Experience ──
-    final List<ResumeExperienceItem> experienceList = [
-      const ResumeExperienceItem(
-        id: 'exp-1',
-        organization: 'UniSphere Tech Innovations Lab',
-        role: 'Lead Full-Stack Mobile Engineer Intern',
-        type: 'Internship',
-        duration: 'Jan 2026 – Present',
-        location: 'Karur, Tamil Nadu (On-site)',
-        bulletPoints: [
-          'Spearheaded the development of a comprehensive campus ERP suite serving 3,000+ students and 150+ faculty members using Flutter & Firebase Firestore.',
-          'Engineered low-latency real-time attendance verification algorithms and dynamic automated notification scheduling triggers.',
-          'Integrated biometric authentication, cloud document verification pipelines, and multi-tier role-based access control (RBAC).',
-        ],
-      ),
-      const ResumeExperienceItem(
-        id: 'exp-2',
-        organization: 'Google Developer Student Clubs (GDSC) - VSBEC',
-        role: 'Mobile & Cloud Track Lead',
-        type: 'Leadership & Work Experience',
-        duration: 'Aug 2025 – Jan 2026',
-        location: 'VSBEC Campus',
-        bulletPoints: [
-          'Mentored 60+ junior engineering students in Dart, Flutter cross-platform architecture, and Cloud Firestore integration.',
-          'Organized hands-on hackathons and technical coding bootcamps focusing on clean software development practices.',
-        ],
-      ),
-    ];
+    final List<ResumeExperienceItem> experienceList = [];
+    if (userMeta['experiences'] is List) {
+      for (final exp in userMeta['experiences'] as List) {
+        if (exp is Map<String, dynamic>) {
+          experienceList.add(ResumeExperienceItem(
+            id: exp['id']?.toString() ?? '',
+            organization: exp['organization']?.toString() ?? '',
+            role: exp['role']?.toString() ?? '',
+            type: exp['type']?.toString() ?? 'Internship',
+            duration: exp['duration']?.toString() ?? '',
+            location: exp['location']?.toString() ?? '',
+            bulletPoints: (exp['bulletPoints'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+          ));
+        }
+      }
+    }
 
     // ── Build Projects ──
     final List<ResumeProjectItem> projectList = [];
@@ -689,45 +499,16 @@ class ResumeService {
         projectList.add(ResumeProjectItem(
           id: p.id,
           title: p.title,
-          role: 'Lead Full-Stack Developer',
+          role: 'Lead Developer',
           description: p.description,
-          technologies: p.technologies.isNotEmpty ? p.technologies : ['Flutter', 'Firebase', 'Dart'],
+          technologies: p.technologies,
           githubUrl: p.githubUrl ?? githubUrl,
           status: p.status,
           outcomes: [
             if (p.guideName != null && p.guideName!.isNotEmpty) 'Mentored under ${p.guideName}',
-            'Architected modular state management with Riverpod and real-time database synchronizations.',
           ],
         ));
       }
-    }
-    
-    if (projectList.isEmpty) {
-      projectList.add(ResumeProjectItem(
-        id: 'proj-1',
-        title: 'UniSphere - Smart Campus ERP Platform',
-        role: 'Lead Architect & Mobile Engineer',
-        description: 'A unified mobile & web campus management system built with Flutter, Firebase Firestore, and real-time push analytics.',
-        technologies: const ['Flutter', 'Firebase', 'Dart', 'Riverpod', 'Cloud Firestore', 'RBAC'],
-        githubUrl: githubUrl,
-        status: 'Completed',
-        outcomes: const [
-          'Automated attendance tracking, GPA planning, and NPTEL credential verification for 5 departments.',
-          'Implemented end-to-end resume generation engine with authentic A4 print-ready visualization.',
-        ],
-      ));
-      projectList.add(ResumeProjectItem(
-        id: 'proj-2',
-        title: 'AI Automated Attendance & Facial Recognition System',
-        role: 'AI Systems Engineer',
-        description: 'Deep learning vision model integrated with mobile camera streams for contactless biometric attendance verification.',
-        technologies: const ['Python', 'OpenCV', 'TensorFlow', 'Flutter', 'REST APIs'],
-        githubUrl: githubUrl,
-        status: 'Ongoing',
-        outcomes: const [
-          'Achieved 98.4% model accuracy in varied lighting conditions with sub-second facial match latency.',
-        ],
-      ));
     }
 
     // ── Build Certifications ──
@@ -746,36 +527,6 @@ class ResumeService {
         ));
       }
     }
-    
-    if (certList.isEmpty) {
-      certList.add(const ResumeCertificationItem(
-        id: 'cert-1',
-        title: 'NPTEL Cloud Computing & Distributed Systems',
-        provider: 'IIT Kharagpur / NPTEL (Elite + Gold Medal)',
-        type: 'NPTEL / SWAYAM',
-        certificateId: 'NPTEL26CS45S1299834',
-        issueDate: '2026-04',
-        isVerified: true,
-      ));
-      certList.add(const ResumeCertificationItem(
-        id: 'cert-2',
-        title: 'AWS Certified Solutions Architect – Associate',
-        provider: 'Amazon Web Services',
-        type: 'Industry Certification',
-        certificateId: 'AWS-ASA-99823412',
-        issueDate: '2026-05',
-        isVerified: true,
-      ));
-      certList.add(const ResumeCertificationItem(
-        id: 'cert-3',
-        title: 'Google Cloud Professional Data Engineer',
-        provider: 'Google Cloud',
-        type: 'Industry Certification',
-        certificateId: 'GCP-PDE-8823194',
-        issueDate: '2026-07',
-        isVerified: true,
-      ));
-    }
 
     // ── Build Activities & Achievements ──
     final List<ResumeActivityItem> activityList = [];
@@ -786,83 +537,43 @@ class ResumeService {
           title: h.hackathonTitle,
           category: 'Hackathon',
           organizer: h.organizer,
-          roleOrRank: 'Team Leader (${h.teamName})',
+          roleOrRank: 'Participant (${h.teamName})',
           date: '${h.startDate.year}-${h.startDate.month.toString().padLeft(2, '0')}',
           description: h.description,
         ));
       }
     }
-    
-    if (activityList.isEmpty) {
-      activityList.add(const ResumeActivityItem(
-        id: 'act-1',
-        title: 'Smart Campus AI Hackathon 2026',
-        category: 'Hackathon Grand Winner',
-        organizer: 'UniSphere National Innovation Council',
-        roleOrRank: '1st Prize (Team CyberKnights)',
-        date: 'Feb 2026',
-        description: 'Won ₹50,000 first prize for deploying a scalable smart campus IoT & analytics prototype on GCP.',
-      ));
-      activityList.add(const ResumeActivityItem(
-        id: 'act-2',
-        title: 'Dean\'s List Academic Honor',
-        category: 'Academic Distinction',
-        organizer: 'Office of the Academic Dean, VSBEC',
-        roleOrRank: 'Honor Scholar (CGPA >= 8.50)',
-        date: 'Jan 2026',
-        description: 'Maintained distinction grade across consecutive semesters with zero backlogs.',
-      ));
-      activityList.add(const ResumeActivityItem(
-        id: 'act-3',
-        title: 'Code Master Coding Achievement',
-        category: 'Technical Honor',
-        organizer: 'Department of Computer Science & Engineering',
-        roleOrRank: 'Top Performer',
-        date: 'Dec 2025',
-        description: 'Solved 130+ LeetCode DSA problems with 98.4% unit test pass rate.',
-      ));
-    }
 
-    // Add unisphere institutional memberships if available
     final hasMembership = student?.hasMembership ?? userMeta['hasMembership'] == true;
     if (hasMembership) {
-      final org = student?.membershipOrg ?? userMeta['membershipOrg']?.toString() ?? 'ISTE';
-      final memId = student?.membershipId ?? userMeta['membershipId']?.toString() ?? 'ISTE-2024-9842';
-      activityList.add(ResumeActivityItem(
-        id: 'mem-1',
-        title: 'Professional Member - $org',
-        category: 'Professional Society',
-        organizer: org,
-        roleOrRank: 'Student Member',
-        date: 'Active',
-        description: 'Active member participating in technical workshops, paper presentations, and symposia (ID: $memId).',
-      ));
+      final org = student?.membershipOrg ?? userMeta['membershipOrg']?.toString() ?? '';
+      final memId = student?.membershipId ?? userMeta['membershipId']?.toString() ?? '';
+      if (org.isNotEmpty) {
+        activityList.add(ResumeActivityItem(
+          id: 'mem-1',
+          title: 'Professional Member - $org',
+          category: 'Professional Society',
+          organizer: org,
+          roleOrRank: 'Student Member',
+          date: 'Active',
+          description: 'Member ID: $memId',
+        ));
+      }
     }
 
     // ── Build Skills Categorization ──
     final allCollectedSkills = <String>{};
 
-    // Gather from projects
     for (var p in projectList) {
       allCollectedSkills.addAll(p.technologies);
     }
 
-    // Gather from user metadata
     if (userMeta['skills'] is List) {
       for (var s in userMeta['skills'] as List) {
-        allCollectedSkills.add(s.toString());
+        if (s.toString().trim().isNotEmpty) {
+          allCollectedSkills.add(s.toString().trim());
+        }
       }
-    }
-
-    // Add default core skills if needed
-    if (allCollectedSkills.length < 5) {
-      allCollectedSkills.addAll([
-        'Dart', 'Python', 'C++', 'Java', 'SQL', 'JavaScript',
-        'Flutter', 'React', 'HTML5/CSS3', 'REST APIs',
-        'Firebase Firestore', 'PostgreSQL', 'Node.js',
-        'Google Cloud (GCP)', 'AWS', 'TensorFlow', 'OpenCV', 'Docker',
-        'Git', 'GitHub', 'VS Code', 'Figma', 'Linux', 'Agile Methodologies',
-      ]);
     }
 
     final categorizedSkills = _categorizeSkills(allCollectedSkills.toList());
@@ -901,7 +612,7 @@ class ResumeService {
       registerNumber: student?.registerNumber ?? userMeta['registerNumber']?.toString() ?? cleanId,
       department: deptName,
       academicYear: currentYear,
-      section: student?.section ?? userMeta['section']?.toString() ?? 'Sec B',
+      section: student?.section ?? userMeta['section']?.toString() ?? '',
       header: header,
       professionalSummary: summary,
       education: educationList,
@@ -1154,11 +865,6 @@ class ResumeService {
       }
     }
 
-    if (results.isEmpty) {
-      final demoResume = await generateResumeForStudent('DEMO-STU');
-      if (demoResume != null) results.add(demoResume);
-    }
-
     return results;
   }
 
@@ -1182,11 +888,6 @@ class ResumeService {
       } catch (e) {
         debugPrint('getResumesForAdviser error: $e');
       }
-    }
-
-    if (results.isEmpty) {
-      final demoResume = await generateResumeForStudent('DEMO-STU');
-      if (demoResume != null) results.add(demoResume);
     }
 
     return results;

@@ -4,6 +4,7 @@ import 'package:unisphere/widgets/common/app_progress_indicators.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/attendance_system_provider.dart';
 import 'package:unisphere/models/attendance_model.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
 
 class HodAttendanceManagement extends ConsumerStatefulWidget {
   const HodAttendanceManagement({super.key});
@@ -472,11 +473,11 @@ class _HodAttendanceManagementState extends ConsumerState<HodAttendanceManagemen
   }
 
   Widget _buildLowAttendanceList() {
-    final students = [
-      {'name': 'Deepak Kumar', 'reg': '917722104018', 'att': '68.0%'},
-      {'name': 'Karthik Raja', 'reg': '917722104022', 'att': '71.5%'},
-      {'name': 'Sanjay V.', 'reg': '917722104052', 'att': '73.2%'},
-    ];
+    final allStudents = ref.watch(allStudentsStreamProvider).value ?? [];
+    final lowStudents = allStudents.where((s) {
+      final att = (s.metadata?['attendance'] as num?)?.toDouble() ?? 100.0;
+      return att < 75.0;
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -496,28 +497,39 @@ class _HodAttendanceManagementState extends ConsumerState<HodAttendanceManagemen
             ],
           ),
           const SizedBox(height: 14),
-          Column(
-            children: students.map((s) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(s['name']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        Text(s['reg']!, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                      ],
-                    ),
-                    Text(s['att']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.error)),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
+          if (lowStudents.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              alignment: Alignment.center,
+              child: const Text(
+                'No students currently flagged with attendance below 75%.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            )
+          else
+            Column(
+              children: lowStudents.map((s) {
+                final att = (s.metadata?['attendance'] as num?)?.toDouble() ?? 0.0;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.fullName.isNotEmpty ? s.fullName : s.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text(s.registerNumber ?? s.uid, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                      Text('${att.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.error)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );

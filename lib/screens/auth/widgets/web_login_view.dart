@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/widgets/effects/cloud_shader_background.dart';
+import 'package:unisphere/widgets/effects/glass_frame.dart';
+import 'package:unisphere/widgets/effects/noise_frame.dart';
 
 /// Web-specific Login View using Unisphere's official brand color theme (AppColors.primary)
 /// and featuring the Unisphere Smart Campus hero image (webimage.png) on the front,
@@ -16,13 +19,16 @@ class WebLoginView extends StatefulWidget {
   final bool obscurePassword;
   final bool isUserNotFoundError;
   final String? loginErrorMessage;
-  final UserRole selectedRole;
-  final ValueChanged<UserRole> onRoleChanged;
+  final UserRole? selectedRole;
+  final ValueChanged<UserRole>? onRoleChanged;
   final VoidCallback onTogglePasswordVisibility;
   final VoidCallback onLoginPressed;
   final VoidCallback onGoogleLoginPressed;
   final VoidCallback onForgotPasswordPressed;
-  final Function(String email, String password, UserRole role) onDemoAutofill;
+  final Function(String email, String password, UserRole role)? onDemoAutofill;
+  final int flipTrigger;
+  final String? unregisteredMessage;
+  final VoidCallback? onFlippedToFront;
 
   const WebLoginView({
     super.key,
@@ -34,13 +40,16 @@ class WebLoginView extends StatefulWidget {
     required this.obscurePassword,
     required this.isUserNotFoundError,
     this.loginErrorMessage,
-    required this.selectedRole,
-    required this.onRoleChanged,
+    this.selectedRole,
+    this.onRoleChanged,
     required this.onTogglePasswordVisibility,
     required this.onLoginPressed,
     required this.onGoogleLoginPressed,
     required this.onForgotPasswordPressed,
-    required this.onDemoAutofill,
+    this.onDemoAutofill,
+    this.flipTrigger = 0,
+    this.unregisteredMessage,
+    this.onFlippedToFront,
   });
 
   @override
@@ -50,7 +59,6 @@ class WebLoginView extends StatefulWidget {
 class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderStateMixin {
   // Brand color theme from AppColors
   static const Color _brandPrimary = AppColors.primary; // 0xFF2563EB (Royal Indigo Blue)
-  static const Color _webBackground = Color(0xFFF1F5F9); // Slate 100 Neutral Surface
 
   late final AnimationController _flipController;
   late final Animation<double> _flipAnimation;
@@ -74,79 +82,96 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(WebLoginView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.flipTrigger != oldWidget.flipTrigger && widget.flipTrigger > 0) {
+      _flipToBack();
+    }
+  }
+
   void _flipToBack() {
     _flipController.forward();
   }
 
   void _flipToFront() {
     _flipController.reverse();
+    widget.onFlippedToFront?.call();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _webBackground,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWideScreen = constraints.maxWidth >= 880;
+      backgroundColor: Colors.transparent,
+      body: CloudShaderBackground(
+        speed: 1.0,
+        count: 6.0,
+        cloudColor: const Color(0xFFFBF8F2),
+        skyTopColor: const Color(0xFF3876BA),
+        skyBottomColor: const Color(0xFF8CBFE8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWideScreen = constraints.maxWidth >= 880;
 
-          return Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isWideScreen ? 1060 : 540,
-                  minHeight: isWideScreen ? 600 : 0,
-                ),
-                child: AnimatedBuilder(
-                  animation: _flipAnimation,
-                  builder: (context, child) {
-                    final angle = _flipAnimation.value * math.pi;
-                    final isFront = angle < (math.pi / 2);
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isWideScreen ? 1088 : 568,
+                    minHeight: isWideScreen ? 600 : 0,
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _flipAnimation,
+                    builder: (context, child) {
+                      final angle = _flipAnimation.value * math.pi;
+                      final isFront = angle < (math.pi / 2);
 
-                    return Transform(
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001) // perspective
-                        ..rotateY(angle),
-                      alignment: Alignment.center,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: _brandPrimary.withValues(alpha: 0.22),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _brandPrimary.withValues(alpha: 0.10),
-                              blurRadius: 48,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 16),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: isFront
-                            ? (isWideScreen ? _buildWideSplitLayout() : _buildNarrowStackedLayout())
-                            : Transform(
-                                transform: Matrix4.identity()..rotateY(math.pi),
-                                alignment: Alignment.center,
-                                child: _buildFlippedBackLayout(isWideScreen: isWideScreen),
+                      return Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001) // perspective
+                          ..rotateY(angle),
+                        alignment: Alignment.center,
+                        child: GlassFrame(
+                          borderWidth: 16.0,
+                          innerRadius: 24.0,
+                          blurSigma: 24.0,
+                          glassOpacity: 0.42,
+                          borderOpacity: 0.80,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.0,
                               ),
-                      ),
-                    );
-                  },
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: isFront
+                                ? (isWideScreen ? _buildWideSplitLayout() : _buildNarrowStackedLayout())
+                                : Transform(
+                                    transform: Matrix4.identity()..rotateY(math.pi),
+                                    alignment: Alignment.center,
+                                    child: _buildFlippedBackLayout(isWideScreen: isWideScreen),
+                                  ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -318,10 +343,27 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildBrandHeader(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
-          _buildRoleTabs(),
-          const SizedBox(height: 26),
+          const Text(
+            'Sign In',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Enter your credentials to access your account',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 24),
 
           _buildEmailField(),
           const SizedBox(height: 18),
@@ -374,9 +416,6 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
           const SizedBox(height: 16),
 
           _buildMobileExclusiveNotice(),
-          const SizedBox(height: 18),
-
-          _buildDemoAccessBar(),
         ],
       ),
     );
@@ -439,58 +478,6 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildRoleTabs() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: [
-          _buildRoleTabItem('Students Login', UserRole.student),
-          const SizedBox(width: 24),
-          _buildRoleTabItem('Parents Login', UserRole.parent),
-          const SizedBox(width: 24),
-          _buildRoleTabItem('Staff Login', UserRole.staff),
-          const SizedBox(width: 24),
-          _buildRoleTabItem('Admin Login', UserRole.admin),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoleTabItem(String label, UserRole role) {
-    final isSelected = widget.selectedRole == role;
-
-    return InkWell(
-      onTap: () => widget.onRoleChanged(role),
-      borderRadius: BorderRadius.circular(4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? _brandPrimary : const Color(0xFF64748B),
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            height: 2.5,
-            width: isSelected ? 80 : 0,
-            decoration: BoxDecoration(
-              color: isSelected ? _brandPrimary : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildEmailField() {
     return Column(
@@ -555,21 +542,7 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
   }
 
   String _getEmailHintText() {
-    switch (widget.selectedRole) {
-      case UserRole.student:
-        return 'Username/Email (or Student ID)';
-      case UserRole.parent:
-        return 'Parent Email Address';
-      case UserRole.staff:
-      case UserRole.advisor:
-        return 'Faculty / Staff Email';
-      case UserRole.admin:
-        return 'Admin Email (admin@unisphere.edu)';
-      case UserRole.hod:
-        return 'HOD Email';
-      case UserRole.unknown:
-        return 'Username/Email';
-    }
+    return 'Username or Email';
   }
 
   Widget _buildPasswordField() {
@@ -701,7 +674,7 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
                   ),
                   SizedBox(width: 10),
                   Text(
-                    'Connecting with Google...',
+                    'Signing in with Google...',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -789,69 +762,6 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildDemoAccessBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.bolt_rounded, size: 14, color: _brandPrimary),
-              SizedBox(width: 4),
-              Text(
-                'Demo Quick Access (Tap to Autofill)',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _demoChip('Student', 'saravanapmvofficial@gmail.com', 'Sivamani9698pmv\$', UserRole.student),
-              _demoChip('Parent', 'heydigitals.care@gmail.com', 'Sivamani9698pmv\$', UserRole.parent),
-              _demoChip('Staff', 'Awenests.care@gmail.com', 'Unisphere@123', UserRole.staff),
-              _demoChip('HOD', 'unispherecrm.official@gmail.com', 'Unisphere@123', UserRole.hod),
-              _demoChip('Admin', 'admin@unisphere.edu', 'AdminPass123!', UserRole.admin),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _demoChip(String roleName, String email, String pass, UserRole role) {
-    return InkWell(
-      onTap: () {
-        widget.onDemoAutofill(email, pass, role);
-      },
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFCBD5E1)),
-        ),
-        child: Text(
-          roleName,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-        ),
-      ),
-    );
-  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BACK FACE: DOWNLOAD OUR APPLICATION FROM PLAY STORE
@@ -1127,32 +1037,48 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
           ),
         );
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(14),
+          color: const Color(0xFF0B1323),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.14),
+            width: 1.0,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 16,
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 18,
               offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Play Store Icon Graphic
-            Container(
+            // Official Google Play Store Icon
+            Image.asset(
+              'assets/playstore.png',
               width: 32,
               height: 32,
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFF34D399),
-                size: 32,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Image.asset(
+                'playstore.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Color(0xFF34D399),
+                  size: 32,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -1163,25 +1089,30 @@ class _WebLoginViewState extends State<WebLoginView> with SingleTickerProviderSt
                 Text(
                   'GET IT ON',
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
+                    color: Color(0xFFCBD5E1),
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
+                    letterSpacing: 0.8,
                   ),
                 ),
+                SizedBox(height: 1),
                 Text(
                   'Google Play',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 19,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 16),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 14),
+            const SizedBox(width: 20),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white.withValues(alpha: 0.60),
+              size: 15,
+            ),
           ],
         ),
       ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,22 +119,39 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
-  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+  Future<void> _pickAndUploadPhoto([ImageSource source = ImageSource.gallery]) async {
     if (_isUploadingPhoto) return;
 
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-      if (picked == null) return;
-
       final currentUser = ref.read(authServiceProvider).currentUser;
       if (currentUser == null) {
         throw Exception('User session not found. Please log in again.');
+      }
+
+      Uint8List? imageBytes;
+      File? imageFile;
+
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        if (imageBytes == null) return;
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(
+          source: source,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 85,
+        );
+        if (picked == null) return;
+        imageFile = File(picked.path);
       }
 
       setState(() {
@@ -143,10 +162,15 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
       final existingPhotoUrl = _customPhotoPath ?? (currentUser.profileImageUrl ?? currentUser.metadata?['photoUrl'] ?? '').toString().trim();
 
       // 1. Upload new image to Firebase Storage and obtain valid HTTPS download URL
-      final uploadedUrl = await storageService.uploadProfilePhoto(
-        userId: currentUser.uid,
-        file: File(picked.path),
-      );
+      final uploadedUrl = kIsWeb
+          ? await storageService.uploadProfilePhotoBytes(
+              userId: currentUser.uid,
+              bytes: imageBytes!,
+            )
+          : await storageService.uploadProfilePhoto(
+              userId: currentUser.uid,
+              file: imageFile!,
+            );
 
       // 2. Persist download URL in Firestore
       try {
@@ -1239,118 +1263,30 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
   }
 
   Map<String, Map<String, dynamic>> _getDirectoryContactsForWard(ParentStudentWard? ward) {
-    final dept = (ward?.department ?? 'Computer Science and Engineering').trim();
-    final year = (ward?.currentYear ?? 'III Year').trim();
-    final deptLower = dept.toLowerCase();
-
-    // 1. Resolve HOD
-    String hodName = 'Dr. R. Kumar';
-    String hodTitle = 'Head of Department (CSE)';
-    String hodEmail = 'hod.cse@institution.edu.in';
-    String hodPhone = '+91 94441 12345';
-    String hodOffice = 'CSE Block • Ground Floor, Room 101';
-
-    if (deptLower.contains('artificial') || deptLower.contains('ai') || deptLower.contains('data')) {
-      hodName = 'Dr. M. Sangeetha';
-      hodTitle = 'Head of Department (AI & DS)';
-      hodEmail = 'hod.aids@institution.edu.in';
-      hodPhone = '+91 94441 23456';
-      hodOffice = 'Tech Park • 2nd Floor, Room 204';
-    } else if (deptLower.contains('information') || deptLower.contains('it')) {
-      hodName = 'Dr. Anita Desai';
-      hodTitle = 'Head of Department (IT)';
-      hodEmail = 'hod.it@institution.edu.in';
-      hodPhone = '+91 94441 34567';
-      hodOffice = 'IT Wing • 1st Floor, Room 112';
-    } else if (deptLower.contains('electronics') || deptLower.contains('ece')) {
-      hodName = 'Dr. V. Swaminathan';
-      hodTitle = 'Head of Department (ECE)';
-      hodEmail = 'hod.ece@institution.edu.in';
-      hodPhone = '+91 94441 45678';
-      hodOffice = 'ECE Block • 3rd Floor, Room 301';
-    } else if (deptLower.contains('mech')) {
-      hodName = 'Dr. K. Ramanathan';
-      hodTitle = 'Head of Department (MECH)';
-      hodEmail = 'hod.mech@institution.edu.in';
-      hodPhone = '+91 94441 56789';
-      hodOffice = 'Mech Complex • Room 102';
-    }
-
-    // 2. Resolve Class Advisor based on Dept + Year
-    String advisorName = 'Dr. S. Meenakshi';
-    String advisorTitle = 'Class Advisor • $dept ($year)';
-    String advisorEmail = 'meenakshi.s@institution.edu.in';
-    String advisorPhone = '+91 98402 34567';
-    String advisorOffice = 'CSE Faculty Cabin B-24, Ext 402';
-
-    if (deptLower.contains('artificial') || deptLower.contains('ai') || deptLower.contains('data')) {
-      advisorName = 'Dr. K. Vance';
-      advisorTitle = 'Class Advisor • AI & DS ($year)';
-      advisorEmail = 'vance.k@institution.edu.in';
-      advisorPhone = '+91 98402 67890';
-      advisorOffice = 'Tech Park Cabin 302, Ext 420';
-    } else if (deptLower.contains('information') || deptLower.contains('it')) {
-      advisorName = 'Prof. P. Suresh';
-      advisorTitle = 'Class Advisor • IT ($year)';
-      advisorEmail = 'suresh.p@institution.edu.in';
-      advisorPhone = '+91 98402 78901';
-      advisorOffice = 'IT Wing Room 205, Ext 412';
-    } else if (deptLower.contains('electronics') || deptLower.contains('ece')) {
-      advisorName = 'Dr. T. Radhika';
-      advisorTitle = 'Class Advisor • ECE ($year)';
-      advisorEmail = 'radhika.t@institution.edu.in';
-      advisorPhone = '+91 98402 89012';
-      advisorOffice = 'ECE Lab Room 304, Ext 433';
-    } else if (deptLower.contains('mech')) {
-      advisorName = 'Dr. M. Karthik';
-      advisorTitle = 'Class Advisor • Mechanical ($year)';
-      advisorEmail = 'karthik.m@institution.edu.in';
-      advisorPhone = '+91 98402 90123';
-      advisorOffice = 'Mech Complex Room 108, Ext 450';
-    } else {
-      // CSE Year-specific advisors
-      if (year.contains('II') || year.contains('2')) {
-        advisorName = 'Dr. Anita Sharma';
-        advisorTitle = 'Class Advisor • CSE II Year';
-        advisorEmail = 'anita.sharma@institution.edu.in';
-        advisorPhone = '+91 98402 45678';
-        advisorOffice = 'CSE Faculty Room A-12, Ext 408';
-      } else if (year.contains('IV') || year.contains('4')) {
-        advisorName = 'Prof. David Miller';
-        advisorTitle = 'Class Advisor • CSE IV Year';
-        advisorEmail = 'david.m@institution.edu.in';
-        advisorPhone = '+91 98402 56789';
-        advisorOffice = 'CSE Faculty Room C-05, Ext 415';
-      } else {
-        advisorName = 'Dr. S. Meenakshi';
-        advisorTitle = 'Class Advisor • CSE III Year - Sec B';
-        advisorEmail = 'meenakshi.s@institution.edu.in';
-        advisorPhone = '+91 98402 34567';
-        advisorOffice = 'CSE Faculty Room B-24, Ext 402';
-      }
-    }
+    final dept = (ward?.department ?? '').trim();
+    final year = (ward?.currentYear ?? '').trim();
 
     return {
       'advisor': {
-        'name': advisorName,
-        'title': advisorTitle,
-        'email': advisorEmail,
-        'phone': advisorPhone,
-        'office': advisorOffice,
+        'name': 'Assigned Class Advisor',
+        'title': [dept, year].where((s) => s.isNotEmpty).join(' • '),
+        'email': 'advisor@institution.edu.in',
+        'phone': '—',
+        'office': 'Department Faculty Room',
       },
       'hod': {
-        'name': hodName,
-        'title': hodTitle,
-        'email': hodEmail,
-        'phone': hodPhone,
-        'office': hodOffice,
+        'name': dept.isNotEmpty ? 'Head of Department ($dept)' : 'Head of Department',
+        'title': dept.isNotEmpty ? 'Head of Department ($dept)' : 'Head of Department',
+        'email': 'hod@institution.edu.in',
+        'phone': '—',
+        'office': 'Department Office',
       },
       'accounts': {
         'name': 'Campus Administrative Office',
         'title': 'Student Accounts & Fee Desk',
         'email': 'accounts@institution.edu.in',
-        'phone': '+91 44 2745 6789',
-        'office': 'Admin Block • Ground Floor, Counter 3',
+        'phone': '—',
+        'office': 'Admin Block • Ground Floor',
       },
     };
   }

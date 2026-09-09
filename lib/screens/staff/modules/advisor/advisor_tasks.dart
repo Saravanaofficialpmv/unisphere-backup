@@ -22,26 +22,12 @@ class _AdvisorTasksSectionState extends ConsumerState<AdvisorTasksSection> {
     final tasksAsync = ref.watch(advisorTasksStreamProvider);
     final tasks = tasksAsync.valueOrNull ?? [];
 
-    final defaultTasks = [
-      {'id': 'TASK-01', 'title': 'Verify student data', 'dueDate': 'Due Sep 05', 'done': false},
-      {'id': 'TASK-02', 'title': 'Submit class attendance report', 'dueDate': 'Due Sep 06', 'done': false},
-      {'id': 'TASK-03', 'title': 'Review student performance', 'dueDate': 'Due Sep 08', 'done': false},
-      {'id': 'TASK-04', 'title': 'Parent communication', 'dueDate': 'Due Sep 10', 'done': false},
-    ];
-
-    final taskItems = tasks.isNotEmpty
-        ? tasks.take(4).map((t) => {
-              'id': t.id,
-              'title': t.title,
-              'dueDate': t.dueDate.startsWith('Due') ? t.dueDate : 'Due ${t.dueDate}',
-              'done': _localCompleted[t.id] ?? t.isCompleted,
-            }).toList()
-        : defaultTasks.map((t) => {
-              'id': t['id'] as String,
-              'title': t['title'] as String,
-              'dueDate': t['dueDate'] as String,
-              'done': _localCompleted[t['id']] ?? (t['done'] as bool),
-            }).toList();
+    final taskItems = tasks.take(4).map((t) => {
+          'id': t.id,
+          'title': t.title,
+          'dueDate': t.dueDate.startsWith('Due') ? t.dueDate : 'Due ${t.dueDate}',
+          'done': _localCompleted[t.id] ?? t.isCompleted,
+        }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,13 +87,26 @@ class _AdvisorTasksSectionState extends ConsumerState<AdvisorTasksSection> {
               ),
             ],
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: taskItems.length,
-            separatorBuilder: (context, index) =>
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            itemBuilder: (context, index) {
+          child: taskItems.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  child: Center(
+                    child: Text(
+                      'No pending advisor tasks.',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: taskItems.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  itemBuilder: (context, index) {
               final task = taskItems[index];
               final id = task['id'] as String;
               final title = task['title'] as String;

@@ -83,6 +83,9 @@ class AcademicRecordRepository {
       }
 
       return <AcademicRecord>[];
+    }).handleError((e) {
+      debugPrint('watchStudentAcademicRecords stream notice: $e');
+      return <AcademicRecord>[];
     });
   }
 

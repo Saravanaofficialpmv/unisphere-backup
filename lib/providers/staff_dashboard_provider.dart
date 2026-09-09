@@ -7,7 +7,7 @@ import 'package:unisphere/services/auth_service.dart';
 final currentStaffUidProvider = Provider<String>((ref) {
   final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
   final uid = authUser?.uid ?? '';
-  return uid.isNotEmpty ? uid : 'DEMO-STF';
+  return uid;
 });
 
 // ── Current Staff Profile Stream ──

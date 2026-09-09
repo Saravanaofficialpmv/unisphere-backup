@@ -83,9 +83,9 @@ class _HodAnnouncementsState extends ConsumerState<HodAnnouncements> {
 
     try {
       final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
-      final author = (currentUser?.name != null && currentUser!.name.isNotEmpty)
-          ? currentUser.name
-          : 'Dr. R. Kumar (HOD)';
+      final author = (currentUser?.fullName != null && currentUser!.fullName.isNotEmpty)
+          ? currentUser.fullName
+          : 'Head of Department';
 
       final targetedRoles = <String>[];
       if (_notifyStudents) targetedRoles.add('student');

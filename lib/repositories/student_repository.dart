@@ -8,6 +8,11 @@ final studentRepositoryProvider = Provider<StudentRepository>((ref) {
   return StudentRepository();
 });
 
+final departmentStudentsStreamProvider = StreamProvider.family<List<StudentModel>, String>((ref, deptId) {
+  final repo = ref.watch(studentRepositoryProvider);
+  return repo.watchStudentsByDepartment(deptId);
+});
+
 class StudentRepository {
   final FirebaseFirestore? _firestore;
 
@@ -21,6 +26,10 @@ class StudentRepository {
       return null;
     }
   }
+
+  static bool get isOfflineEnvironment => _tryGetFirestore() == null;
+
+  static final List<StudentModel> offlineBaselineStudents = const [];
 
   /// Fetch single student record by UID or Registration Number
   Future<StudentModel?> getStudentByUserId(String uid) async {
@@ -126,8 +135,8 @@ class StudentRepository {
   Stream<List<StudentModel>> watchStudentsByDepartment(String departmentId) {
     final firestore = _firestore;
     final cleanDept = departmentId.trim();
-    if (cleanDept.isEmpty || firestore == null) {
-      return Stream.value([]);
+    if (firestore == null || cleanDept.isEmpty) {
+      return Stream.value(const []);
     }
 
     return firestore.collection('students').snapshots().map((snap) {
@@ -152,7 +161,7 @@ class StudentRepository {
   Future<List<StudentModel>> getStudentsByDepartment(String departmentId) async {
     final firestore = _firestore;
     final cleanDept = departmentId.trim();
-    if (cleanDept.isEmpty || firestore == null) return [];
+    if (firestore == null || cleanDept.isEmpty) return const [];
 
     try {
       final snap = await firestore.collection('students').get();

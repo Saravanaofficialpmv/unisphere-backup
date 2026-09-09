@@ -295,10 +295,10 @@ class _AdminNotificationSettingsScreenState
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _buildLogTile('rule_attendance_critical_DEMO-STU', 'Suppressed duplicate critical alert for Alex Johnson (in cooldown period).', '12 mins ago', Colors.orange),
-        _buildLogTile('rule_assignment_deadlines_DEMO-STU', 'Dispatched 1d assignment deadline reminder for Computer Networks.', '1 hour ago', Colors.green),
-        _buildLogTile('rule_fee_deadlines_DEMO-PRT', 'Dispatched fee due notice to parent Rajesh Kumar.', '3 hours ago', Colors.green),
-        _buildLogTile('rule_admin_unverified_accts', 'Evaluated unverified accounts rule. 2 records detected.', '5 hours ago', Colors.blue),
+        _buildLogTile('rule_attendance_critical', 'Suppressed duplicate critical alert (in cooldown period).', '12 mins ago', Colors.orange),
+        _buildLogTile('rule_assignment_deadlines', 'Evaluated assignment deadline reminders across active courses.', '1 hour ago', Colors.green),
+        _buildLogTile('rule_fee_deadlines', 'Fee deadline rules evaluated for current billing cycle.', '3 hours ago', Colors.green),
+        _buildLogTile('rule_admin_unverified_accts', 'System integrity check completed. No anomalies detected.', '5 hours ago', Colors.blue),
       ],
     );
   }

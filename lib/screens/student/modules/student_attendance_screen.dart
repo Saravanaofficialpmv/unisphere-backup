@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/theme/app_animations_kit.dart';
 import 'package:unisphere/widgets/common/app_progress_indicators.dart';
 import 'package:unisphere/widgets/common/unisphere_header_card.dart';
-import 'package:unisphere/providers/attendance_system_provider.dart';
-import 'package:unisphere/providers/post_od_provider.dart';
-import 'package:unisphere/providers/notification_provider.dart';
 import 'package:unisphere/models/attendance_model.dart';
+import 'package:unisphere/providers/attendance_system_provider.dart';
+import 'package:unisphere/providers/notification_provider.dart';
+import 'package:unisphere/providers/post_od_provider.dart';
+import 'package:unisphere/services/auth_service.dart';
 
 class StudentAttendanceScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -348,9 +349,24 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    final authUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+                    final meta = authUser?.metadata ?? {};
+                    final stuName = (authUser?.fullName != null && authUser!.fullName.trim().isNotEmpty)
+                        ? authUser.fullName.trim()
+                        : 'Student';
+                    final stuId = authUser?.uid ?? 'student_1';
+                    final regNo = (meta['registerNumber'] ?? meta['regNo'] ?? stuId).toString().trim();
+                    final deptId = (meta['departmentId'] ?? meta['department'] ?? 'CSE').toString().trim();
+                    final section = (meta['section'] ?? 'CS-A').toString().trim();
+
                     final req = LeaveRequestModel(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      studentName: 'Alex Johnson',
+                      studentId: regNo.isNotEmpty ? regNo : stuId,
+                      studentName: stuName,
+                      registerNumber: regNo,
+                      departmentId: deptId,
+                      section: section,
+                      role: 'Student',
                       type: leaveType,
                       duration: '$startDate - $endDate (3 Days)',
                       reason: reasonController.text.trim().isEmpty
@@ -358,7 +374,7 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                           : '${eventNameController.text}: ${reasonController.text.trim()}',
                       status: 'Pending Approval',
                       appliedDate: 'Today',
-                      hasAttachment: true,
+                      hasAttachment: hasLetter || hasScreenshot,
                       requestLetterUrl: hasLetter ? letterFileName : null,
                       registrationScreenshotUrl: hasScreenshot ? screenshotFileName : null,
                     );
@@ -404,18 +420,21 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
   }
 
   void _showPostOdLeaderFormModal() {
-    final eventNameCtrl = TextEditingController(text: 'IIT Madras Inter-College Hackathon 2026');
-    final prizeTitleCtrl = TextEditingController(text: '1st Prize / Winner Gold Trophy');
-    final cashPrizeCtrl = TextEditingController(text: '₹50,000 & Trophy');
+    final eventNameCtrl = TextEditingController();
+    final prizeTitleCtrl = TextEditingController();
+    final cashPrizeCtrl = TextEditingController();
     final lossReasonCtrl = TextEditingController();
     String outcomeChoice = 'Won'; // 'Won' or 'Lost'
     String eventCategory = 'Hackathon & Coding';
-    String teamCertificateFile = 'Team_Winner_Certificate.pdf';
+    String teamCertificateFile = '';
+
+    final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+    final leaderName = currentUser?.fullName ?? currentUser?.name ?? 'Student';
+    final leaderId = (currentUser?.metadata?['registerNumber'] ?? currentUser?.metadata?['regNo'] ?? currentUser?.uid ?? '').toString();
 
     final selectedMembers = <Map<String, String>>[
-      {'uid': '917722104022', 'name': 'Alex Johnson (Leader)', 'rollNo': '917722104022'},
-      {'uid': '917722104012', 'name': 'Aravind Swamy', 'rollNo': '917722104012'},
-      {'uid': '917722104045', 'name': 'Priya Dharshini', 'rollNo': '917722104045'},
+      if (leaderId.isNotEmpty)
+        {'uid': leaderId, 'name': '$leaderName (Leader)', 'rollNo': leaderId},
     ];
 
     showModalBottomSheet(
@@ -669,7 +688,7 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                                 const Icon(Icons.person_rounded, size: 16, color: Color(0xFF2563EB)),
                                 const SizedBox(width: 8),
                                 Expanded(child: Text('${m['name']} (${m['rollNo']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                                if (m['uid'] == '917722104022')
+                                if (m['uid'] == leaderId)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(4)),
@@ -703,10 +722,10 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                           odRequestId: 'l2',
                           eventName: eventNameCtrl.text,
                           eventCategory: eventCategory,
-                          eventDate: '28 Jul 2026',
-                          teamLeaderUid: '917722104022',
-                          teamLeaderName: 'Alex Johnson (Leader)',
-                          teamLeaderRollNo: '917722104022',
+                          eventDate: DateTime.now().toIso8601String().split('T').first,
+                          teamLeaderUid: leaderId,
+                          teamLeaderName: '$leaderName (Leader)',
+                          teamLeaderRollNo: leaderId,
                           outcome: outcomeChoice,
                           prizeTitle: outcomeChoice == 'Won' ? prizeTitleCtrl.text : null,
                           cashPrizeAmount: outcomeChoice == 'Won' ? cashPrizeCtrl.text : null,
@@ -719,8 +738,8 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                           title: outcomeChoice == 'Won' ? '🏆 OD Outcome Filed: WON 1st Prize!' : 'OD Outcome Filed: Post-Mortem Submitted',
                           category: 'Academic',
                           summary: outcomeChoice == 'Won'
-                              ? 'Team Leader Alex Johnson reported WON for ${eventNameCtrl.text}. Teammates must upload certificates.'
-                              : 'Team Leader Alex Johnson filed Post-OD Loss Analysis report to HOD.',
+                              ? 'Team Leader $leaderName reported WON for ${eventNameCtrl.text}. Teammates must upload certificates.'
+                              : 'Team Leader $leaderName filed Post-OD Loss Analysis report to HOD.',
                           fullDetails: 'OD Return Status filed for ${eventNameCtrl.text}. HOD verification pending.',
                           icon: Icons.military_tech_rounded,
                           iconColor: outcomeChoice == 'Won' ? const Color(0xFF059669) : const Color(0xFFDC2626),
@@ -842,9 +861,11 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    final u = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+                    final myUid = (u?.metadata?['registerNumber'] ?? u?.metadata?['regNo'] ?? u?.uid ?? '').toString();
                     ref.read(postOdProvider.notifier).submitMemberCertificate(
                           outcomeId: outcomeId,
-                          memberUid: '917722104022',
+                          memberUid: myUid,
                           certificateUrl: filename,
                         );
 
@@ -1148,17 +1169,21 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
   }) {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          summaryCard,
-          _buildSemesterPills(semDataList),
-          const SizedBox(height: 6),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              summaryCard,
+              _buildSemesterPills(semDataList),
+              const SizedBox(height: 6),
 
-          // Daily Attendance Policy Banner
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            padding: const EdgeInsets.all(14),
+              // Daily Attendance Policy Banner
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(16),
@@ -1358,7 +1383,9 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildSemesterPills(List<SemesterAttendance> semDataList) {
@@ -1447,10 +1474,13 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          summaryCard,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              summaryCard,
 
           // Search Box
           Padding(
@@ -1596,7 +1626,9 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   String _monthName(int month) {
@@ -1614,111 +1646,44 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          summaryCard,
-          const SizedBox(height: 12),
-          // Stat cards row
-          Row(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildLeaveStatCard('Approved Leaves', '$approvedCount Days', Icons.event_available_rounded, const Color(0xFF059669), const Color(0xFFECFDF5)),
-              const SizedBox(width: 10),
-              _buildLeaveStatCard('OD Granted', '2 Days', Icons.workspace_premium_rounded, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
-              const SizedBox(width: 10),
-              _buildLeaveStatCard('Pending', '$pendingCount Request', Icons.pending_actions_rounded, const Color(0xFFD97706), const Color(0xFFFEF3C7)),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── POST-OD RETURN & OUTCOME STATUS MODULE ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              summaryCard,
+              const SizedBox(height: 12),
+              // Stat cards row
+              Row(
+                children: [
+                  _buildLeaveStatCard('Approved Leaves', '$approvedCount Days', Icons.event_available_rounded, const Color(0xFF059669), const Color(0xFFECFDF5)),
+                  const SizedBox(width: 10),
+                  _buildLeaveStatCard('OD Granted', '2 Days', Icons.workspace_premium_rounded, const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
+                  const SizedBox(width: 10),
+                  _buildLeaveStatCard('Pending', '$pendingCount Request', Icons.pending_actions_rounded, const Color(0xFFD97706), const Color(0xFFFEF3C7)),
+                ],
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          'POST-OD RETURN STATUS & CERTS',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.8),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-                      child: const Text('HOD Required', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Returned from Hackathon / OD? Team Leader submits outcome (Won/Lost with reason). Teammates upload certificates for HOD approval.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFDBEAFE)),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _showPostOdLeaderFormModal,
-                        icon: const Icon(Icons.rate_review_rounded, size: 14),
-                        label: const Text('Submit OD Outcome (Leader)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF59E0B),
-                          foregroundColor: const Color(0xFF0F172A),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Display List of Post-OD Outcome Cards
-          if (postOdState.outcomes.isNotEmpty) ...[
-            const Text(
-              'Post-OD Event Return History & Certificates',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 10),
-            ...postOdState.outcomes.map((item) {
-              final isWon = item.isWon;
-              final outcomeColor = isWon ? const Color(0xFF059669) : const Color(0xFFDC2626);
-              final outcomeBg = isWon ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2);
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
+              // ── POST-OD RETURN & OUTCOME STATUS MODULE ──
+              Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1726,168 +1691,292 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Text(
-                            item.eventName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
-                          ),
+                        const Row(
+                          children: [
+                            Icon(Icons.emoji_events_rounded, color: Color(0xFFF59E0B), size: 22),
+                            SizedBox(width: 8),
+                            Text(
+                              'POST-OD RETURN STATUS & CERTS',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.8),
+                            ),
+                          ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: outcomeBg, borderRadius: BorderRadius.circular(8)),
-                          child: Text(
-                            isWon ? '🏆 WON (${item.prizeTitle})' : '❌ LOST / PARTICIPATED',
-                            style: TextStyle(color: outcomeColor, fontWeight: FontWeight.bold, fontSize: 10.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                          child: const Text('HOD Required', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Returned from Hackathon / OD? Team Leader submits outcome (Won/Lost with reason). Teammates upload certificates for HOD approval.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFFDBEAFE)),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _showPostOdLeaderFormModal,
+                            icon: const Icon(Icons.rate_review_rounded, size: 14),
+                            label: const Text('Submit OD Outcome (Leader)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF59E0B),
+                              foregroundColor: const Color(0xFF0F172A),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Leader: ${item.teamLeaderName} • Date: ${item.eventDate}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
-                    if (isWon) ...[
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE2E8F0))),
-                        child: Row(
+              // Display List of Post-OD Outcome Cards
+              if (postOdState.outcomes.isNotEmpty) ...[
+                const Text(
+                  'Post-OD Event Return History & Certificates',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 10),
+                ...postOdState.outcomes.map((item) {
+                  final isWon = item.isWon;
+                  final outcomeColor = isWon ? const Color(0xFF059669) : const Color(0xFFDC2626);
+                  final outcomeBg = isWon ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Icon(Icons.workspace_premium_rounded, color: Color(0xFFD97706), size: 18),
-                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Reward: ${item.cashPrizeAmount ?? 'Merit Certificate & Trophy'}',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                item.eventName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: outcomeBg, borderRadius: BorderRadius.circular(8)),
+                              child: Text(
+                                isWon ? '🏆 WON (${item.prizeTitle})' : '❌ LOST / PARTICIPATED',
+                                style: TextStyle(color: outcomeColor, fontWeight: FontWeight.bold, fontSize: 10.5),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ] else ...[
-                      // Display Mandatory Loss Reason
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
+                        const SizedBox(height: 4),
+                        Text(
+                          'Leader: ${item.teamLeaderName} • Date: ${item.eventDate}',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 8),
+
+                        if (isWon) ...[
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE2E8F0))),
+                            child: Row(
                               children: [
-                                Icon(Icons.report_problem_rounded, color: Color(0xFFDC2626), size: 14),
-                                SizedBox(width: 6),
-                                Text('Post-Mortem Analysis & Loss Reason (Submitted to HOD)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C))),
+                                const Icon(Icons.workspace_premium_rounded, color: Color(0xFFD97706), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Reward: ${item.cashPrizeAmount ?? 'Merit Certificate & Trophy'}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                  ),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(item.lossReason ?? 'Reason details recorded.', style: const TextStyle(fontSize: 11, color: Color(0xFF7F1D1D))),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 10),
-                    // Teammate Certificates Row & Upload Button
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${item.teamMembers.where((m) => m.hasSubmittedCert).length} / ${item.teamMembers.length} Certificates Attached',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                        ),
-                        if (isWon)
-                          ElevatedButton.icon(
-                            onPressed: () => _showMemberCertificateUploadSheet(context, item.id, item.eventName),
-                            icon: const Icon(Icons.upload_file_rounded, size: 12),
-                            label: const Text('Upload My Cert', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ] else ...[
+                          // Display Mandatory Loss Reason
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.report_problem_rounded, color: Color(0xFFDC2626), size: 14),
+                                    SizedBox(width: 6),
+                                    Text('Post-Mortem Analysis & Loss Reason (Submitted to HOD)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C))),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(item.lossReason ?? 'Reason details recorded.', style: const TextStyle(fontSize: 11, color: Color(0xFF7F1D1D))),
+                              ],
                             ),
                           ),
+                        ],
+
+                        const SizedBox(height: 10),
+                        // Teammate Certificates Row & Upload Button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${item.teamMembers.where((m) => m.hasSubmittedCert).length} / ${item.teamMembers.length} Certificates Attached',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                            ),
+                            if (isWon)
+                              ElevatedButton.icon(
+                                onPressed: () => _showMemberCertificateUploadSheet(context, item.id, item.eventName),
+                                icon: const Icon(Icons.upload_file_rounded, size: 12),
+                                label: const Text('Upload My Cert', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        if (item.hodRemarks != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
+                            child: Text(
+                              'HOD Remarks: ${item.hodRemarks}',
+                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
+                  );
+                }),
+                const SizedBox(height: 16),
+              ],
 
-                    if (item.hodRemarks != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
-                        child: Text(
-                          'HOD Remarks: ${item.hodRemarks}',
-                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+              // ── DEDICATED OD LEAVE REQUEST HERO PANEL ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
-              );
-            }),
-            const SizedBox(height: 16),
-          ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 540;
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF2563EB), size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Apply for On-Duty (OD) Leave',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Submit signed Request Letter & Event Registration Screenshot to HOD.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _showLeaveApplicationModal,
+                              icon: const Icon(Icons.add_rounded, size: 16),
+                              label: const Text('Apply OD', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
 
-          // ── DEDICATED OD LEAVE REQUEST HERO PANEL ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                    return Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF2563EB), size: 26),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'Apply for On-Duty (OD) Leave',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Submit signed Request Letter & Event Registration Screenshot to HOD.',
+                                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.25),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        ElevatedButton.icon(
+                          onPressed: _showLeaveApplicationModal,
+                          icon: const Icon(Icons.add_rounded, size: 16),
+                          label: const Text('Apply OD', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF2563EB), size: 26),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Apply for On-Duty (OD) Leave',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Submit signed Request Letter & Event Registration Screenshot to HOD.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _showLeaveApplicationModal,
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Apply OD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
           const Text(
             'Recent Leave Applications',
@@ -1967,7 +2056,9 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
           }),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildLeaveStatCard(String label, String value, IconData icon, Color color, Color bg) {

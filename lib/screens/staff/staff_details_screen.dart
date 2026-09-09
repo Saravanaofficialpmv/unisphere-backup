@@ -58,38 +58,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   String _selectedAttendanceSubject = 'CS8691 - Machine Learning';
   String _selectedAttendanceSlot = 'Period 2 (10:00 AM - 11:00 AM)';
 
-  final List<Map<String, dynamic>> _attendanceStudentList = [
-    {'id': '20CS3012', 'name': 'Saran Kumar', 'isPresent': true, 'overall': 94},
-    {'id': '20CS3025', 'name': 'Nandhini R', 'isPresent': true, 'overall': 98},
-    {'id': '20CS3058', 'name': 'Vignesh S', 'isPresent': false, 'overall': 68},
-    {
-      'id': '20CS3004',
-      'name': 'Aarav Sharma',
-      'isPresent': true,
-      'overall': 92,
-    },
-    {'id': '20CS3019', 'name': 'Bhavya Nair', 'isPresent': true, 'overall': 88},
-    {
-      'id': '20CS3032',
-      'name': 'Karthik Raja',
-      'isPresent': true,
-      'overall': 85,
-    },
-    {'id': '20CS3041', 'name': 'Meera Patel', 'isPresent': true, 'overall': 90},
-    {
-      'id': '20CS3050',
-      'name': 'Rohan Gupta',
-      'isPresent': false,
-      'overall': 72,
-    },
-    {'id': '20CS3064', 'name': 'Sanjay V.', 'isPresent': true, 'overall': 95},
-    {
-      'id': '20CS3077',
-      'name': 'Vikram Singh',
-      'isPresent': true,
-      'overall': 91,
-    },
-  ];
+  List<Map<String, dynamic>> _attendanceStudentList = [];
 
   @override
   void initState() {
@@ -1388,11 +1357,10 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
 
   // ── TASK OVERVIEW SUMMARY CARDS ──────────────────────────────────────────
   Widget _buildTaskOverviewSummaryCards(bool isMobile) {
-    final total = _tasks.length + 15; // 18 total
-    final active =
-        _tasks.where((t) => t.status == 'Active').length + 4; // 6 active
-    final completed = 9;
-    final overdue = 3;
+    final total = _tasks.length;
+    final active = _tasks.where((t) => t.status == 'Active').length;
+    final completed = _tasks.where((t) => t.status == 'Completed' || t.isCompleted).length;
+    final overdue = _tasks.where((t) => t.status == 'Overdue').length;
 
     return Row(
       children: [
@@ -2907,6 +2875,16 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   }
 
   Widget _buildAttendanceTabContent(bool isMobile) {
+    final dbStudents = ref.watch(allStudentsStreamProvider).value ?? [];
+    if (_attendanceStudentList.isEmpty && dbStudents.isNotEmpty) {
+      _attendanceStudentList = dbStudents.map((s) => {
+        'id': s.registerNumber ?? s.uid,
+        'name': s.fullName.isNotEmpty ? s.fullName : s.name,
+        'isPresent': true,
+        'overall': 100,
+      }).toList();
+    }
+
     final presentCount = _attendanceStudentList
         .where((s) => s['isPresent'] == true)
         .length;
@@ -3166,14 +3144,32 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
               const SizedBox(height: 14),
 
               // Student Interactive Attendance List
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _attendanceStudentList.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (ctx, idx) {
-                  final s = _attendanceStudentList[idx];
-                  final isPresent = s['isPresent'] == true;
+              if (_attendanceStudentList.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.people_outline, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No students enrolled in this section yet.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _attendanceStudentList.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, idx) {
+                    final s = _attendanceStudentList[idx];
+                    final isPresent = s['isPresent'] == true;
+                    final sName = (s['name'] != null && s['name'].toString().isNotEmpty) ? s['name'].toString() : 'Student';
+                    final sInitial = sName.substring(0, 1).toUpperCase();
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
@@ -3199,7 +3195,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
                               ? const Color(0xFFDCFCE7)
                               : const Color(0xFFFEE2E2),
                           child: Text(
-                            s['name'].toString().substring(0, 1),
+                            sInitial,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,

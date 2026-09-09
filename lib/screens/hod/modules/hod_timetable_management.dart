@@ -19,21 +19,7 @@ class _HodTimetableManagementState extends ConsumerState<HodTimetableManagement>
   final List<String> _years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
   final List<String> _sections = ['CS-A', 'CS-B', 'CS-C', 'Sec A', 'Sec B'];
 
-  final Map<String, List<Map<String, String>>> _timetableData = {
-    'Monday': [
-      {'period': 'P1 (09:00 - 10:00)', 'subject': 'Distributed Systems', 'staff': 'Dr. S. Meenakshi', 'room': 'Lab 3'},
-      {'period': 'P2 (10:00 - 11:00)', 'subject': 'Machine Learning', 'staff': 'Dr. Anita Roy', 'room': 'Room 204'},
-      {'period': 'P3 (11:15 - 12:15)', 'subject': 'Data Structures', 'staff': 'Prof. Rajesh Kumar', 'room': 'Room 204'},
-      {'period': 'P4 (01:15 - 02:15)', 'subject': 'Database Management', 'staff': 'Prof. Vikram Sharma', 'room': 'Lab 1'},
-      {'period': 'P5 (02:15 - 03:15)', 'subject': 'Cloud Computing Lab', 'staff': 'Dr. S. Meenakshi', 'room': 'Lab 3'},
-    ],
-    'Tuesday': [
-      {'period': 'P1 (09:00 - 10:00)', 'subject': 'AI Fundamentals', 'staff': 'Dr. Anita Roy', 'room': 'Room 204'},
-      {'period': 'P2 (10:00 - 11:00)', 'subject': 'Distributed Systems', 'staff': 'Dr. S. Meenakshi', 'room': 'Room 204'},
-      {'period': 'P3 (11:15 - 12:15)', 'subject': 'SQL Labs', 'staff': 'Prof. Vikram Sharma', 'room': 'Lab 2'},
-      {'period': 'P4 (01:15 - 02:15)', 'subject': 'Algorithms', 'staff': 'Prof. Rajesh Kumar', 'room': 'Room 204'},
-    ],
-  };
+  final Map<String, List<Map<String, String>>> _timetableData = {};
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +255,27 @@ class _HodTimetableManagementState extends ConsumerState<HodTimetableManagement>
   }
 
   Widget _buildTimetableGrid() {
-    final periods = _timetableData[_selectedDay] ?? _timetableData['Monday']!;
+    final periods = _timetableData[_selectedDay] ?? [];
+    if (periods.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.calendar_today_outlined, size: 40, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text('No classes scheduled for $_selectedDay', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('Upload or generate timetable to display scheduled periods.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          ],
+        ),
+      );
+    }
 
     return Column(
       children: periods.map((item) {

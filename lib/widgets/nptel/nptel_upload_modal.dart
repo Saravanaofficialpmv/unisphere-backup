@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:unisphere/models/nptel_certificate_model.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/nptel_service.dart';
 
-class NptelUploadModal extends StatefulWidget {
+class NptelUploadModal extends ConsumerStatefulWidget {
   final NptelCertificateModel? existingCertificate;
 
   const NptelUploadModal({super.key, this.existingCertificate});
@@ -29,10 +31,10 @@ class NptelUploadModal extends StatefulWidget {
   }
 
   @override
-  State<NptelUploadModal> createState() => _NptelUploadModalState();
+  ConsumerState<NptelUploadModal> createState() => _NptelUploadModalState();
 }
 
-class _NptelUploadModalState extends State<NptelUploadModal> {
+class _NptelUploadModalState extends ConsumerState<NptelUploadModal> {
   final _formKey = GlobalKey<FormState>();
 
   final List<Map<String, String>> _nptelCourses = [
@@ -229,11 +231,20 @@ class _NptelUploadModalState extends State<NptelUploadModal> {
         fileSize: _selectedFileSize,
       );
     } else {
+      final user = ref.read(currentUserProvider).value;
+      final studentName = user?.fullName ?? user?.name ?? (user?.email.split('@').first ?? 'Student');
+      final rollNo = (user?.metadata?['registerNumber'] ?? user?.metadata?['rollNo'] ?? user?.uid ?? '').toString();
+      final department = user?.metadata?['department']?.toString() ?? user?.departmentName ?? user?.department ?? '';
+      final studentUid = user?.uid;
+      final departmentId = user?.metadata?['departmentId']?.toString();
+
       final newCert = NptelCertificateModel(
         id: 'NPTEL-${DateTime.now().millisecondsSinceEpoch}',
-        studentName: 'Alex Morgan',
-        rollNo: 'RA2111003010001',
-        department: 'Computer Science and Engineering',
+        studentName: studentName,
+        rollNo: rollNo,
+        department: department,
+        studentUid: studentUid,
+        departmentId: departmentId,
         courseName: _selectedCourseName,
         courseCode: _courseCodeController.text.trim(),
         semester: _selectedSemester,

@@ -29,104 +29,6 @@ class _StudentUpcomingTasksScreenState extends ConsumerState<StudentUpcomingTask
   int _selectedTabIndex = 0;
   final AssignmentService _assignmentService = AssignmentService();
 
-  // Local fallback assignments if Firestore has not seeded yet
-  final List<Map<String, dynamic>> _fallbackAssignments = [
-    {
-      'id': 'asg-1',
-      'courseCode': 'CS301',
-      'subjectName': 'Computer Networks',
-      'title': 'Socket Programming & TCP Stream Pipeline',
-      'facultyName': 'Dr. Robert Vance',
-      'postedDate': '12 Aug 2026',
-      'dueDate': '22 Aug 2026 • 11:59 PM',
-      'dueDateTime': DateTime.now().add(const Duration(days: 4)),
-      'isDueSoon': false,
-      'maxMarks': 100,
-      'status': 'Pending',
-      'allowedFormats': 'PDF Document (.pdf)',
-      'questionPrompt':
-          'Implement a multi-threaded TCP Client-Server socket application handling asynchronous message streaming, packet serialization, and connection keep-alive.',
-      'submissionInstructions':
-          'Upload a clean PDF containing code listings, execution screenshots, and Wireshark trace analysis.',
-      'submittedFile': null,
-      'submittedDate': null,
-      'obtainedMarks': null,
-      'feedback': null,
-      'notes': null,
-      'fileSizeBytes': null,
-    },
-    {
-      'id': 'asg-2',
-      'courseCode': 'CS302',
-      'subjectName': 'Database Systems',
-      'title': 'SQL Query Optimization & B-Tree Indexing Benchmark',
-      'facultyName': 'Prof. Sarah Jenkins',
-      'postedDate': '10 Aug 2026',
-      'dueDate': '19 Aug 2026 • 11:59 PM',
-      'dueDateTime': DateTime.now().add(const Duration(days: 1)),
-      'isDueSoon': true,
-      'maxMarks': 100,
-      'status': 'Pending',
-      'allowedFormats': 'PDF Document (.pdf)',
-      'questionPrompt':
-          'Design complex multi-table SQL queries, execute query explain plans, and optimize indexing strategies on a 100,000 row dataset.',
-      'submissionInstructions':
-          'Submit a PDF report with SQL queries, execution time comparisons, and index tree diagrams.',
-      'submittedFile': null,
-      'submittedDate': null,
-      'obtainedMarks': null,
-      'feedback': null,
-      'notes': null,
-      'fileSizeBytes': null,
-    },
-    {
-      'id': 'asg-3',
-      'courseCode': 'CS304',
-      'subjectName': 'Software Engineering',
-      'title': 'UML Class & Sequence Diagram Modeling',
-      'facultyName': 'Prof. Michael Scott',
-      'postedDate': '04 Aug 2026',
-      'dueDate': '11 Aug 2026 • 11:59 PM',
-      'dueDateTime': DateTime.now().subtract(const Duration(days: 7)),
-      'isDueSoon': false,
-      'maxMarks': 100,
-      'status': 'Submitted',
-      'allowedFormats': 'PDF Document (.pdf)',
-      'questionPrompt':
-          'Design comprehensive UML Structural and Behavioral diagrams for an e-commerce order management subsystem.',
-      'submissionInstructions': 'Export diagrams as high-resolution PDF with explanatory case notes.',
-      'submittedFile': 'Alex_Johnson_SoftwareEng_UML_Assignment.pdf',
-      'submittedDate': '10 Aug 2026 • 09:30 PM',
-      'obtainedMarks': null,
-      'feedback': null,
-      'notes': 'Completed all 5 class diagrams and scenario sequences.',
-      'fileSizeBytes': 1845000,
-    },
-    {
-      'id': 'asg-4',
-      'courseCode': 'CS305',
-      'subjectName': 'AI & Machine Learning',
-      'title': 'Supervised Linear Regression Lab Notebook',
-      'facultyName': 'Dr. Grace Hopper',
-      'postedDate': '01 Aug 2026',
-      'dueDate': '07 Aug 2026 • 11:59 PM',
-      'dueDateTime': DateTime.now().subtract(const Duration(days: 11)),
-      'isDueSoon': false,
-      'maxMarks': 100,
-      'status': 'Graded',
-      'allowedFormats': 'PDF Document (.pdf)',
-      'questionPrompt':
-          'Implement Linear & Polynomial Regression using NumPy & Scikit-Learn to predict house prices based on multi-variate features.',
-      'submissionInstructions': 'Submit Jupyter Notebook export in PDF format with loss curve graphs.',
-      'submittedFile': 'Alex_Johnson_ML_LinearRegression.pdf',
-      'submittedDate': '06 Aug 2026 • 04:15 PM',
-      'obtainedMarks': 94,
-      'feedback': 'Excellent implementation! Clean code structure and detailed loss plot visualizations.',
-      'notes': 'Tuned alpha learning rate to 0.001 with 500 epochs.',
-      'fileSizeBytes': 2620000,
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -172,9 +74,9 @@ class _StudentUpcomingTasksScreenState extends ConsumerState<StudentUpcomingTask
   void _showSubmissionPortalModal(Map<String, dynamic> assignment) {
     final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
     final meta = user?.metadata ?? {};
-    final studentUid = user?.uid ?? 'DEMO-STU';
-    final studentName = user?.fullName ?? user?.name ?? meta['fullName']?.toString() ?? 'Alex Johnson';
-    final regNo = meta['registerNumber']?.toString().trim() ?? 'RA2111003010001';
+    final studentUid = user?.uid ?? '';
+    final studentName = user?.fullName ?? user?.name ?? meta['fullName']?.toString() ?? (user?.email.split('@').first ?? 'Student');
+    final regNo = meta['registerNumber']?.toString().trim() ?? meta['regNo']?.toString().trim() ?? '';
 
     final noteController = TextEditingController(text: assignment['notes']?.toString() ?? '');
     String? selectedFileName = assignment['submittedFile']?.toString();
@@ -686,7 +588,7 @@ class _StudentUpcomingTasksScreenState extends ConsumerState<StudentUpcomingTask
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
-    final studentUid = user?.uid ?? 'DEMO-STU';
+    final studentUid = user?.uid ?? '';
 
     final dbAssignments = ref.watch(allAssignmentsStreamProvider).value ?? [];
     final dbSubmissions = ref.watch(allSubmissionsStreamProvider).value ?? [];
@@ -697,14 +599,14 @@ class _StudentUpcomingTasksScreenState extends ConsumerState<StudentUpcomingTask
       sourceAssignments = dbAssignments.map((doc) {
         final id = doc['id']?.toString() ?? 'asg_default';
         final sub = dbSubmissions.firstWhere(
-          (s) => s.assignmentId == id && (s.studentUid == studentUid || studentUid == 'DEMO-STU'),
+          (s) => s.assignmentId == id && (s.studentUid == studentUid),
           orElse: () => _assignmentService.getSubmissionForStudent(id, studentUid) ??
               SubmissionModel(
                 id: '',
                 assignmentId: id,
                 studentUid: studentUid,
                 studentName: user?.fullName ?? user?.name ?? 'Student',
-                registerNumber: 'RA2111003010001',
+                registerNumber: (user?.metadata?['registerNumber'] ?? user?.metadata?['regNo'] ?? '').toString(),
                 submittedAt: DateTime.now(),
                 status: doc['status']?.toString() ?? 'Pending',
               ),
@@ -760,22 +662,7 @@ class _StudentUpcomingTasksScreenState extends ConsumerState<StudentUpcomingTask
         };
       }).toList();
     } else {
-      sourceAssignments = _fallbackAssignments.map((fAsg) {
-        final id = fAsg['id'].toString();
-        final sub = _assignmentService.getSubmissionForStudent(id, studentUid);
-        if (sub != null) {
-          final copy = Map<String, dynamic>.from(fAsg);
-          copy['status'] = sub.status;
-          copy['submittedFile'] = sub.fileName;
-          copy['submittedDate'] = DateFormat('dd MMM yyyy • hh:mm a').format(sub.submittedAt);
-          copy['obtainedMarks'] = sub.obtainedMarks;
-          copy['feedback'] = sub.feedback;
-          copy['notes'] = sub.submissionNotes;
-          copy['fileSizeBytes'] = sub.fileSizeBytes;
-          return copy;
-        }
-        return fAsg;
-      }).toList();
+      sourceAssignments = [];
     }
 
     final pendingAssignments = sourceAssignments.where((a) => a['status'] == 'Pending' || a['status'] == 'Overdue').toList();

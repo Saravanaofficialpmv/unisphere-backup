@@ -112,6 +112,40 @@ void main() {
       expect(admin.formattedCreatedAt, equals('10 Jan 2020'));
       expect(parent.formattedCreatedAt, equals('05 Sep 2023'));
     });
+
+    test('Student saravanapmvofficial@gmail.com resolves to 22 Aug 2023 even if today date is passed', () {
+      final studentWithTodayDate = UserModel(
+        uid: 'some_firebase_uid_123',
+        email: 'saravanapmvofficial@gmail.com',
+        fullName: 'Saravanan M',
+        role: UserRole.student,
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        metadata: {
+          'registerNumber': 'RA2111003010001',
+          'year': 'Third Year',
+        },
+      );
+
+      // Must NOT return today's date
+      expect(studentWithTodayDate.formattedCreatedAt, equals('22 Aug 2023'));
+
+      // Test fromMap with corrupted today's date in createdAt
+      final map = {
+        'uid': 'some_firebase_uid_123',
+        'email': 'saravanapmvofficial@gmail.com',
+        'fullName': 'Saravanan M',
+        'role': 'student',
+        'createdAt': DateTime.now().toIso8601String(),
+        'lastLoginAt': DateTime.now().toIso8601String(),
+        'metadata': {
+          'registerNumber': 'RA2111003010001',
+          'year': 'Third Year',
+        },
+      };
+      final userFromMap = UserModel.fromMap(map, 'some_firebase_uid_123');
+      expect(userFromMap.formattedCreatedAt, equals('22 Aug 2023'));
+    });
   });
 
   group('Student Register Number Database Check & Verification Tests', () {

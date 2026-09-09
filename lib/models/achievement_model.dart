@@ -194,7 +194,7 @@ class AchievementRegistry {
       ],
       evidenceLogs: [
         AchievementEvidenceLog(title: 'Paper Title', value: 'AI Campus Orchestration', subtext: 'Machine Learning for Student Engagement'),
-        AchievementEvidenceLog(title: 'Primary Author', value: 'Alex Johnson', subtext: 'Lead Investigator & Experimenter'),
+        AchievementEvidenceLog(title: 'Primary Author', value: 'Student Researcher', subtext: 'Lead Investigator & Experimenter'),
       ],
     ),
     AchievementModel(

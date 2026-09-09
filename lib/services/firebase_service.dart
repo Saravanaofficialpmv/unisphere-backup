@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/firebase_options.dart';
 import 'package:unisphere/services/firebase_firestore_service.dart';
+import 'package:unisphere/services/web_firebase_registrant.dart';
 
 final firebaseServiceProvider = Provider<FirebaseService>((ref) {
   return FirebaseService.instance;
@@ -18,11 +19,18 @@ class FirebaseService {
   FirebaseService._internal();
 
   bool _initialized = false;
-  bool get isInitialized => _initialized;
+  bool get isInitialized {
+    try {
+      if (Firebase.apps.isNotEmpty) return true;
+    } catch (_) {}
+    return _initialized;
+  }
   Future<bool>? _initFuture;
 
   FirebaseAuth? get auth {
-    if (!_initialized) return null;
+    try {
+      if (Firebase.apps.isNotEmpty) return FirebaseAuth.instance;
+    } catch (_) {}
     try {
       return FirebaseAuth.instance;
     } catch (_) {
@@ -31,7 +39,9 @@ class FirebaseService {
   }
 
   FirebaseFirestore? get firestore {
-    if (!_initialized) return null;
+    try {
+      if (Firebase.apps.isNotEmpty) return FirebaseFirestore.instance;
+    } catch (_) {}
     try {
       return FirebaseFirestore.instance;
     } catch (_) {
@@ -40,7 +50,9 @@ class FirebaseService {
   }
 
   FirebaseStorage? get storage {
-    if (!_initialized) return null;
+    try {
+      if (Firebase.apps.isNotEmpty) return FirebaseStorage.instance;
+    } catch (_) {}
     try {
       return FirebaseStorage.instance;
     } catch (_) {
@@ -48,21 +60,41 @@ class FirebaseService {
     }
   }
 
-  /// Initialize Firebase app safely across platforms without querying Firebase.apps on Web before initialization
-  Future<bool> initialize() {
-    if (_initialized) return Future.value(true);
+  /// Initialize Firebase app safely across platforms
+  Future<bool> initialize() async {
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        _initialized = true;
+        return true;
+      }
+    } catch (_) {}
+
+    if (_initialized) return true;
     _initFuture ??= _performInitialize();
-    return _initFuture!;
+    final result = await _initFuture!;
+    if (!result) {
+      _initFuture = null; // allow retry on failure
+    }
+    return result;
   }
 
   Future<bool> _performInitialize() async {
     try {
+      registerWebFirebasePlugins();
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          _initialized = true;
+          return true;
+        }
+      } catch (_) {}
+
       try {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
       } on FirebaseException catch (e) {
-        if (e.code == 'duplicate-app') {
+        final errStr = '${e.code} ${e.message}'.toLowerCase();
+        if (errStr.contains('duplicate') || errStr.contains('already exists')) {
           debugPrint('Firebase already initialized: ${e.message}');
         } else {
           rethrow;
@@ -72,7 +104,7 @@ class FirebaseService {
         if (errStr.contains('duplicate') || errStr.contains('already exists')) {
           debugPrint('Firebase already initialized.');
         } else {
-          debugPrint('Platform specific options failed, trying default initializeApp: $e');
+          debugPrint('Platform specific options notice: $e, attempting fallback init');
           try {
             await Firebase.initializeApp();
           } catch (inner) {
@@ -96,6 +128,12 @@ class FirebaseService {
         _initialized = true;
         return true;
       }
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          _initialized = true;
+          return true;
+        }
+      } catch (_) {}
       _initialized = false;
       _initFuture = null; // allow retry
       return false;

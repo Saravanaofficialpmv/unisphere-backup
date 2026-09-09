@@ -66,7 +66,7 @@ class _StudentResumeModalSheetState extends ConsumerState<StudentResumeModalShee
     final targetId = widget.studentId ??
         currentUser?.metadata?['registerNumber']?.toString() ??
         currentUser?.uid ??
-        'DEMO-STU';
+        '';
 
     final resumeAsync = ref.watch(studentResumeProvider(targetId));
 

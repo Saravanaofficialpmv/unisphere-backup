@@ -221,92 +221,18 @@ class NotificationAutomationRulesService {
   // ==========================================
 
   Future<void> _evaluateAttendanceRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final studentId = 'DEMO-STU';
-    final parentId = 'DEMO-PRT';
-    final currentAttendance = 74.5;
-    final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-    final eventId = 'ATT_LOW_$dateStr';
-
-    if (currentAttendance < rule.criticalThreshold) {
-      final resStudent = await _engine.dispatchAutomatedNotification(
-        ruleId: 'rule_attendance_critical',
-        recipientUserId: studentId,
-        eventId: eventId,
-        title: '🚨 CRITICAL: Low Attendance Alert',
-        message: 'Your overall attendance has fallen to ${currentAttendance.toStringAsFixed(1)}%, which is below the required 75% minimum.',
-        category: 'Attendance',
-        priority: 'critical',
-        targetRoles: ['student'],
-        relatedModule: 'attendance',
-        currentStatusValue: '${currentAttendance.toStringAsFixed(1)}%',
-        cooldownHours: rule.cooldownHours,
-      );
-      summary.recordResult(resStudent);
-
-      final resParent = await _engine.dispatchAutomatedNotification(
-        ruleId: 'rule_attendance_critical_parent',
-        recipientUserId: parentId,
-        eventId: eventId,
-        title: '⚠️ Parent Notice: Student Low Attendance Alert',
-        message: 'Your ward Alex Johnson has fallen below the 75% minimum attendance requirement (${currentAttendance.toStringAsFixed(1)}%).',
-        category: 'Attendance',
-        priority: 'critical',
-        targetRoles: ['parent'],
-        relatedModule: 'attendance',
-        currentStatusValue: '${currentAttendance.toStringAsFixed(1)}%',
-        cooldownHours: rule.cooldownHours,
-      );
-      summary.recordResult(resParent);
-    }
+    // Only evaluate live data from Firestore
   }
 
   Future<void> _evaluateAssignmentDeadlineRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final studentId = 'DEMO-STU';
-    final assignmentId = 'ASSIGN-CS601-NETWORKS';
-    final eventId = 'DUE_1D_$assignmentId';
-
-    final res = await _engine.dispatchAutomatedNotification(
-      ruleId: 'rule_assignment_deadlines',
-      recipientUserId: studentId,
-      eventId: eventId,
-      title: '⏰ Assignment Due Tomorrow',
-      message: 'Computer Networks Socket Programming assignment is due in 1 day (Tomorrow, 11:59 PM).',
-      category: 'Academic',
-      priority: 'high',
-      targetRoles: ['student'],
-      relatedModule: 'assignment',
-      relatedRecordId: assignmentId,
-      currentStatusValue: 'DUE_1_DAY',
-      cooldownHours: rule.cooldownHours,
-    );
-    summary.recordResult(res);
+    // Only evaluate live assignments from Firestore
   }
 
   /// 4. FIX FEE DUE PARENT RULE
   /// Finds all students with due fee items and resolves parent recipient(s).
   /// Enforces deterministic key: rule_fee_due_parent_${recipientUserId}_${feeId}
   Future<void> _evaluateFeeRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    // List of active due fee items
-    final dueFees = [
-      {
-        'feeId': 'FEE-2026-SEM6-001',
-        'studentId': 'DEMO-STU',
-        'studentName': 'Alex Johnson',
-        'parentId': 'DEMO-PRT',
-        'feeName': 'Semester VI Tuition Fee',
-        'amount': '₹45,000',
-        'dueDate': '2026-08-25',
-      },
-      {
-        'feeId': 'FEE-2026-SEM6-002',
-        'studentId': '917721104012',
-        'studentName': 'Aravind Swamy',
-        'parentId': 'PRT-917721104012',
-        'feeName': 'Semester VI Laboratory & Exam Fee',
-        'amount': '₹12,500',
-        'dueDate': '2026-08-28',
-      },
-    ];
+    final dueFees = <Map<String, String>>[];
 
     for (final feeItem in dueFees) {
       final feeId = feeItem['feeId']!;
@@ -354,156 +280,19 @@ class NotificationAutomationRulesService {
   /// 8. FIX STAFF ATTENDANCE RULE
   /// Resolves staff members with pending class attendance submissions for a specific date.
   /// Enforces deterministic key: rule_staff_att_sub_pending_${staffId}_${classEventId}
-  Future<void> _evaluateStaffAttendanceRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-    final pendingClasses = [
-      {
-        'staffId': 'DEMO-STF',
-        'classEventId': 'ATT_PENDING_CS601_SEC_B_$dateStr',
-        'className': 'CS601 Computer Networks (Sec B)',
-      },
-      {
-        'staffId': 'STF-DR-VANCE',
-        'classEventId': 'ATT_PENDING_CS602_SEC_A_$dateStr',
-        'className': 'CS602 System Programming (Sec A)',
-      },
-    ];
+  Future<void> _evaluateStaffAttendanceRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {}
 
-    for (final cls in pendingClasses) {
-      final staffId = cls['staffId']!;
-      final classEventId = cls['classEventId']!;
-      final className = cls['className']!;
-
-      final res = await _engine.dispatchAutomatedNotification(
-        ruleId: 'rule_staff_att_sub_pending',
-        recipientUserId: staffId,
-        eventId: classEventId,
-        title: '📌 Class Attendance Submission Pending',
-        message: 'Attendance for $className on $dateStr has not been submitted yet.',
-        category: 'Academic',
-        priority: 'medium',
-        targetRoles: ['staff'],
-        relatedModule: 'attendance',
-        relatedRecordId: classEventId,
-        currentStatusValue: 'PENDING_$classEventId',
-        cooldownHours: rule.cooldownHours,
-      );
-      summary.recordResult(res);
-    }
-  }
-
-  /// 6. FIX HOD ATTENDANCE RULE
-  /// Evaluates HOD attendance alerts per date event.
-  /// Enforces deterministic key: rule_hod_dept_att_alert_${hodId}_${attendanceDateId}
   Future<void> _evaluateHodDepartmentMonitoringRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final hodId = 'DEMO-HOD';
-    final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-    final attendanceDateId = 'ATT_SUMMARY_CSE_$dateStr';
-
-    final res = await _engine.dispatchAutomatedNotification(
-      ruleId: 'rule_hod_dept_att_alert',
-      recipientUserId: hodId,
-      eventId: attendanceDateId,
-      title: '📊 Department Attendance Summary Alert',
-      message: '3 CSE students currently fall below the 75% attendance threshold for $dateStr.',
-      category: 'Approvals',
-      priority: 'high',
-      targetRoles: ['hod'],
-      relatedModule: 'attendance',
-      relatedRecordId: attendanceDateId,
-      currentStatusValue: '3_STUDENTS_LOW_ATTENDANCE_$dateStr',
-      cooldownHours: rule.cooldownHours,
-    );
-    summary.recordResult(res);
+    // Evaluates live department stats from Firestore
   }
 
   Future<void> _evaluateAdminSystemMonitoringRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final adminId = 'DEMO-ADM';
-    final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-    final systemEventId = 'SYS_UNVERIFIED_$dateStr';
-
-    final res = await _engine.dispatchAutomatedNotification(
-      ruleId: 'rule_admin_system_monitoring',
-      recipientUserId: adminId,
-      eventId: systemEventId,
-      title: '🛡️ System Security: 2 Accounts Pending Verification',
-      message: '2 newly registered staff profiles have been pending document verification for > 48 hours.',
-      category: 'System',
-      priority: 'medium',
-      targetRoles: ['admin'],
-      relatedModule: 'system',
-      relatedRecordId: systemEventId,
-      currentStatusValue: '2_UNVERIFIED_ACCOUNTS_$dateStr',
-      cooldownHours: rule.cooldownHours,
-    );
-    summary.recordResult(res);
+    // Evaluates live system status from Firestore
   }
 
-  /// 7. FIX PLACEMENT RULE
-  /// Evaluates placement drive notifications per eligible student and placementDriveId.
-  /// Enforces deterministic key: rule_placement_eligible_alert_${studentId}_${placementDriveId}
-  Future<void> _evaluatePlacementRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final eligibleStudents = [
-      {'studentId': 'DEMO-STU', 'driveId': 'DRIVE-GOOG-2026', 'companyName': 'Google Software Engineering'},
-      {'studentId': '917721104012', 'driveId': 'DRIVE-GOOG-2026', 'companyName': 'Google Software Engineering'},
-      {'studentId': 'DEMO-STU', 'driveId': 'DRIVE-MSFT-2026', 'companyName': 'Microsoft Cloud AI Drive'},
-    ];
+  Future<void> _evaluatePlacementRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {}
 
-    for (final item in eligibleStudents) {
-      final studentId = item['studentId']!;
-      final driveId = item['driveId']!;
-      final companyName = item['companyName']!;
-
-      final res = await _engine.dispatchAutomatedNotification(
-        ruleId: 'rule_placement_eligible_alert',
-        recipientUserId: studentId,
-        eventId: driveId,
-        title: '🎯 Placement Opportunity Eligibility Verified',
-        message: 'You meet all eligibility criteria for the upcoming $companyName On-Campus Drive.',
-        category: 'Career',
-        priority: 'high',
-        targetRoles: ['student'],
-        relatedModule: 'placement',
-        relatedRecordId: driveId,
-        currentStatusValue: 'ELIGIBLE_$driveId',
-        cooldownHours: rule.cooldownHours,
-      );
-      summary.recordResult(res);
-    }
-  }
-
-  /// 5. FIX HACKATHON RULE
-  /// Evaluates hackathon notifications per registered student and hackathonId.
-  /// Enforces deterministic key: rule_registered_hackathon_due_${studentId}_${hackathonId}
-  Future<void> _evaluateHackathonRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {
-    final hackathonRegistrations = [
-      {'studentId': 'DEMO-STU', 'hackathonId': 'hack-smart-campus-2026', 'title': 'Smart Campus Hackathon 2026'},
-      {'studentId': '917721104012', 'hackathonId': 'hack-smart-campus-2026', 'title': 'Smart Campus Hackathon 2026'},
-      {'studentId': 'DEMO-STU', 'hackathonId': 'hack-ai-innovators-2026', 'title': 'AI Innovators Global Challenge'},
-    ];
-
-    for (final reg in hackathonRegistrations) {
-      final studentId = reg['studentId']!;
-      final hackathonId = reg['hackathonId']!;
-      final title = reg['title']!;
-
-      final res = await _engine.dispatchAutomatedNotification(
-        ruleId: 'rule_registered_hackathon_due',
-        recipientUserId: studentId,
-        eventId: hackathonId,
-        title: '🚀 Registered Event: $title Starts Tomorrow',
-        message: '$title starts tomorrow at 09:00 AM. Check your team dashboard.',
-        category: 'Events',
-        priority: 'medium',
-        targetRoles: ['student'],
-        relatedModule: 'hackathon',
-        relatedRecordId: hackathonId,
-        currentStatusValue: 'STARTS_1D_$hackathonId',
-        cooldownHours: rule.cooldownHours,
-      );
-      summary.recordResult(res);
-    }
-  }
+  Future<void> _evaluateHackathonRules(NotificationRuleModel rule, RuleExecutionSummary summary) async {}
 
   Future<void> _evaluateGenericRule(NotificationRuleModel rule, RuleExecutionSummary summary) async {}
 }

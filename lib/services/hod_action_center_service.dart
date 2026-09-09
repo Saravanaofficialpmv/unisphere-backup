@@ -183,8 +183,8 @@ class ExecutiveDepartmentHealth {
     required this.totalStudents,
     required this.totalFaculty,
     required this.activeClasses,
-    this.attendanceTrend = '+1.4% vs last week',
-    this.academicTrend = 'Stable (Sem 6)',
-    this.coverageTrend = '100% scheduled',
+    this.attendanceTrend = 'No attendance recorded',
+    this.academicTrend = 'No grades recorded',
+    this.coverageTrend = 'No faculty enrolled',
   });
 }

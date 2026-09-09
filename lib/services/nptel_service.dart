@@ -1,12 +1,18 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/nptel_certificate_model.dart';
 
 class NptelService extends ChangeNotifier {
   static final NptelService _instance = NptelService._internal();
   factory NptelService() => _instance;
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
+
   NptelService._internal() {
-    _initSeedData();
+    _initFirestoreListener();
   }
 
   final List<NptelCertificateModel> _certificates = [];
@@ -22,114 +28,88 @@ class NptelService extends ChangeNotifier {
   List<NptelCertificateModel> get rejectedCertificates =>
       _certificates.where((c) => c.status == 'Rejected').toList();
 
-  void _initSeedData() {
-    _certificates.addAll([
-      NptelCertificateModel(
-        id: 'NPTEL-2026-001',
-        studentName: 'Alex Morgan',
-        rollNo: 'RA2111003010001',
-        department: 'Computer Science and Engineering',
-        courseName: 'Programming in Java',
-        courseCode: 'NPTEL24CS01',
-        semester: '5th Semester',
-        academicYear: '2026–27',
-        score: '82%',
-        grade: 'Elite',
-        certificateId: 'NPTEL-CS20268812',
-        issueDate: '10 Aug 2026',
-        fileName: 'nptel_programming_in_java_cert.pdf',
-        fileSize: '1.4 MB',
-        uploadDate: DateTime.now().subtract(const Duration(hours: 4)),
-        status: 'Pending Verification',
-      ),
-      NptelCertificateModel(
-        id: 'NPTEL-2025-091',
-        studentName: 'Alex Morgan',
-        rollNo: 'RA2111003010001',
-        department: 'Computer Science and Engineering',
-        courseName: 'Data Structures and Algorithms in Java',
-        courseCode: 'NPTEL25CS09',
-        semester: '4th Semester',
-        academicYear: '2025–26',
-        score: '92%',
-        grade: 'Elite + Gold',
-        certificateId: 'NPTEL-CS-2025-091',
-        issueDate: '15 Oct 2025',
-        fileName: 'nptel_dsa_java_gold.pdf',
-        fileSize: '1.2 MB',
-        uploadDate: DateTime.now().subtract(const Duration(days: 120)),
-        status: 'Verified',
-        reviewedBy: 'Dr. Sarah Miller (HOD - CSE)',
-        reviewedAt: DateTime.now().subtract(const Duration(days: 119)),
-      ),
-      NptelCertificateModel(
-        id: 'NPTEL-2025-042',
-        studentName: 'Alex Morgan',
-        rollNo: 'RA2111003010001',
-        department: 'Computer Science and Engineering',
-        courseName: 'Database Management Systems',
-        courseCode: 'NPTEL25CS42',
-        semester: '3rd Semester',
-        academicYear: '2024–25',
-        score: '86%',
-        grade: 'Elite + Silver',
-        certificateId: 'NPTEL-CS-2025-042',
-        issueDate: '20 Apr 2025',
-        fileName: 'nptel_dbms_silver.pdf',
-        fileSize: '1.5 MB',
-        uploadDate: DateTime.now().subtract(const Duration(days: 300)),
-        status: 'Verified',
-        reviewedBy: 'Prof. Emily Carter',
-        reviewedAt: DateTime.now().subtract(const Duration(days: 299)),
-      ),
-      NptelCertificateModel(
-        id: 'NPTEL-2026-002',
-        studentName: 'Michael Chen',
-        rollNo: 'RA2111003010014',
-        department: 'Computer Science and Engineering',
-        courseName: 'Cloud Computing',
-        courseCode: 'NPTEL26CS14',
-        semester: '5th Semester',
-        academicYear: '2026–27',
-        score: '78%',
-        grade: 'Elite',
-        certificateId: 'NPTEL-CS20269914',
-        issueDate: '05 Aug 2026',
-        fileName: 'cloud_computing_cert.pdf',
-        fileSize: '1.8 MB',
-        uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-        status: 'Pending Verification',
-      ),
-      NptelCertificateModel(
-        id: 'NPTEL-2026-003',
-        studentName: 'Priya Sharma',
-        rollNo: 'RA2111003010029',
-        department: 'Computer Science and Engineering',
-        courseName: 'Python for Data Science',
-        courseCode: 'NPTEL26CS29',
-        semester: '5th Semester',
-        academicYear: '2026–27',
-        score: '65%',
-        grade: 'Successfully Completed',
-        certificateId: 'NPTEL-CS20267729',
-        issueDate: '02 Aug 2026',
-        fileName: 'python_data_science_cert.pdf',
-        fileSize: '1.1 MB',
-        uploadDate: DateTime.now().subtract(const Duration(days: 3)),
-        status: 'Rejected',
-        rejectionReason: 'Certificate ID does not match the official NPTEL portal records. Please verify the ID and re-upload.',
-        reviewedBy: 'Dr. Sarah Miller (HOD - CSE)',
-        reviewedAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-    ]);
+  void _initFirestoreListener() {
+    try {
+      _subscription = _firestore
+          .collection('nptel_certificates')
+          .orderBy('uploadDate', descending: true)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          _certificates.clear();
+          for (final doc in snapshot.docs) {
+            try {
+              _certificates.add(NptelCertificateModel.fromMap(doc.data(), doc.id));
+            } catch (e) {
+              debugPrint('Error parsing NptelCertificate ${doc.id}: $e');
+            }
+          }
+          notifyListeners();
+        },
+        onError: (err) {
+          debugPrint('NptelService firestore subscription error: $err');
+        },
+      );
+    } catch (e) {
+      debugPrint('Failed to initialize NptelService listener: $e');
+    }
   }
 
-  void uploadCertificate(NptelCertificateModel cert) {
-    _certificates.insert(0, cert);
-    notifyListeners();
+  Stream<List<NptelCertificateModel>> streamCertificates() {
+    return _firestore
+        .collection('nptel_certificates')
+        .orderBy('uploadDate', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NptelCertificateModel.fromMap(doc.data(), doc.id))
+            .toList())
+        .handleError((e) {
+      debugPrint('NptelService streamCertificates error: $e');
+      return <NptelCertificateModel>[];
+    });
   }
 
-  void reuploadCertificate({
+  Stream<List<NptelCertificateModel>> streamStudentCertificates({String? studentUid, String? rollNo}) {
+    Query<Map<String, dynamic>> query = _firestore.collection('nptel_certificates');
+    if (studentUid != null && studentUid.isNotEmpty) {
+      query = query.where('studentUid', isEqualTo: studentUid);
+    } else if (rollNo != null && rollNo.isNotEmpty) {
+      query = query.where('rollNo', isEqualTo: rollNo);
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => NptelCertificateModel.fromMap(doc.data(), doc.id))
+        .toList()).handleError((e) {
+      debugPrint('NptelService streamStudentCertificates error: $e');
+      return <NptelCertificateModel>[];
+    });
+  }
+
+  Stream<List<NptelCertificateModel>> streamDepartmentCertificates(String department) {
+    return _firestore
+        .collection('nptel_certificates')
+        .where('department', isEqualTo: department)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NptelCertificateModel.fromMap(doc.data(), doc.id))
+            .toList())
+        .handleError((e) {
+      debugPrint('NptelService streamDepartmentCertificates error: $e');
+      return <NptelCertificateModel>[];
+    });
+  }
+
+  Future<void> uploadCertificate(NptelCertificateModel cert) async {
+    final docRef = _firestore.collection('nptel_certificates').doc(cert.id);
+    await docRef.set(cert.toMap(), SetOptions(merge: true));
+
+    final index = _certificates.indexWhere((c) => c.id == cert.id);
+    if (index == -1) {
+      _certificates.insert(0, cert);
+      notifyListeners();
+    }
+  }
+
+  Future<void> reuploadCertificate({
     required String existingId,
     required String courseName,
     required String courseCode,
@@ -141,15 +121,34 @@ class NptelService extends ChangeNotifier {
     required String issueDate,
     required String fileName,
     required String fileSize,
-  }) {
+    String? fileUrl,
+  }) async {
+    final updateData = <String, dynamic>{
+      'courseName': courseName,
+      'courseCode': courseCode,
+      'semester': semester,
+      'academicYear': academicYear,
+      'score': score,
+      'grade': grade,
+      'certificateId': certificateId,
+      'issueDate': issueDate,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'uploadDate': Timestamp.now(),
+      'status': 'Pending Verification',
+      'rejectionReason': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (fileUrl != null) {
+      updateData['fileUrl'] = fileUrl;
+    }
+
+    await _firestore.collection('nptel_certificates').doc(existingId).update(updateData);
+
     final index = _certificates.indexWhere((c) => c.id == existingId);
     if (index != -1) {
       final old = _certificates[index];
-      _certificates[index] = NptelCertificateModel(
-        id: old.id,
-        studentName: old.studentName,
-        rollNo: old.rollNo,
-        department: old.department,
+      _certificates[index] = old.copyWith(
         courseName: courseName,
         courseCode: courseCode,
         semester: semester,
@@ -160,6 +159,7 @@ class NptelService extends ChangeNotifier {
         issueDate: issueDate,
         fileName: fileName,
         fileSize: fileSize,
+        fileUrl: fileUrl ?? old.fileUrl,
         uploadDate: DateTime.now(),
         status: 'Pending Verification',
         rejectionReason: null,
@@ -168,25 +168,68 @@ class NptelService extends ChangeNotifier {
     }
   }
 
-  void verifyCertificate(String id, String reviewer) {
+  Future<void> verifyCertificate(String id, String reviewer) async {
+    await _firestore.collection('nptel_certificates').doc(id).update({
+      'status': 'Verified',
+      'reviewedBy': reviewer,
+      'reviewedAt': Timestamp.now(),
+      'rejectionReason': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
     final index = _certificates.indexWhere((c) => c.id == id);
     if (index != -1) {
-      _certificates[index].status = 'Verified';
-      _certificates[index].reviewedBy = reviewer;
-      _certificates[index].reviewedAt = DateTime.now();
-      _certificates[index].rejectionReason = null;
+      _certificates[index] = _certificates[index].copyWith(
+        status: 'Verified',
+        reviewedBy: reviewer,
+        reviewedAt: DateTime.now(),
+        rejectionReason: null,
+      );
       notifyListeners();
     }
   }
 
-  void rejectCertificate(String id, String reason, String reviewer) {
+  Future<void> rejectCertificate(String id, String reason, String reviewer) async {
+    await _firestore.collection('nptel_certificates').doc(id).update({
+      'status': 'Rejected',
+      'rejectionReason': reason,
+      'reviewedBy': reviewer,
+      'reviewedAt': Timestamp.now(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
     final index = _certificates.indexWhere((c) => c.id == id);
     if (index != -1) {
-      _certificates[index].status = 'Rejected';
-      _certificates[index].rejectionReason = reason;
-      _certificates[index].reviewedBy = reviewer;
-      _certificates[index].reviewedAt = DateTime.now();
+      _certificates[index] = _certificates[index].copyWith(
+        status: 'Rejected',
+        rejectionReason: reason,
+        reviewedBy: reviewer,
+        reviewedAt: DateTime.now(),
+      );
       notifyListeners();
     }
   }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
 }
+
+// Riverpod Providers
+final nptelServiceProvider = Provider<NptelService>((ref) => NptelService());
+
+final nptelCertificatesStreamProvider = StreamProvider<List<NptelCertificateModel>>((ref) {
+  return ref.watch(nptelServiceProvider).streamCertificates();
+});
+
+final nptelStudentCertificatesStreamProvider =
+    StreamProvider.family<List<NptelCertificateModel>, String>((ref, rollNo) {
+  return ref.watch(nptelServiceProvider).streamStudentCertificates(rollNo: rollNo);
+});
+
+final nptelDepartmentCertificatesStreamProvider =
+    StreamProvider.family<List<NptelCertificateModel>, String>((ref, department) {
+  return ref.watch(nptelServiceProvider).streamDepartmentCertificates(department);
+});

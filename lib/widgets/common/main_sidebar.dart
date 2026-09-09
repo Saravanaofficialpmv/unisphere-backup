@@ -110,7 +110,7 @@ class MainSidebar extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 16, 20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -167,80 +167,6 @@ class MainSidebar extends ConsumerWidget {
                   onPressed: onToggleCollapse,
                 ),
             ],
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.backgroundSubtle,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.surfaceSecondary,
-                  backgroundImage: profileUrl != null ? NetworkImage(profileUrl!) : null,
-                  child: profileUrl == null
-                      ? Text(
-                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: roleColor ?? AppColors.primary,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      if (roleBadge != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: (roleColor ?? AppColors.primary).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            roleBadge!.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.6,
-                              color: roleColor ?? AppColors.primary,
-                            ),
-                          ),
-                        )
-                      else
-                        Text(
-                          userEmail,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

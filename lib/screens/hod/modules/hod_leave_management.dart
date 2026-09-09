@@ -17,71 +17,30 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
   String _activeTab = 'Faculty Requests';
   String _postOdFilter = 'All Outcomes';
 
-  final List<Map<String, dynamic>> _fallbackLeaveRequests = [
-    {
-      'id': 'REQ-FAC-01',
-      'name': 'Dr. Anita Roy',
-      'role': 'Assistant Professor',
-      'type': 'Faculty',
-      'reason': 'Attending National AI Conference at IIT Madras',
-      'dates': '12 Aug - 14 Aug (3 Days)',
-      'leaveCategory': 'On Duty (OD)',
-      'status': 'Pending Approval',
-      'document': 'Conference_Invitation_IITM.pdf',
-      'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-    },
-    {
-      'id': 'REQ-FAC-02',
-      'name': 'Prof. Vikram Sharma',
-      'role': 'Assistant Professor',
-      'type': 'Faculty',
-      'reason': 'Medical Emergency / Personal Illness',
-      'dates': '05 Aug (1 Day)',
-      'leaveCategory': 'Casual Leave (CL)',
-      'status': 'Pending Approval',
-      'document': 'Medical_Certificate.pdf',
-      'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    },
-    {
-      'id': 'REQ-STU-01',
-      'name': 'Karthik Raja',
-      'role': 'Student (CS-B)',
-      'type': 'Student',
-      'reason': 'Inter-College Hackathon Participation',
-      'dates': '08 Aug - 09 Aug (2 Days)',
-      'leaveCategory': 'On Duty (OD)',
-      'status': 'Pending Approval',
-      'document': 'Hackathon_Pass.pdf',
-      'photo': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
     final postOdState = ref.watch(postOdProvider);
     final leavesAsync = ref.watch(hodLeaveRequestsStreamProvider);
     final rawLeaves = leavesAsync.valueOrNull ?? [];
 
-    final allLeaves = rawLeaves.isNotEmpty
-        ? rawLeaves.map((l) {
-            final isFaculty = (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('fac') ||
-                (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('prof');
-            final cat = l['type'] ?? l['leaveCategory'] ?? 'Casual Leave';
-            return {
-              'id': l['id']?.toString() ?? '',
-              'name': l['studentName'] ?? l['name'] ?? 'Applicant',
-              'role': l['role'] ?? l['section'] ?? (isFaculty ? 'Faculty' : 'Student'),
-              'type': isFaculty ? 'Faculty' : 'Student',
-              'reason': l['reason'] ?? 'Department academic activity / leave',
-              'dates': l['duration'] ?? l['dates'] ?? 'Current Term',
-              'leaveCategory': cat,
-              'status': l['status'] ?? 'Pending Approval',
-              'document': l['document'] ?? 'Supporting_Document.pdf',
-              'photo': l['photo'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-              'remarks': l['remarks'],
-            };
-          }).toList()
-        : _fallbackLeaveRequests;
+    final allLeaves = rawLeaves.map((l) {
+      final isFaculty = (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('fac') ||
+          (l['type'] ?? l['role'] ?? '').toString().toLowerCase().contains('prof');
+      final cat = l['type'] ?? l['leaveCategory'] ?? 'Casual Leave';
+      return {
+        'id': l['id']?.toString() ?? '',
+        'name': l['studentName'] ?? l['name'] ?? 'Applicant',
+        'role': l['role'] ?? l['section'] ?? (isFaculty ? 'Faculty' : 'Student'),
+        'type': isFaculty ? 'Faculty' : 'Student',
+        'reason': l['reason'] ?? 'Department academic activity / leave',
+        'dates': l['duration'] ?? l['dates'] ?? 'Current Term',
+        'leaveCategory': cat,
+        'status': l['status'] ?? 'Pending Approval',
+        'document': l['document'] ?? 'Supporting_Document.pdf',
+        'photo': l['photo'] ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        'remarks': l['remarks'],
+      };
+    }).toList();
 
     final filtered = allLeaves.where((r) {
       if (_activeTab == 'Faculty Requests') return r['type'] == 'Faculty';
@@ -116,6 +75,29 @@ class _HodLeaveManagementState extends ConsumerState<HodLeaveManagement> {
 
             if (_activeTab == 'Post-OD Outcomes & Certs') ...[
               _buildPostOdApprovalPortal(context, postOdState.outcomes),
+            ] else if (filtered.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 40, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+                      const SizedBox(height: 10),
+                      Text(
+                        'No $_activeTab found',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ] else ...[
               ListView.separated(
                 shrinkWrap: true,

@@ -25,10 +25,10 @@ class HodDepartmentOverview extends ConsumerWidget {
     final summary = ref.watch(hodDepartmentSummaryMetricsProvider);
     final textTheme = Theme.of(context).textTheme;
 
-    final totalStudents = summary.totalStudents > 0 ? '${summary.totalStudents}' : '0';
-    final totalFaculty = summary.totalFaculty > 0 ? '${summary.totalFaculty}' : '0';
-    final totalClasses = summary.totalClasses > 0 ? '${summary.totalClasses}' : '0';
-    final attendanceText = summary.averageAttendance > 0 ? '${summary.averageAttendance}%' : '92%';
+    final totalStudents = '${summary.totalStudents}';
+    final totalFaculty = '${summary.totalFaculty}';
+    final totalClasses = '${summary.totalClasses}';
+    final attendanceText = summary.averageAttendance > 0 ? '${summary.averageAttendance}%' : '0%';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

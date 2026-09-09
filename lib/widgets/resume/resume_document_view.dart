@@ -410,30 +410,61 @@ class _ResumeDocumentViewState extends State<ResumeDocumentView> {
   }
 
   Widget _buildHeaderSection(ResumeHeader h, Color headingNavy, Color subtitleSlate, Color bodyColor, bool isMobile) {
-    final displayName = h.fullName.trim().isNotEmpty ? h.fullName.trim() : 'SARAVANA SELVARAJU';
-    final displayHeadline = h.headline.trim().isNotEmpty 
-        ? h.headline.trim() 
-        : 'Full-Stack Software Engineer | Flutter & Mobile Systems Specialist';
-    final displayEmail = h.collegeEmail.trim().isNotEmpty ? h.collegeEmail.trim() : 'saravanapmvofficial@gmail.com';
-    final displayPhone = (h.phone != null && h.phone!.trim().isNotEmpty) ? h.phone!.trim() : '+91 98765 43210';
+    final displayName = h.fullName.trim().isNotEmpty ? h.fullName.trim() : 'STUDENT NAME';
+    final displayHeadline = h.headline.trim();
+    final displayEmail = h.collegeEmail.trim();
+    final displayPhone = (h.phone != null && h.phone!.trim().isNotEmpty) ? h.phone!.trim() : '';
 
     String cleanLinkedin = (h.linkedinUrl != null && h.linkedinUrl!.trim().isNotEmpty)
         ? h.linkedinUrl!
-        : 'linkedin.com/in/saravana-selvaraju';
-    cleanLinkedin = cleanLinkedin
-        .replaceAll('https://', '')
-        .replaceAll('http://', '')
-        .replaceAll('www.', '');
-    if (cleanLinkedin.endsWith('/')) cleanLinkedin = cleanLinkedin.substring(0, cleanLinkedin.length - 1);
+        : '';
+    if (cleanLinkedin.isNotEmpty) {
+      cleanLinkedin = cleanLinkedin
+          .replaceAll('https://', '')
+          .replaceAll('http://', '')
+          .replaceAll('www.', '');
+      if (cleanLinkedin.endsWith('/')) cleanLinkedin = cleanLinkedin.substring(0, cleanLinkedin.length - 1);
+    }
 
     String cleanGithub = (h.githubUrl != null && h.githubUrl!.trim().isNotEmpty)
         ? h.githubUrl!
-        : 'github.com/Saravanaofficialpmv';
-    cleanGithub = cleanGithub
-        .replaceAll('https://', '')
-        .replaceAll('http://', '')
-        .replaceAll('www.', '');
-    if (cleanGithub.endsWith('/')) cleanGithub = cleanGithub.substring(0, cleanGithub.length - 1);
+        : '';
+    if (cleanGithub.isNotEmpty) {
+      cleanGithub = cleanGithub
+          .replaceAll('https://', '')
+          .replaceAll('http://', '')
+          .replaceAll('www.', '');
+      if (cleanGithub.endsWith('/')) cleanGithub = cleanGithub.substring(0, cleanGithub.length - 1);
+    }
+
+    final contactItems = <Widget>[];
+    if (displayEmail.isNotEmpty) {
+      contactItems.add(InkWell(
+        onTap: () => _openLink('mailto:$displayEmail'),
+        child: Text('✉ $displayEmail', style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500)),
+      ));
+    }
+    if (displayPhone.isNotEmpty) {
+      if (contactItems.isNotEmpty) contactItems.add(const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))));
+      contactItems.add(InkWell(
+        onTap: () => _openLink('tel:$displayPhone'),
+        child: Text('☎ $displayPhone', style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500)),
+      ));
+    }
+    if (cleanLinkedin.isNotEmpty) {
+      if (contactItems.isNotEmpty) contactItems.add(const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))));
+      contactItems.add(InkWell(
+        onTap: () => _openLink(h.linkedinUrl),
+        child: Text(cleanLinkedin, style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500)),
+      ));
+    }
+    if (cleanGithub.isNotEmpty) {
+      if (contactItems.isNotEmpty) contactItems.add(const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))));
+      contactItems.add(InkWell(
+        onTap: () => _openLink(h.githubUrl),
+        child: Text(cleanGithub, style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500)),
+      ));
+    }
 
     return Center(
       child: Column(
@@ -453,58 +484,29 @@ class _ResumeDocumentViewState extends State<ResumeDocumentView> {
           const SizedBox(height: 4),
 
           // Roles / Headline
-          Text(
-            displayHeadline,
-            style: TextStyle(
-              fontSize: isMobile ? 11.5 : 12.5,
-              fontWeight: FontWeight.w600,
-              color: subtitleSlate,
-              letterSpacing: 0.2,
+          if (displayHeadline.isNotEmpty) ...[
+            Text(
+              displayHeadline,
+              style: TextStyle(
+                fontSize: isMobile ? 11.5 : 12.5,
+                fontWeight: FontWeight.w600,
+                color: subtitleSlate,
+                letterSpacing: 0.2,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
+            const SizedBox(height: 6),
+          ],
 
           // Contact details row
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              InkWell(
-                onTap: () => _openLink('mailto:$displayEmail'),
-                child: Text(
-                  '✉ $displayEmail',
-                  style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              InkWell(
-                onTap: () => _openLink('tel:$displayPhone'),
-                child: Text(
-                  '☎ $displayPhone',
-                  style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              InkWell(
-                onTap: () => _openLink(h.linkedinUrl),
-                child: Text(
-                  cleanLinkedin,
-                  style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const Text('|', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-              InkWell(
-                onTap: () => _openLink(h.githubUrl),
-                child: Text(
-                  cleanGithub,
-                  style: TextStyle(fontSize: 10.8, color: bodyColor, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
+          if (contactItems.isNotEmpty)
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: contactItems,
+            ),
         ],
       ),
     );

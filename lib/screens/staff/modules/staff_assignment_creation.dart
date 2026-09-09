@@ -17,7 +17,7 @@ class _StaffAssignmentCreationState extends State<StaffAssignmentCreation> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _subjectController = TextEditingController(text: 'Data Structures');
-  final _courseCodeController = TextEditingController(text: 'CS201');
+  final _courseCodeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _maxMarksController = TextEditingController(text: '100');
 
@@ -26,11 +26,7 @@ class _StaffAssignmentCreationState extends State<StaffAssignmentCreation> {
   final AssignmentService _service = AssignmentService();
 
   // Register Number Question Allocation Mappings
-  final List<Map<String, String>> _regNoMappings = [
-    {'reg': 'RA2111003010001', 'question': 'Set A: Implement AVL Tree dynamic rotations and benchmark node insertion performance.'},
-    {'reg': 'RA2111003010002', 'question': 'Set B: Implement AVL Tree deletion and write graph benchmark comparison report.'},
-    {'reg': 'RA2111003010003-RA2111003010050', 'question': 'Set C: Implement Red-Black Tree height verification and unit testing suite.'},
-  ];
+  final List<Map<String, String>> _regNoMappings = [];
 
   final _regInputController = TextEditingController();
   final _questionInputController = TextEditingController();
@@ -223,10 +219,19 @@ class _StaffAssignmentCreationState extends State<StaffAssignmentCreation> {
                     // List of current mappings
                     const Text('Configured Question Mappings:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _regNoMappings.length,
+                    if (_regNoMappings.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'No specific register number mappings added. Assignment will apply to all students.',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _regNoMappings.length,
                       itemBuilder: (context, index) {
                         final item = _regNoMappings[index];
                         return Container(

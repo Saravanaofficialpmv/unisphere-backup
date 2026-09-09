@@ -147,7 +147,7 @@ class HodExecutiveHealth extends ConsumerWidget {
               Expanded(
                 child: _buildSecondaryMetric(
                   label: 'Enrolled Students',
-                  value: '${summary.totalStudents > 0 ? summary.totalStudents : 450}',
+                  value: '${summary.totalStudents}',
                   onTap: onNavigateToStudents,
                 ),
               ),
@@ -155,7 +155,7 @@ class HodExecutiveHealth extends ConsumerWidget {
               Expanded(
                 child: _buildSecondaryMetric(
                   label: 'Faculty Members',
-                  value: '${summary.totalFaculty > 0 ? summary.totalFaculty : 24}',
+                  value: '${summary.totalFaculty}',
                   onTap: onNavigateToFaculty,
                 ),
               ),
@@ -163,7 +163,7 @@ class HodExecutiveHealth extends ConsumerWidget {
               Expanded(
                 child: _buildSecondaryMetric(
                   label: 'Active Classes',
-                  value: '${summary.totalClasses > 0 ? summary.totalClasses : 8}',
+                  value: '${summary.totalClasses}',
                   onTap: onNavigateToClasses,
                 ),
               ),

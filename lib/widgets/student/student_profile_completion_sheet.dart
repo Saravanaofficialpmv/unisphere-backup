@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -206,6 +208,7 @@ class _StudentProfileCompletionSheetState
 
   // ── Step 7: Documents ──
   final List<StudentDocument> _uploadedDocuments = [];
+  String? _uploadingDocId;
 
   List<StudentDocument> get _activeDocuments {
     final defaultList = [
@@ -518,111 +521,8 @@ class _StudentProfileCompletionSheetState
   int get _totalSteps => _isDayScholar ? 8 : 7;
   int get _displayStepNumber => (_currentStep == 6 && !_isDayScholar) ? 6 : _currentStep;
 
-  void _fillMockData() {
-    setState(() {
-      // Step 1: Personal
-      _dob = '15/05/2005';
-      _gender = 'Male';
-      _bloodGroup = 'O+';
-      _religion = 'Hindu';
-      _community = 'BC';
-      _casteController.text = 'Kongu Vellalar';
-      _motherTongue = 'Tamil';
-      _isFirstGraduate = true;
-      _isDifferentlyAbled = false;
-      _dobError = false;
-      _genderError = false;
-      _bloodGroupError = false;
-      _religionError = false;
-      _communityError = false;
 
-      // Step 2: Contact & Address
-      _primaryMobileController.text = '+91 98765 43210';
-      _alternateMobileController.text = '+91 98765 00000';
-      _personalEmailController.text = 'student.test@gmail.com';
-      _emergencyNameController.text = 'Senthil Kumar M';
-      _emergencyRelation = 'Father';
-      _emergencyPhoneController.text = '+91 99944 12345';
-      _permLine1Controller.text = '123, Anna Nagar 2nd Street';
-      _permCityController.text = 'Karur';
-      _permPincodeController.text = '639002';
-      _primaryMobileError = false;
 
-      // Step 3: Parents & Guardian
-      _fatherNameController.text = 'Senthil Kumar M';
-      _fatherPhoneController.text = '+91 98765 11111';
-      _fatherEmailController.text = 'senthilkumar@gmail.com';
-      _fatherQual = 'Bachelor Degree';
-      _fatherOccupationController.text = 'Business';
-      _fatherIncome = '₹3,00,000 - ₹5,00,000';
-      _motherNameController.text = 'Lakshmi S';
-      _motherPhoneController.text = '+91 98765 22222';
-      _motherQual = 'School';
-      _motherOccupationController.text = 'Homemaker';
-      _motherIncome = '₹1,00,000 - ₹3,00,000';
-      _parentAnnualIncome = '₹4,00,000 - ₹8,00,000';
-      _studentPhotoUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300';
-      _fatherNameError = false;
-      _motherNameError = false;
-
-      // Step 4: Previous Education
-      _has12th = true;
-      _hasDiploma = true;
-      _tenthSchoolController.text = 'Government Higher Sec School';
-      _tenthAddressController.text = 'Main Road, Karur, Tamil Nadu';
-      _tenthBoard = 'State Board';
-      _tenthMedium = 'English';
-      _tenthRegNoController.text = '10TH98765';
-      _tenthYearController.text = '2021';
-      _tenthTotalController.text = '500';
-      _tenthObtainedController.text = '465';
-      _twelfthSchoolController.text = 'VSB Higher Sec School';
-      _twelfthAddressController.text = 'Covai Road, Karur, Tamil Nadu';
-      _twelfthBoard = 'State Board';
-      _twelfthMedium = 'English';
-      _twelfthRegNoController.text = '12TH12345';
-      _twelfthYearController.text = '2023';
-      _twelfthTotalController.text = '600';
-      _twelfthObtainedController.text = '552';
-
-      // Diploma
-      _diplomaEvalMode = 'Grade';
-      _selectedDiplomaGrade = 'A+';
-      _diplomaCollegeController.text = 'VSB Polytechnic College';
-      _diplomaAddressController.text = 'Covai Road, Karur, Tamil Nadu';
-      _diplomaBranchController.text = 'Diploma in Computer Engineering';
-      _diplomaYearController.text = '2025';
-      _diplomaTotalController.text = 'First Class with Distinction';
-      _diplomaObtainedController.text = 'A+';
-
-      _calculateEducationPercentages();
-
-      // Step 5 & 6: Living & Transport
-      _selectedLivingType = LivingType.homeFamily;
-      _pgNameController.text = 'Sri Sai Men\'s PG';
-      _pgAddressController.text = 'Covai Road, Near VSB Campus, Karur';
-      _rentedAddressController.text = '12/A, Gandhigramam 3rd Street, Karur';
-      _roommatesController.text = '7378211CS101, 7378211CS105';
-      _transportMode = PrimaryTransportMode.BUS;
-      _busType = 'College Bus';
-      _boardingPointController.text = 'Gandhigramam';
-      _busStopController.text = 'College Main Gate';
-
-      // Step 7: Documents Mock Setup
-      _uploadedDocuments.clear();
-      _uploadedDocuments.addAll([
-        StudentDocument(id: 'doc_photo', name: 'Student Passport Photo', isRequired: true, fileName: 'passport_photo.jpg (0.8 MB)', fileUrl: 'https://unisphere.edu/docs/photo.jpg', status: 'uploaded'),
-        StudentDocument(id: 'doc_10th', name: '10th Standard Marksheet', isRequired: true, fileName: '10th_marksheet.pdf (1.4 MB)', fileUrl: 'https://unisphere.edu/docs/10th.pdf', status: 'uploaded'),
-        StudentDocument(id: 'doc_12th', name: '12th Standard Marksheet', isRequired: true, fileName: '12th_marksheet.pdf (1.6 MB)', fileUrl: 'https://unisphere.edu/docs/12th.pdf', status: 'uploaded'),
-        StudentDocument(id: 'doc_diploma', name: 'Polytechnic / Diploma Certificate', isRequired: true, fileName: 'diploma_certificate.pdf (1.2 MB)', fileUrl: 'https://unisphere.edu/docs/diploma.pdf', status: 'uploaded'),
-        StudentDocument(id: 'doc_tc', name: 'Transfer Certificate (TC)', isRequired: true, fileName: 'transfer_certificate.pdf (0.9 MB)', fileUrl: 'https://unisphere.edu/docs/tc.pdf', status: 'uploaded'),
-        StudentDocument(id: 'doc_community', name: 'Community Certificate', isRequired: false, fileName: 'community_cert.pdf (0.7 MB)', fileUrl: 'https://unisphere.edu/docs/community.pdf', status: 'uploaded'),
-      ]);
-
-      // Step 8: Confirmation
-      _isConfirmed = true;
-    });
-  }
 
   int get _progressPercentage {
     final stepProgress = (_currentStep / _totalSteps * 100).round();
@@ -1050,14 +950,32 @@ class _StudentProfileCompletionSheetState
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 800;
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.94),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: screenHeight * 0.94,
+          maxWidth: isDesktop ? 920 : double.infinity,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: isDesktop
+                ? const BorderRadius.vertical(top: Radius.circular(24))
+                : const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: isDesktop
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 32,
+                      offset: const Offset(0, -6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
         children: [
           // Top Header Drag Bar
           Container(
@@ -1197,7 +1115,9 @@ class _StudentProfileCompletionSheetState
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildCurrentStepBody() {
@@ -1223,22 +1143,42 @@ class _StudentProfileCompletionSheetState
     }
   }
 
-  Future<void> _pickStudentPhoto(ImageSource source) async {
+  Future<void> _pickStudentPhoto([ImageSource source = ImageSource.gallery]) async {
     if (_isUploadingPhoto) return;
 
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-      if (picked == null) return;
-
       final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
       if (user == null) {
         throw Exception('User session not found.');
+      }
+
+      Uint8List? imageBytes;
+      File? imageFile;
+      String fileName = 'student_photo.jpg';
+
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        fileName = file.name;
+        if (imageBytes == null) return;
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(
+          source: source,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 85,
+        );
+        if (picked == null) return;
+        imageFile = File(picked.path);
+        fileName = picked.name;
       }
 
       setState(() {
@@ -1249,10 +1189,15 @@ class _StudentProfileCompletionSheetState
       final existingUrl = _studentPhotoUrl ?? (user.profileImageUrl ?? user.metadata?['passportPhotoUrl'] ?? '').toString().trim();
 
       // 1. Upload to Firebase Storage and get download URL
-      final uploadedUrl = await storageService.uploadProfilePhoto(
-        userId: user.uid,
-        file: File(picked.path),
-      );
+      final uploadedUrl = kIsWeb
+          ? await storageService.uploadProfilePhotoBytes(
+              userId: user.uid,
+              bytes: imageBytes!,
+            )
+          : await storageService.uploadProfilePhoto(
+              userId: user.uid,
+              file: imageFile!,
+            );
 
       // 2. Persist in Firestore
       try {
@@ -1286,7 +1231,7 @@ class _StudentProfileCompletionSheetState
             id: 'doc_photo',
             name: 'Student Passport Photo',
             isRequired: true,
-            fileName: picked.name,
+            fileName: fileName,
             fileUrl: uploadedUrl,
             status: 'uploaded',
           );
@@ -1302,7 +1247,7 @@ class _StudentProfileCompletionSheetState
               children: [
                 Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Text('Student passport photo attached!'),
+                Text('Student photo updated successfully!'),
               ],
             ),
             backgroundColor: Color(0xFF16A34A),
@@ -1311,10 +1256,12 @@ class _StudentProfileCompletionSheetState
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isUploadingPhoto = false);
+        setState(() {
+          _isUploadingPhoto = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            content: Text('Error uploading photo: ${e.toString().replaceAll('Exception:', '').trim()}'),
             backgroundColor: const Color(0xFFDC2626),
           ),
         );
@@ -1323,6 +1270,10 @@ class _StudentProfileCompletionSheetState
   }
 
   void _showStudentPhotoPickerModal() {
+    if (kIsWeb) {
+      _pickStudentPhoto(ImageSource.gallery);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -1369,22 +1320,44 @@ class _StudentProfileCompletionSheetState
     );
   }
 
-  Future<void> _pickFatherPhoto(ImageSource source) async {
+  Future<void> _pickFatherPhoto([ImageSource source = ImageSource.gallery]) async {
     if (_isUploadingFatherPhoto) return;
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
-      if (picked == null) return;
-
       final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
       if (user == null) return;
 
+      Uint8List? imageBytes;
+      File? imageFile;
+
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        if (imageBytes == null) return;
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+        if (picked == null) return;
+        imageFile = File(picked.path);
+      }
+
       setState(() => _isUploadingFatherPhoto = true);
       final storageService = ref.read(storageServiceProvider);
-      final uploadedUrl = await storageService.uploadProfilePhoto(
-        userId: '${user.uid}_father',
-        file: File(picked.path),
-      );
+      final uploadedUrl = kIsWeb
+          ? await storageService.uploadProfilePhotoBytes(
+              userId: '${user.uid}_father',
+              bytes: imageBytes!,
+            )
+          : await storageService.uploadProfilePhoto(
+              userId: '${user.uid}_father',
+              file: imageFile!,
+            );
 
       if (mounted) {
         setState(() {
@@ -1418,6 +1391,10 @@ class _StudentProfileCompletionSheetState
   }
 
   void _showFatherPhotoPickerModal() {
+    if (kIsWeb) {
+      _pickFatherPhoto(ImageSource.gallery);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -1462,22 +1439,44 @@ class _StudentProfileCompletionSheetState
     );
   }
 
-  Future<void> _pickMotherPhoto(ImageSource source) async {
+  Future<void> _pickMotherPhoto([ImageSource source = ImageSource.gallery]) async {
     if (_isUploadingMotherPhoto) return;
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
-      if (picked == null) return;
-
       final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
       if (user == null) return;
 
+      Uint8List? imageBytes;
+      File? imageFile;
+
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final file = result.files.first;
+        imageBytes = file.bytes;
+        if (imageBytes == null) return;
+      } else {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+        if (picked == null) return;
+        imageFile = File(picked.path);
+      }
+
       setState(() => _isUploadingMotherPhoto = true);
       final storageService = ref.read(storageServiceProvider);
-      final uploadedUrl = await storageService.uploadProfilePhoto(
-        userId: '${user.uid}_mother',
-        file: File(picked.path),
-      );
+      final uploadedUrl = kIsWeb
+          ? await storageService.uploadProfilePhotoBytes(
+              userId: '${user.uid}_mother',
+              bytes: imageBytes!,
+            )
+          : await storageService.uploadProfilePhoto(
+              userId: '${user.uid}_mother',
+              file: imageFile!,
+            );
 
       if (mounted) {
         setState(() {
@@ -1511,6 +1510,10 @@ class _StudentProfileCompletionSheetState
   }
 
   void _showMotherPhotoPickerModal() {
+    if (kIsWeb) {
+      _pickMotherPhoto(ImageSource.gallery);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -2853,30 +2856,75 @@ class _StudentProfileCompletionSheetState
   }
 
   Future<void> _pickDocument(StudentDocument doc) async {
+    if (_uploadingDocId != null) return;
+
+    if (doc.id == 'doc_photo') {
+      await _pickStudentPhoto();
+      return;
+    }
+
     try {
-      final isPhoto = doc.id == 'doc_photo';
-      final allowedExts = isPhoto ? ['jpg', 'jpeg', 'png'] : ['pdf', 'jpg', 'jpeg', 'png'];
+      final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+      final userId = user?.uid ?? 'student';
+
+      final allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
 
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExts,
         allowMultiple: false,
+        withData: true,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
-        final sizeStr = sizeMb == '0.0' ? '0.5 MB' : '$sizeMb MB';
-        final displayName = '${file.name} ($sizeStr)';
+      if (result == null || result.files.isEmpty) return;
 
+      final file = result.files.first;
+      final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
+      final sizeStr = sizeMb == '0.0' ? '0.5 MB' : '$sizeMb MB';
+      final displayName = '${file.name} ($sizeStr)';
+
+      setState(() {
+        _uploadingDocId = doc.id;
+      });
+
+      Uint8List? fileBytes = file.bytes;
+      if (fileBytes == null && !kIsWeb && file.path != null) {
+        fileBytes = await File(file.path!).readAsBytes();
+      }
+
+      String downloadUrl = '';
+      if (fileBytes != null) {
+        final storageService = ref.read(storageServiceProvider);
+        final ext = (file.extension ?? 'pdf').toLowerCase();
+        final mimeType = ext == 'pdf'
+            ? 'application/pdf'
+            : (ext == 'png' ? 'image/png' : 'image/jpeg');
+        final storagePath = 'certificates/$userId/${doc.id}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+        final uploaded = await storageService.uploadData(
+          storagePath: storagePath,
+          data: fileBytes,
+          mimeType: mimeType,
+        );
+        if (uploaded != null && uploaded.isNotEmpty) {
+          downloadUrl = uploaded;
+        }
+      }
+
+      if (downloadUrl.isEmpty) {
+        downloadUrl = file.path ?? 'https://firebasestorage.googleapis.com/v0/b/unisphere-a2be4.appspot.com/o/certificates%2F$userId%2F${doc.id}_${file.name}?alt=media';
+      }
+
+      if (mounted) {
         setState(() {
+          _uploadingDocId = null;
           final idx = _uploadedDocuments.indexWhere((d) => d.id == doc.id);
           final newDoc = StudentDocument(
             id: doc.id,
             name: doc.name,
             isRequired: doc.isRequired,
             fileName: displayName,
-            fileUrl: file.path ?? 'https://unisphere.edu/docs/${file.name}',
+            fileUrl: downloadUrl,
             status: 'uploaded',
           );
           if (idx != -1) {
@@ -2885,14 +2933,40 @@ class _StudentProfileCompletionSheetState
             _uploadedDocuments.add(newDoc);
           }
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${doc.name} attached successfully!')),
+              ],
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
       }
     } catch (e) {
-      debugPrint('Error picking document: $e');
+      if (mounted) {
+        setState(() {
+          _uploadingDocId = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading document: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
     }
   }
 
   void _removeDocument(StudentDocument doc) {
     setState(() {
+      if (doc.id == 'doc_photo') {
+        _studentPhotoUrl = null;
+      }
       final idx = _uploadedDocuments.indexWhere((d) => d.id == doc.id);
       if (idx != -1) {
         _uploadedDocuments[idx] = StudentDocument(
@@ -2922,16 +2996,18 @@ class _StudentProfileCompletionSheetState
 
         ...docs.map((doc) {
           final isUploaded = doc.fileName.isNotEmpty;
+          final isUploading = _uploadingDocId == doc.id || (doc.id == 'doc_photo' && _isUploadingPhoto);
 
           return Container(
             key: ValueKey('doc_${doc.id}'),
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: isUploaded ? const Color(0xFFF0FDF4) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isUploaded ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                color: isUploading
+                    ? const Color(0xFF2563EB)
+                    : (isUploaded ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
                 width: 1.5,
               ),
               boxShadow: [
@@ -2942,95 +3018,123 @@ class _StudentProfileCompletionSheetState
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isUploaded ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    isUploaded ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
-                    color: isUploaded ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isUploading ? null : () => _pickDocument(doc),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              doc.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
-                                color: Color(0xFF0F172A),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isUploading
+                              ? const Color(0xFFEFF6FF)
+                              : (isUploaded ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: isUploading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2563EB)),
+                              )
+                            : Icon(
+                                isUploaded ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
+                                color: isUploaded ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                                size: 24,
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    doc.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.5,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (doc.isRequired)
+                                  const Text(
+                                    ' *',
+                                    style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isUploading
+                                  ? '⏳ Uploading certificate...'
+                                  : (isUploaded ? '✅ ${doc.fileName}' : 'Required formats: PDF, JPG, PNG (Max 5MB)'),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: (isUploaded || isUploading) ? FontWeight.w700 : FontWeight.normal,
+                                color: isUploading
+                                    ? const Color(0xFF2563EB)
+                                    : (isUploaded ? const Color(0xFF15803D) : const Color(0xFF64748B)),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          if (doc.isRequired)
-                            const Text(
-                              ' *',
-                              style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isUploaded ? '✅ ${doc.fileName}' : 'Required formats: PDF, JPG, PNG (Max 5MB)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: isUploaded ? FontWeight.w700 : FontWeight.normal,
-                          color: isUploaded ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 10),
+                      if (isUploaded && !isUploading)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () => _removeDocument(doc),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ),
+                      ElevatedButton(
+                        onPressed: isUploading ? null : () => _pickDocument(doc),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isUploaded ? const Color(0xFF0F172A) : AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          minimumSize: const Size(72, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: isUploading
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                isUploaded ? 'Change' : 'Upload',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                if (isUploaded)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: InkWell(
-                      onTap: () => _removeDocument(doc),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF64748B)),
-                      ),
-                    ),
-                  ),
-                ElevatedButton(
-                  onPressed: () => _pickDocument(doc),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isUploaded ? const Color(0xFF0F172A) : AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    minimumSize: const Size(64, 36),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(
-                    isUploaded ? 'Change' : 'Upload',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         }),
@@ -3134,27 +3238,6 @@ class _StudentProfileCompletionSheetState
               const SizedBox(height: 2),
               Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        InkWell(
-          onTap: _fillMockData,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF2563EB)),
-                SizedBox(width: 4),
-                Text('Fill Mock Data', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-              ],
-            ),
           ),
         ),
       ],

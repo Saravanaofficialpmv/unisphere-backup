@@ -22,32 +22,13 @@ class _AdvisorLeaveODSectionState extends ConsumerState<AdvisorLeaveODSection> {
     final requestsAsync = ref.watch(advisorLeaveODRequestsStreamProvider);
     final requests = requestsAsync.valueOrNull ?? [];
 
-    final defaultRequests = [
-      {
-        'id': 'LOD-01',
-        'studentName': 'Arun Kumar',
-        'type': 'Medical Leave',
-        'duration': 'Sep 04 – Sep 05',
-        'avatar': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100',
-      },
-      {
-        'id': 'LOD-02',
-        'studentName': 'Priya Sharma',
-        'type': 'On Duty',
-        'duration': 'Sep 06',
-        'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-      },
-    ];
-
-    final displayItems = requests.isNotEmpty
-        ? requests.take(2).map((r) => {
-              'id': r['id']?.toString() ?? 'LOD-X',
-              'studentName': r['studentName']?.toString() ?? 'Student',
-              'type': r['type']?.toString() ?? 'Leave',
-              'duration': r['duration']?.toString() ?? 'Today',
-              'avatar': r['avatar']?.toString() ?? '',
-            }).toList()
-        : defaultRequests;
+    final displayItems = requests.take(3).map((r) => {
+          'id': r['id']?.toString() ?? '',
+          'studentName': r['studentName']?.toString() ?? r['name']?.toString() ?? 'Student',
+          'type': r['type']?.toString() ?? r['leaveCategory']?.toString() ?? 'Leave',
+          'duration': r['duration']?.toString() ?? r['dates']?.toString() ?? 'Today',
+          'avatar': r['avatar']?.toString() ?? '',
+        }).toList();
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -89,15 +70,15 @@ class _AdvisorLeaveODSectionState extends ConsumerState<AdvisorLeaveODSection> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                        color: requests.isNotEmpty ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '4 Pending',
+                        '${requests.length} Pending',
                         style: GoogleFonts.manrope(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFFEA580C),
+                          color: requests.isNotEmpty ? const Color(0xFFEA580C) : AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -126,7 +107,29 @@ class _AdvisorLeaveODSectionState extends ConsumerState<AdvisorLeaveODSection> {
             ],
           ),
           const SizedBox(height: 12),
-          ...displayItems.map((item) {
+          if (displayItems.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, size: 28, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+                    const SizedBox(height: 6),
+                    Text(
+                      'No pending requests',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...displayItems.map((item) {
             final id = item['id'] as String;
             final studentName = item['studentName'] as String;
             final type = item['type'] as String;

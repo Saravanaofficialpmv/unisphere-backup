@@ -61,15 +61,15 @@ class HodDeadlineIntelligence extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.surfaceSecondary,
+                color: (deadlines.isNotEmpty ? AppColors.surfaceSecondary : AppColors.success.withValues(alpha: 0.12)),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${deadlines.length} Active',
-                style: const TextStyle(
+                deadlines.isNotEmpty ? '${deadlines.length} Active' : 'All Clear',
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: deadlines.isNotEmpty ? AppColors.textSecondary : AppColors.success,
                 ),
               ),
             ),
@@ -77,10 +77,33 @@ class HodDeadlineIntelligence extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
 
-        // Deadlines list
-        Column(
-          children: deadlines.map((item) => _buildDeadlineTile(item)).toList(),
-        ),
+        // Deadlines list or empty state
+        if (deadlines.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.event_available_rounded, color: AppColors.success, size: 22),
+                SizedBox(height: 6),
+                Text(
+                  'No upcoming academic deadlines',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: deadlines.map((item) => _buildDeadlineTile(item)).toList(),
+          ),
       ],
     );
   }

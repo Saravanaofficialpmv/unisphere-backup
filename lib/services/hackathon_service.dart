@@ -38,80 +38,6 @@ class ApiHackathonService implements HackathonService {
     }
   }
 
-  // Simulated fallback dataset payload
-  final List<HackathonModel> _mockDb = [
-    HackathonModel(
-      id: 'HACK-101',
-      title: 'UniHack 2026: GenAI & Autonomous Systems',
-      description: '36-hour non-stop hackathon building autonomous AI agents, LLM pipelines, and intelligent multi-agent workflows for enterprise automation.',
-      category: 'AI & Robotics',
-      organizer: 'Department of Computer Science & IEEE',
-      mode: 'Offline',
-      bannerImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80',
-      startDate: DateTime.now().add(const Duration(days: 14)),
-      endDate: DateTime.now().add(const Duration(days: 16)),
-      registrationOpen: true,
-      registrationDeadline: DateTime.now().add(const Duration(days: 10)),
-      prizePool: '₹2,50,000',
-      registeredTeams: 142,
-      maxTeams: 200,
-      maxTeamMembers: 6,
-      teamSize: 4,
-      status: 'upcoming',
-      userRegistrationStatus: 'registered',
-      registrationId: 'REG-2026-8841',
-      location: 'Main Auditorium, Tech Block Center',
-      tags: ['GenAI', 'Autonomous Agents', 'Python', 'PyTorch'],
-      isFeatured: true,
-    ),
-    HackathonModel(
-      id: 'HACK-102',
-      title: 'Global Web3 & Smart Contracts Challenge',
-      description: 'Design zero-knowledge proofs, DeFi protocols, and decentralized apps on Ethereum & Solana ecosystems with global industry mentors.',
-      category: 'Blockchain',
-      organizer: 'Crypto & Blockchain Club',
-      mode: 'Online',
-      bannerImage: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&q=80',
-      startDate: DateTime.now().add(const Duration(days: 30)),
-      endDate: DateTime.now().add(const Duration(days: 32)),
-      registrationOpen: true,
-      registrationDeadline: DateTime.now().add(const Duration(days: 25)),
-      prizePool: '\$5,000 USDT',
-      registeredTeams: 88,
-      maxTeams: 150,
-      maxTeamMembers: 6,
-      teamSize: 3,
-      status: 'upcoming',
-      userRegistrationStatus: 'not_registered',
-      location: 'Virtual / Discord & Devpost',
-      tags: ['Solidity', 'Rust', 'Web3', 'DeFi'],
-      isFeatured: false,
-    ),
-    HackathonModel(
-      id: 'HACK-103',
-      title: 'CleanTech & Sustainable Energy Sprint',
-      description: 'Engineered solutions for carbon footprint tracking, smart grid optimization, and renewable micro-grid energy management.',
-      category: 'Sustainability',
-      organizer: 'SRM Green Initiative Foundation',
-      mode: 'Hybrid',
-      bannerImage: 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=800&q=80',
-      startDate: DateTime.now().add(const Duration(days: 45)),
-      endDate: DateTime.now().add(const Duration(days: 46)),
-      registrationOpen: true,
-      registrationDeadline: DateTime.now().add(const Duration(days: 40)),
-      prizePool: '₹1,00,000',
-      registeredTeams: 64,
-      maxTeams: 100,
-      maxTeamMembers: 6,
-      teamSize: 4,
-      status: 'upcoming',
-      userRegistrationStatus: 'not_registered',
-      location: 'Innovation Lab 302 & Zoom',
-      tags: ['CleanTech', 'IoT', 'ESG', 'Green Energy'],
-      isFeatured: false,
-    ),
-  ];
-
   @override
   Future<List<HackathonModel>> getHackathons({int page = 1, int limit = 10, String? category}) async {
     final firestore = _firestore;
@@ -129,12 +55,7 @@ class ApiHackathonService implements HackathonService {
         debugPrint('Firestore hackathons query notice: $e');
       }
     }
-
-    var filtered = _mockDb;
-    if (category != null && category != 'All') {
-      filtered = filtered.where((h) => h.category.toLowerCase() == category.toLowerCase()).toList();
-    }
-    return filtered;
+    return [];
   }
 
   @override
@@ -148,7 +69,7 @@ class ApiHackathonService implements HackathonService {
         }
       } catch (_) {}
     }
-    return _mockDb.firstWhere((h) => h.isFeatured, orElse: () => _mockDb.first);
+    return null;
   }
 
   @override
@@ -162,7 +83,7 @@ class ApiHackathonService implements HackathonService {
         }
       } catch (_) {}
     }
-    return _mockDb.firstWhere((h) => h.id == id, orElse: () => _mockDb.first);
+    throw Exception('Hackathon with id $id not found.');
   }
 
   /// Create/Update team with transaction-enforced maximum of 6 team members
@@ -286,16 +207,7 @@ class ApiHackathonService implements HackathonService {
         }
       } catch (_) {}
     }
-    return [
-      {
-        'registrationId': 'REG-2026-8841',
-        'hackathonId': 'HACK-101',
-        'hackathonTitle': 'UniHack 2026: GenAI & Autonomous Systems',
-        'status': 'confirmed',
-        'teamName': 'CodeCatalysts',
-        'teamMembers': ['Alex Johnson (Leader)', 'Sarah Connor', 'David Kim'],
-      }
-    ];
+    return [];
   }
 }
 

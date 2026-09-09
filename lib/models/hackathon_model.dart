@@ -69,7 +69,7 @@ class HackathonModel {
     this.eligibleYears = const ['1st Year', '2nd Year', '3rd Year', '4th Year'],
     this.eligibleSections = const ['Sec A', 'Sec B', 'Sec C', 'Sec D'],
     this.createdByRole = 'hod',
-    this.createdByName = 'Dr. R. Kumar (HOD)',
+    this.createdByName = '',
   }) : registrationStartDate = registrationStartDate ?? startDate;
 
   bool get isRegistered => userRegistrationStatus.toLowerCase() == 'registered';
@@ -124,7 +124,7 @@ class HackathonModel {
       eligibleYears: (map['eligibleYears'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? ['1st Year', '2nd Year', '3rd Year', '4th Year'],
       eligibleSections: (map['eligibleSections'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? ['Sec A', 'Sec B', 'Sec C', 'Sec D'],
       createdByRole: map['createdByRole']?.toString() ?? map['created_by_role']?.toString() ?? 'hod',
-      createdByName: map['createdByName']?.toString() ?? map['created_by_name']?.toString() ?? 'Dr. R. Kumar (HOD)',
+      createdByName: map['createdByName']?.toString() ?? map['created_by_name']?.toString() ?? '',
     );
   }
 

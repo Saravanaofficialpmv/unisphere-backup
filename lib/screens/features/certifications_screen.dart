@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1126,6 +1127,8 @@ class _CertificationsScreenState extends ConsumerState<CertificationsScreen> {
     final credIdController = TextEditingController();
     String selectedCategory = 'Technical';
     String selectedFileType = 'PDF';
+    String? pickedFileName;
+    String? pickedFileSize;
 
     showModalBottomSheet(
       context: context,
@@ -1265,22 +1268,69 @@ class _CertificationsScreenState extends ConsumerState<CertificationsScreen> {
                       const SizedBox(height: 16),
 
                       // File Attachment Zone Box
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
-                        ),
-                        child: const Column(
-                          children: [
-                            Icon(Icons.cloud_upload_rounded, size: 36, color: Color(0xFF7C3AED)),
-                            SizedBox(height: 8),
-                            Text('Tap to select file from device', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                            SizedBox(height: 2),
-                            Text('Supports PDF, PNG, JPG (Max 10 MB)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                          ],
+                      InkWell(
+                        onTap: () async {
+                          try {
+                            final result = await FilePicker.platform.pickFiles(
+                              type: FileType.custom,
+                              allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+                              allowMultiple: false,
+                              withData: true,
+                            );
+                            if (result != null && result.files.isNotEmpty) {
+                              final f = result.files.first;
+                              final sizeInMb = (f.size / (1024 * 1024)).toStringAsFixed(1);
+                              final displaySize = sizeInMb == '0.0' ? '0.5 MB' : '$sizeInMb MB';
+                              final ext = (f.extension ?? 'pdf').toUpperCase();
+                              setModalState(() {
+                                pickedFileName = f.name;
+                                pickedFileSize = displaySize;
+                                if (['PDF', 'PNG', 'JPG'].contains(ext)) {
+                                  selectedFileType = ext;
+                                }
+                              });
+                            }
+                          } catch (e) {
+                            debugPrint('Error picking certificate file: $e');
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: pickedFileName != null ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: pickedFileName != null ? const Color(0xFF7C3AED) : const Color(0xFFCBD5E1),
+                              width: pickedFileName != null ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                pickedFileName != null ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
+                                size: 36,
+                                color: const Color(0xFF7C3AED),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                pickedFileName != null ? pickedFileName! : 'Tap to select file from device',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                pickedFileSize != null ? 'Selected file size: $pickedFileSize' : 'Supports PDF, PNG, JPG (Max 10 MB)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: pickedFileName != null ? const Color(0xFF7C3AED) : const Color(0xFF64748B),
+                                  fontWeight: pickedFileName != null ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -1300,11 +1350,11 @@ class _CertificationsScreenState extends ConsumerState<CertificationsScreen> {
                               issuer: issuerController.text.trim(),
                               category: selectedCategory,
                               fileType: selectedFileType,
-                              fileSize: '2.1 MB',
+                              fileSize: pickedFileSize ?? '2.1 MB',
                               uploadDate: DateTime.now(),
                               credentialId: credIdController.text.trim().isNotEmpty ? credIdController.text.trim() : 'VERIFIED-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
                               status: 'Pending',
-                              certificateUrl: 'https://unisphere.edu/verify',
+                              certificateUrl: pickedFileName != null ? 'https://unisphere.edu/docs/$pickedFileName' : 'https://unisphere.edu/verify',
                             );
 
                             Navigator.pop(context);

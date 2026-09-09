@@ -40,7 +40,7 @@ class ParentStudentWard {
     required this.yearSection,
     required this.currentYear,
     required this.currentSemester,
-    this.batch = '2023 - 2027',
+    this.batch = '—',
     this.photoUrl,
     this.fatherPhotoUrl,
     this.motherPhotoUrl,
@@ -60,7 +60,7 @@ class ParentStudentWard {
     required this.feeDueDate,
     required this.feeStatus,
     this.isFeeOverdue = false,
-    this.todayStatus = 'Present',
+    this.todayStatus = '—',
     required this.subjectGrades,
   });
 

@@ -88,4 +88,90 @@ class UserService {
       return [];
     }
   }
+
+  /// Watch real-time stream of all user documents
+  Stream<List<UserModel>> watchAllUsers() {
+    final firestore = _firestore;
+    if (firestore == null) return Stream.value([]);
+    return firestore.collection('users').snapshots().map((snap) {
+      return snap.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList();
+    }).handleError((e) {
+      debugPrint('UserService watchAllUsers error: $e');
+      return <UserModel>[];
+    });
+  }
+
+  /// Approve user access with a specific role
+  Future<void> approveUserAccess(String uid, UserRole role) async {
+    final firestore = _firestore;
+    if (firestore == null || uid.isEmpty) return;
+    try {
+      await firestore.collection('users').doc(uid).update({
+        'isActive': true,
+        'role': role.name,
+        'userRole': role.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('UserService approveUserAccess error: $e');
+      rethrow;
+    }
+  }
+
+  /// Reject / deactivate user access
+  Future<void> rejectUserAccess(String uid) async {
+    final firestore = _firestore;
+    if (firestore == null || uid.isEmpty) return;
+    try {
+      await firestore.collection('users').doc(uid).update({
+        'isActive': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('UserService rejectUserAccess error: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing user's role
+  Future<void> updateUserRole(String uid, UserRole role) async {
+    final firestore = _firestore;
+    if (firestore == null || uid.isEmpty) return;
+    try {
+      await firestore.collection('users').doc(uid).update({
+        'role': role.name,
+        'userRole': role.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('UserService updateUserRole error: $e');
+      rethrow;
+    }
+  }
+
+  /// Bulk approve users with a chosen role
+  Future<void> bulkApproveUsers(List<String> uids, UserRole role) async {
+    final firestore = _firestore;
+    if (firestore == null || uids.isEmpty) return;
+    try {
+      final batch = firestore.batch();
+      for (final uid in uids) {
+        batch.update(firestore.collection('users').doc(uid), {
+          'isActive': true,
+          'role': role.name,
+          'userRole': role.name,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('UserService bulkApproveUsers error: $e');
+      rethrow;
+    }
+  }
 }
+
+final allUsersStreamProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
+  final service = ref.watch(userServiceProvider);
+  return service.watchAllUsers();
+});

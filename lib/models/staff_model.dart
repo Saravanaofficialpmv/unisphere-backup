@@ -3,6 +3,7 @@ class StaffModel {
   final String employeeId;
   final String fullName;
   final String? email;
+  final String? phone;
   final String departmentId;
   final String departmentName;
   final String? institutionId;
@@ -27,6 +28,7 @@ class StaffModel {
     required this.employeeId,
     required this.fullName,
     this.email,
+    this.phone,
     required this.departmentId,
     required this.departmentName,
     this.institutionId,
@@ -62,6 +64,7 @@ class StaffModel {
     String? employeeId,
     String? fullName,
     String? email,
+    String? phone,
     String? departmentId,
     String? departmentName,
     String? institutionId,
@@ -86,6 +89,7 @@ class StaffModel {
       employeeId: employeeId ?? this.employeeId,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
+      phone: phone ?? this.phone,
       departmentId: departmentId ?? this.departmentId,
       departmentName: departmentName ?? this.departmentName,
       institutionId: institutionId ?? this.institutionId,
@@ -119,6 +123,7 @@ class StaffModel {
       employeeId: map['employeeId'] ?? map['employee_id'] ?? id,
       fullName: map['fullName'] ?? map['name'] ?? map['full_name'] ?? 'Staff Member',
       email: map['email']?.toString(),
+      phone: map['phone']?.toString() ?? map['phoneNumber']?.toString() ?? map['phone_number']?.toString(),
       departmentId: map['departmentId'] ?? map['department_id'] ?? 'DEPT-CSE',
       departmentName: map['departmentName'] ?? map['department_name'] ?? 'Computer Science',
       institutionId: map['institutionId'] ?? map['institution_id'],
@@ -149,6 +154,7 @@ class StaffModel {
       'fullName': fullName,
       'name': fullName,
       if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
       'departmentId': departmentId,
       'department_id': departmentId,
       'departmentName': departmentName,

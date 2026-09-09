@@ -45,44 +45,7 @@ class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule>
   ];
 
   // Mock parsed records preview from uploaded template
-  final List<Map<String, String>> _parsedRecords = [
-    {
-      'regNo': '917721104012',
-      'name': 'Aravind Swamy',
-      'initial': '20 / 50',
-      'retest': '44 / 50',
-      'conv': '13.2 / 15',
-      'status': 'Retest Cleared (+24 Marks)',
-      'isRetest': 'true',
-    },
-    {
-      'regNo': '917721104045',
-      'name': 'Priya Dharshini',
-      'initial': '48 / 50',
-      'retest': 'N/A',
-      'conv': '14.4 / 15',
-      'status': 'Regular Passed',
-      'isRetest': 'false',
-    },
-    {
-      'regNo': '917722104022',
-      'name': 'Karthik Raja',
-      'initial': '15 / 50 (Abs)',
-      'retest': '47 / 50',
-      'conv': '14.1 / 15',
-      'status': 'Absentee Retest Cleared',
-      'isRetest': 'true',
-    },
-    {
-      'regNo': '917723104089',
-      'name': 'Sneha Murali',
-      'initial': '49 / 50',
-      'retest': 'N/A',
-      'conv': '14.7 / 15',
-      'status': 'Regular Passed',
-      'isRetest': 'false',
-    },
-  ];
+  final List<Map<String, String>> _parsedRecords = [];
 
   void _handlePickFile() async {
     try {
@@ -169,8 +132,8 @@ class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule>
                         ),
                         TableRow(
                           children: [
-                            Padding(padding: EdgeInsets.all(6), child: Text('917721104012', style: TextStyle(fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6), child: Text('Aravind Swamy', style: TextStyle(fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6), child: Text('REG1001', style: TextStyle(fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6), child: Text('Student A', style: TextStyle(fontSize: 11))),
                             Padding(padding: EdgeInsets.all(6), child: Text('20', style: TextStyle(fontSize: 11, color: Colors.red))),
                             Padding(padding: EdgeInsets.all(6), child: Text('44', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold))),
                             Padding(padding: EdgeInsets.all(6), child: Text('Retest Cleared', style: TextStyle(fontSize: 11))),
@@ -178,8 +141,8 @@ class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule>
                         ),
                         TableRow(
                           children: [
-                            Padding(padding: EdgeInsets.all(6), child: Text('917721104045', style: TextStyle(fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6), child: Text('Priya Dharshini', style: TextStyle(fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6), child: Text('REG1002', style: TextStyle(fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6), child: Text('Student B', style: TextStyle(fontSize: 11))),
                             Padding(padding: EdgeInsets.all(6), child: Text('48', style: TextStyle(fontSize: 11))),
                             Padding(padding: EdgeInsets.all(6), child: Text('-', style: TextStyle(fontSize: 11))),
                             Padding(padding: EdgeInsets.all(6), child: Text('Regular Passed', style: TextStyle(fontSize: 11))),
@@ -254,13 +217,17 @@ class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule>
       _isPublishing = true;
     });
 
-    final currentUser = ref.read(authServiceProvider).currentUser ??
-        UserModel(
-          uid: 'DEMO-STF',
-          email: 'staff@unisphere.edu',
-          fullName: 'Dr. Arun Kumar',
-          role: UserRole.staff,
-        );
+    final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to publish marks.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      setState(() => _isPublishing = false);
+      return;
+    }
 
     try {
       final marksImportService = ref.read(marksImportServiceProvider);
@@ -728,16 +695,27 @@ class _StaffMarksUploadModuleState extends ConsumerState<StaffMarksUploadModule>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6)),
-                        child: const Text('68 Records Validated', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text('${_parsedRecords.length} Records Validated', style: const TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _parsedRecords.length,
+                  if (_parsedRecords.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'No mark records uploaded yet. Select or drop an Excel/CSV marks file above.',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _parsedRecords.length,
                     itemBuilder: (context, idx) {
                       final r = _parsedRecords[idx];
                       final bool isRetest = r['isRetest'] == 'true';

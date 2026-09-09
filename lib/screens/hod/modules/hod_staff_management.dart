@@ -21,108 +21,7 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
   String _selectedStatus = 'All';
   String _selectedRoleFilter = 'All';
 
-  final List<Map<String, dynamic>> _fallbackFacultyList = [
-    {
-      'id': 'UNI-STF-CSE-001',
-      'employeeId': 'UNI-STF-CSE-001',
-      'name': 'Arun Kumar',
-      'designation': 'Assistant Professor',
-      'department': 'CSE',
-      'subjects': ['Machine Learning', 'Data Structures', 'Artificial Intelligence'],
-      'phone': '+91 98765 43210',
-      'email': 'arun@college.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '8 Years',
-      'workload': '16 hrs/week',
-      'rating': '4.9',
-      'isClassAdvisor': true,
-      'advisorSection': 'III CSE - A',
-      'advisorAcademicYear': '2025–26',
-      'otherResponsibilities': <String>[],
-      'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    },
-    {
-      'id': 'UNI-STF-CSE-002',
-      'employeeId': 'UNI-STF-CSE-002',
-      'name': 'Priya Devi',
-      'designation': 'Associate Professor',
-      'department': 'CSE',
-      'subjects': ['Cloud Computing', 'Distributed Systems'],
-      'phone': '+91 98765 43211',
-      'email': 'priya@college.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '10 Years',
-      'workload': '14 hrs/week',
-      'rating': '4.9',
-      'isClassAdvisor': false,
-      'advisorSection': null,
-      'advisorAcademicYear': null,
-      'otherResponsibilities': ['Exam Coordinator'],
-      'photo': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-    },
-    {
-      'id': 'UNI-STF-CSE-003',
-      'employeeId': 'UNI-STF-CSE-003',
-      'name': 'Dr. K. Tharani Kumar',
-      'designation': 'Assistant Professor',
-      'department': 'CSE',
-      'subjects': ['Artificial Intelligence', 'Data Analytics'],
-      'phone': '+91 98765 43212',
-      'email': 'tharani.kumar@college.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '8 Years',
-      'workload': '16 hrs/week',
-      'rating': '4.9',
-      'isClassAdvisor': true,
-      'advisorSection': 'III CSE - A',
-      'advisorAcademicYear': '2025–26',
-      'otherResponsibilities': ['Lab In-charge (AI Lab)'],
-      'photo': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    },
-    {
-      'id': 'UNI-STF-CSE-004',
-      'employeeId': 'UNI-STF-CSE-004',
-      'name': 'Prof. Rajesh Kumar',
-      'designation': 'Associate Professor',
-      'department': 'CSE',
-      'subjects': ['Data Structures', 'Algorithms'],
-      'phone': '+91 98765 11223',
-      'email': 'rajesh.k@college.edu',
-      'attendance': 'Present',
-      'leaveStatus': 'Active',
-      'experience': '9 Years',
-      'workload': '18 hrs/week',
-      'rating': '4.7',
-      'isClassAdvisor': false,
-      'advisorSection': null,
-      'advisorAcademicYear': null,
-      'otherResponsibilities': ['Timetable Coordinator'],
-      'photo': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    },
-    {
-      'id': 'UNI-STF-CSE-005',
-      'employeeId': 'UNI-STF-CSE-005',
-      'name': 'Dr. Anita Roy',
-      'designation': 'Assistant Professor',
-      'department': 'CSE',
-      'subjects': ['Machine Learning', 'AI Fundamentals'],
-      'phone': '+91 98765 88990',
-      'email': 'anita.roy@college.edu',
-      'attendance': 'On Leave',
-      'leaveStatus': 'Casual Leave Approved',
-      'experience': '6 Years',
-      'workload': '14 hrs/week',
-      'rating': '4.8',
-      'isClassAdvisor': true,
-      'advisorSection': 'II CSE - B',
-      'advisorAcademicYear': '2025–26',
-      'otherResponsibilities': <String>[],
-      'photo': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-    },
-  ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -164,25 +63,21 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
               'designation': s.designation,
               'department': s.departmentName.isNotEmpty ? s.departmentName : activeDeptCode,
               'subjects': s.assignedSubjects,
-              'phone': '+91 98765 43210',
-              'email': s.email ?? '${s.fullName.toLowerCase().replaceAll(' ', '.').replaceAll('dr.', '')}@college.edu',
-              'attendance': 'Present',
+              'phone': (s.phone != null && s.phone!.isNotEmpty) ? s.phone! : '—',
+              'email': s.email ?? '',
+              'attendance': 'Active',
               'leaveStatus': 'Active',
-              'experience': '${s.experienceYears > 0 ? s.experienceYears : 8} Years',
-              'workload': '16 hrs/week',
-              'rating': '4.9',
+              'experience': s.experienceYears > 0 ? '${s.experienceYears} Years' : '—',
+              'workload': '—',
+              'rating': '—',
               'isClassAdvisor': isAdvisor,
-              'advisorSection': advisorAsgn?.section ?? advisorAsgn?.className ?? s.advisorSection ?? 'III $activeDeptCode - A',
-              'advisorAcademicYear': advisorAsgn?.academicYear ?? s.advisorAcademicYear ?? '2025–26',
+              'advisorSection': advisorAsgn?.section ?? advisorAsgn?.className ?? s.advisorSection,
+              'advisorAcademicYear': advisorAsgn?.academicYear ?? s.advisorAcademicYear,
               'otherResponsibilities': otherAsgns,
-              'photo': s.photoPath ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+              'photo': s.photoPath,
             };
           }).toList()
-        : _fallbackFacultyList.map((f) => {
-            ...f,
-            'department': activeDeptCode,
-            'advisorSection': f['advisorSection']?.toString().replaceAll('CSE', activeDeptCode),
-          }).toList();
+        : const [];
 
     final filteredStaff = facultyList.where((faculty) {
       final matchesSearch = faculty['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -220,16 +115,36 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
               ),
             ),
             const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredStaff.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final item = filteredStaff[index];
-                return _buildFacultyCard(context, item);
-              },
-            ),
+            if (filteredStaff.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.people_outline, size: 44, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    const Text('No faculty members found', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    const Text('No department faculty records exist yet.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredStaff.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final item = filteredStaff[index];
+                  return _buildFacultyCard(context, item);
+                },
+              ),
             const SizedBox(height: 80),
           ],
         ),
@@ -510,12 +425,16 @@ class _HodStaffManagementState extends ConsumerState<HodStaffManagement> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          '• $designation',
-                          style: GoogleFonts.manrope(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
+                        Expanded(
+                          child: Text(
+                            '• $designation',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
                       ],

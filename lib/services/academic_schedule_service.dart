@@ -44,369 +44,7 @@ class AcademicScheduleService {
 
   /// Default Official Schedule Seed Models for All Academic Years (I, II, III, IV Year)
   static List<AcademicScheduleModel> getDefaultInitialSchedules() {
-    return [
-      AcademicScheduleModel(
-        id: 'SCHED-2026-I-YEAR-V1',
-        title: 'Academic Schedule for I Year',
-        description: 'Official College Academic Calendar & Schedule of Working Days, Continuous Assessments, Holidays and End-Semester Examinations.',
-        academicYear: '2026-27',
-        departmentId: 'all',
-        departmentName: 'All Departments',
-        targetStudentYear: 'I Year',
-        semester: 'Odd Semester (Semester 1)',
-        fileName: 'Academic_Schedule_I_Year_2026_27.xls',
-        fileType: 'xls',
-        fileUrl: '',
-        storagePath: 'academic_schedules/2026-27/all/I_Year/SCHED-2026-I-YEAR-V1/v1/Academic_Schedule_I_Year_2026_27.xls',
-        fileSize: 184320,
-        version: 1,
-        status: ScheduleStatus.active,
-        isLatest: true,
-        publishedAt: DateTime(2026, 8, 7),
-        uploadedAt: DateTime(2026, 8, 7),
-        uploadedBy: 'HOD-CSE-01',
-        uploadedByName: 'Dr. Suresh Kumar',
-        updatedAt: DateTime(2026, 8, 7),
-        scheduleEvents: [
-          ScheduleEventItem(
-            dateString: '07 Aug 2026',
-            date: DateTime(2026, 8, 7),
-            title: 'Commencement of Classes for I Year (Odd Sem)',
-            category: 'Academic',
-            description: 'Official reopening and orientation for freshers',
-          ),
-          ScheduleEventItem(
-            dateString: '15 Aug 2026',
-            date: DateTime(2026, 8, 15),
-            title: 'Independence Day',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '01 Sep 2026 - 05 Sep 2026',
-            date: DateTime(2026, 9, 1),
-            title: 'Continuous Assessment Test 1 (CAT-1)',
-            category: 'Assessment',
-            description: 'First internal assessment examinations across all departments',
-          ),
-          ScheduleEventItem(
-            dateString: '17 Sep 2026',
-            date: DateTime(2026, 9, 17),
-            title: 'Milad-un-Nabi',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '02 Oct 2026',
-            date: DateTime(2026, 10, 2),
-            title: 'Gandhi Jayanti',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '12 Oct 2026 - 16 Oct 2026',
-            date: DateTime(2026, 10, 12),
-            title: 'Continuous Assessment Test 2 (CAT-2)',
-            category: 'Assessment',
-            description: 'Second internal assessment examinations',
-          ),
-          ScheduleEventItem(
-            dateString: '20 Oct 2026',
-            date: DateTime(2026, 10, 20),
-            title: 'Student Online Feedback Cycle 1',
-            category: 'Academic',
-          ),
-          ScheduleEventItem(
-            dateString: '31 Oct 2026',
-            date: DateTime(2026, 10, 31),
-            title: 'Deepavali',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '16 Nov 2026 - 20 Nov 2026',
-            date: DateTime(2026, 11, 16),
-            title: 'Model Practical & Theory Examinations',
-            category: 'Examination',
-            description: 'Final preparatory exams before University Finals',
-          ),
-          ScheduleEventItem(
-            dateString: '28 Nov 2026',
-            date: DateTime(2026, 11, 28),
-            title: 'Last Working Day for I Year (Odd Sem)',
-            category: 'Academic',
-          ),
-          ScheduleEventItem(
-            dateString: '07 Dec 2026',
-            date: DateTime(2026, 12, 7),
-            title: 'Commencement of University End-Sem Theory Exams',
-            category: 'Examination',
-          ),
-        ],
-      ),
-      AcademicScheduleModel(
-        id: 'SCHED-2026-II-YEAR-V1',
-        title: 'Academic Schedule for II Year',
-        description: 'Official College Academic Calendar & Milestones for 2nd Year B.Tech Programs.',
-        academicYear: '2026-27',
-        departmentId: 'all',
-        departmentName: 'All Departments',
-        targetStudentYear: 'II Year',
-        semester: 'Odd Semester (Semester 3)',
-        fileName: 'Academic_Schedule_II_Year_2026_27.xls',
-        fileType: 'xls',
-        fileUrl: '',
-        storagePath: 'academic_schedules/2026-27/all/II_Year/SCHED-2026-II-YEAR-V1/v1/Academic_Schedule_II_Year_2026_27.xls',
-        fileSize: 196608,
-        version: 1,
-        status: ScheduleStatus.active,
-        isLatest: true,
-        publishedAt: DateTime(2026, 7, 18),
-        uploadedAt: DateTime(2026, 7, 18),
-        uploadedBy: 'HOD-CSE-01',
-        uploadedByName: 'Dr. Suresh Kumar',
-        updatedAt: DateTime(2026, 7, 18),
-        scheduleEvents: [
-          ScheduleEventItem(
-            dateString: '18 Jul 2026',
-            date: DateTime(2026, 7, 18),
-            title: 'Reopening & Class Commencement (Sem 3)',
-            category: 'Academic',
-            description: 'Commencement of core engineering courses & labs',
-          ),
-          ScheduleEventItem(
-            dateString: '15 Aug 2026',
-            date: DateTime(2026, 8, 15),
-            title: 'Independence Day',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '18 Aug 2026 - 22 Aug 2026',
-            date: DateTime(2026, 8, 18),
-            title: 'Continuous Assessment Test 1 (CAT-1)',
-            category: 'Assessment',
-            description: 'Units 1 & 2 Syllabus Assessment',
-          ),
-          ScheduleEventItem(
-            dateString: '17 Sep 2026',
-            date: DateTime(2026, 9, 17),
-            title: 'Milad-un-Nabi',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '28 Sep 2026 - 03 Oct 2026',
-            date: DateTime(2026, 9, 28),
-            title: 'Continuous Assessment Test 2 (CAT-2)',
-            category: 'Assessment',
-            description: 'Units 3, 4 & 5 Midterm Assessment',
-          ),
-          ScheduleEventItem(
-            dateString: '02 Oct 2026',
-            date: DateTime(2026, 10, 2),
-            title: 'Gandhi Jayanti',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '02 Nov 2026 - 06 Nov 2026',
-            date: DateTime(2026, 11, 2),
-            title: 'Model Practical Examinations',
-            category: 'Examination',
-            description: 'Laboratory assessment & viva voce',
-          ),
-          ScheduleEventItem(
-            dateString: '14 Nov 2026',
-            date: DateTime(2026, 11, 14),
-            title: 'Last Working Day for II Year',
-            category: 'Academic',
-          ),
-          ScheduleEventItem(
-            dateString: '23 Nov 2026',
-            date: DateTime(2026, 11, 23),
-            title: 'University End-Semester Theory Exams',
-            category: 'Examination',
-          ),
-        ],
-      ),
-      AcademicScheduleModel(
-        id: 'SCHED-2026-III-YEAR-V1',
-        title: 'Academic Schedule for III Year',
-        description: 'Official College Academic Calendar, Mini-Project Milestones & Examination Schedule for 3rd Year B.Tech Programs.',
-        academicYear: '2026-27',
-        departmentId: 'all',
-        departmentName: 'All Departments',
-        targetStudentYear: 'III Year',
-        semester: 'Odd Semester (Semester 5)',
-        fileName: 'Academic_Schedule_III_Year_2026_27.xls',
-        fileType: 'xls',
-        fileUrl: '',
-        storagePath: 'academic_schedules/2026-27/all/III_Year/SCHED-2026-III-YEAR-V1/v1/Academic_Schedule_III_Year_2026_27.xls',
-        fileSize: 204800,
-        version: 1,
-        status: ScheduleStatus.active,
-        isLatest: true,
-        publishedAt: DateTime(2026, 7, 15),
-        uploadedAt: DateTime(2026, 7, 15),
-        uploadedBy: 'HOD-CSE-01',
-        uploadedByName: 'Dr. Suresh Kumar',
-        updatedAt: DateTime(2026, 7, 15),
-        scheduleEvents: [
-          ScheduleEventItem(
-            dateString: '15 Jul 2026',
-            date: DateTime(2026, 7, 15),
-            title: 'Reopening & Commencement of Classes (Sem 5)',
-            category: 'Academic',
-            description: 'Commencement of professional electives & capstone preparatory lab',
-          ),
-          ScheduleEventItem(
-            dateString: '10 Aug 2026 - 14 Aug 2026',
-            date: DateTime(2026, 8, 10),
-            title: 'Continuous Assessment Test 1 (CAT-1)',
-            category: 'Assessment',
-            description: 'Units 1 & 2 Theory Assessment across all branches',
-          ),
-          ScheduleEventItem(
-            dateString: '15 Aug 2026',
-            date: DateTime(2026, 8, 15),
-            title: 'Independence Day',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '18 Sep 2026',
-            date: DateTime(2026, 9, 18),
-            title: 'National Level Technical Symposium & Hackathon',
-            category: 'Event',
-            description: 'Department technical fest and coding challenge',
-          ),
-          ScheduleEventItem(
-            dateString: '21 Sep 2026 - 25 Sep 2026',
-            date: DateTime(2026, 9, 21),
-            title: 'Continuous Assessment Test 2 (CAT-2)',
-            category: 'Assessment',
-            description: 'Midterm assessment for all core engineering subjects',
-          ),
-          ScheduleEventItem(
-            dateString: '02 Oct 2026',
-            date: DateTime(2026, 10, 2),
-            title: 'Gandhi Jayanti',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '28 Oct 2026',
-            date: DateTime(2026, 10, 28),
-            title: 'Mini-Project Review & Demonstration',
-            category: 'Academic',
-            description: 'Project code audit, demonstration and report submission',
-          ),
-          ScheduleEventItem(
-            dateString: '31 Oct 2026',
-            date: DateTime(2026, 10, 31),
-            title: 'Deepavali',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '04 Nov 2026 - 09 Nov 2026',
-            date: DateTime(2026, 11, 4),
-            title: 'Model Practical & Theory Examinations',
-            category: 'Examination',
-            description: 'Preparatory examinations before University COE Finals',
-          ),
-          ScheduleEventItem(
-            dateString: '12 Nov 2026',
-            date: DateTime(2026, 11, 12),
-            title: 'Last Working Day for III Year',
-            category: 'Academic',
-          ),
-          ScheduleEventItem(
-            dateString: '18 Nov 2026',
-            date: DateTime(2026, 11, 18),
-            title: 'Commencement of University End-Semester Exams',
-            category: 'Examination',
-          ),
-        ],
-      ),
-      AcademicScheduleModel(
-        id: 'SCHED-2026-IV-YEAR-V1',
-        title: 'Academic Schedule for IV Year',
-        description: 'Official College Academic Calendar, Placement Drives, Major Project Phase-I & COE Exams for Final Year B.Tech Students.',
-        academicYear: '2026-27',
-        departmentId: 'all',
-        departmentName: 'All Departments',
-        targetStudentYear: 'IV Year',
-        semester: 'Odd Semester (Semester 7)',
-        fileName: 'Academic_Schedule_IV_Year_2026_27.xls',
-        fileType: 'xls',
-        fileUrl: '',
-        storagePath: 'academic_schedules/2026-27/all/IV_Year/SCHED-2026-IV-YEAR-V1/v1/Academic_Schedule_IV_Year_2026_27.xls',
-        fileSize: 215040,
-        version: 1,
-        status: ScheduleStatus.active,
-        isLatest: true,
-        publishedAt: DateTime(2026, 7, 1),
-        uploadedAt: DateTime(2026, 7, 1),
-        uploadedBy: 'HOD-CSE-01',
-        uploadedByName: 'Dr. Suresh Kumar',
-        updatedAt: DateTime(2026, 7, 1),
-        scheduleEvents: [
-          ScheduleEventItem(
-            dateString: '01 Jul 2026',
-            date: DateTime(2026, 7, 1),
-            title: 'Commencement of VII Semester & Campus Placement Drives',
-            category: 'Academic',
-            description: 'Beginning of final year curriculum & on-campus recruitment season',
-          ),
-          ScheduleEventItem(
-            dateString: '03 Aug 2026 - 07 Aug 2026',
-            date: DateTime(2026, 8, 3),
-            title: 'Continuous Assessment Test 1 (CAT-1)',
-            category: 'Assessment',
-          ),
-          ScheduleEventItem(
-            dateString: '15 Aug 2026',
-            date: DateTime(2026, 8, 15),
-            title: 'Independence Day',
-            category: 'Holiday',
-            isHoliday: true,
-          ),
-          ScheduleEventItem(
-            dateString: '14 Sep 2026 - 18 Sep 2026',
-            date: DateTime(2026, 9, 14),
-            title: 'Continuous Assessment Test 2 (CAT-2)',
-            category: 'Assessment',
-          ),
-          ScheduleEventItem(
-            dateString: '15 Sep 2026',
-            date: DateTime(2026, 9, 15),
-            title: 'Major Project Phase-I Progress Review',
-            category: 'Academic',
-            description: 'Literature review & architectural blueprint evaluation',
-          ),
-          ScheduleEventItem(
-            dateString: '19 Oct 2026 - 24 Oct 2026',
-            date: DateTime(2026, 10, 19),
-            title: 'Model Practical & Theory Examinations',
-            category: 'Examination',
-          ),
-          ScheduleEventItem(
-            dateString: '28 Oct 2026',
-            date: DateTime(2026, 10, 28),
-            title: 'Last Working Day for Final Year Students',
-            category: 'Academic',
-          ),
-          ScheduleEventItem(
-            dateString: '02 Nov 2026',
-            date: DateTime(2026, 11, 2),
-            title: 'Commencement of University End-Sem Theory Exams',
-            category: 'Examination',
-          ),
-        ],
-      ),
-    ];
+    return const [];
   }
 
   /// Upload file and publish schedule version atomically
@@ -600,10 +238,8 @@ class AcademicScheduleService {
     String? departmentId,
   }) {
     final firestore = _firestore;
-    final defaults = getDefaultInitialSchedules();
-
     if (firestore == null) {
-      return Stream.value(defaults.first);
+      return Stream.value(null);
     }
 
     final normalizedYear = normalizeTargetYear(studentYear);
@@ -614,9 +250,7 @@ class AcademicScheduleService {
         .snapshots()
         .map((snap) {
       if (snap.docs.isEmpty) {
-        // Auto-seed in background if empty
-        _ensureInitialSeed();
-        return defaults.first;
+        return null;
       }
 
       final allActive = snap.docs
@@ -624,38 +258,46 @@ class AcademicScheduleService {
               d.data() as Map<String, dynamic>, d.id))
           .toList();
 
-      if (allActive.isEmpty) return defaults.first;
+      if (allActive.isEmpty) return null;
 
       // 1. Look for matching student year and specific department
       if (departmentId != null && departmentId.isNotEmpty && departmentId != 'all') {
-        final deptMatch = allActive.firstWhere(
-          (s) =>
-              (normalizeTargetYear(s.targetStudentYear) == normalizedYear ||
-                  s.targetStudentYear == 'All Years') &&
-              s.departmentId == departmentId,
-          orElse: () => allActive.firstWhere(
+        AcademicScheduleModel? deptMatch;
+        try {
+          deptMatch = allActive.firstWhere(
             (s) =>
                 (normalizeTargetYear(s.targetStudentYear) == normalizedYear ||
                     s.targetStudentYear == 'All Years') &&
-                s.departmentId == 'all',
-            orElse: () => allActive.first,
-          ),
-        );
+                s.departmentId == departmentId,
+          );
+        } catch (_) {
+          try {
+            deptMatch = allActive.firstWhere(
+              (s) =>
+                  (normalizeTargetYear(s.targetStudentYear) == normalizedYear ||
+                      s.targetStudentYear == 'All Years') &&
+                  s.departmentId == 'all',
+            );
+          } catch (_) {
+            deptMatch = allActive.first;
+          }
+        }
         return deptMatch;
       }
 
       // 2. Match student year with college-wide schedule
-      final yearMatch = allActive.firstWhere(
-        (s) =>
-            normalizeTargetYear(s.targetStudentYear) == normalizedYear ||
-            s.targetStudentYear == 'All Years',
-        orElse: () => allActive.first,
-      );
-
-      return yearMatch;
+      try {
+        return allActive.firstWhere(
+          (s) =>
+              normalizeTargetYear(s.targetStudentYear) == normalizedYear ||
+              s.targetStudentYear == 'All Years',
+        );
+      } catch (_) {
+        return allActive.isNotEmpty ? allActive.first : null;
+      }
     }).handleError((err) {
       debugPrint('watchLatestScheduleForScope stream error: $err');
-      return defaults.first;
+      return null;
     });
   }
 
@@ -664,15 +306,11 @@ class AcademicScheduleService {
     String departmentId = 'all',
   }) {
     final firestore = _firestore;
-    final defaults = getDefaultInitialSchedules();
-
-    if (firestore == null) return Stream.value(defaults);
+    if (firestore == null) return Stream.value(const []);
 
     return _schedulesCol.snapshots().map((snap) {
       if (snap.docs.isEmpty) {
-        // Auto-seed in background if collection is currently empty
-        _ensureInitialSeed();
-        return defaults;
+        return const <AcademicScheduleModel>[];
       }
 
       final list = snap.docs
@@ -681,7 +319,7 @@ class AcademicScheduleService {
           .where((s) => departmentId == 'all' || s.departmentId == 'all' || s.departmentId == departmentId)
           .toList();
 
-      if (list.isEmpty) return defaults;
+      if (list.isEmpty) return const <AcademicScheduleModel>[];
 
       // Sort: Active/Latest first, then newest publishedAt / uploadedAt
       list.sort((a, b) {
@@ -693,7 +331,7 @@ class AcademicScheduleService {
       return list;
     }).handleError((err) {
       debugPrint('watchDepartmentSchedules stream error: $err');
-      return defaults;
+      return const <AcademicScheduleModel>[];
     });
   }
 
@@ -704,7 +342,7 @@ class AcademicScheduleService {
     String departmentId = 'all',
   }) {
     final firestore = _firestore;
-    if (firestore == null) return Stream.value(getDefaultInitialSchedules());
+    if (firestore == null) return Stream.value(const []);
 
     final normalizedYear = normalizeTargetYear(targetStudentYear);
 
@@ -719,8 +357,6 @@ class AcademicScheduleService {
               normalizeTargetYear(s.targetStudentYear) == normalizedYear &&
               (departmentId == 'all' || s.departmentId == departmentId || s.departmentId == 'all'))
           .toList();
-
-      if (list.isEmpty) return getDefaultInitialSchedules();
 
       list.sort((a, b) => b.version.compareTo(a.version));
       return list;
@@ -798,16 +434,7 @@ class AcademicScheduleService {
     }
   }
 
-  /// Ensure initial seed document exists in Firestore
-  void _ensureInitialSeed() {
-    final firestore = _firestore;
-    if (firestore == null) return;
 
-    try {
-      final seed = getDefaultInitialSchedules().first;
-      _schedulesCol.doc(seed.id).set(seed.toMap(), SetOptions(merge: true));
-    } catch (_) {}
-  }
 
   /// Normalize year strings for fuzzy matching across user profiles
   static String normalizeTargetYear(String? raw) {

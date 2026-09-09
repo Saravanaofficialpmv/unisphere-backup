@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/core/constants/app_departments.dart';
@@ -130,8 +132,101 @@ class _UserManagementModuleState extends State<UserManagementModule> {
     return filtered.skip(startIndex).take(_pageSize).toList();
   }
 
+  StreamSubscription? _usersSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectFirestore();
+  }
+
+  void _connectFirestore() {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      _usersSub = firestore.collection('users').snapshots().listen((snap) {
+        if (!mounted) return;
+        if (snap.docs.isNotEmpty) {
+          final liveList = snap.docs.map((doc) {
+            final data = doc.data();
+            final roleStr = (data['role']?.toString().toUpperCase()) ?? 'STUDENT';
+            final meta = data['metadata'] is Map ? data['metadata'] as Map<String, dynamic> : <String, dynamic>{};
+            return {
+              'id': doc.id,
+              'name': data['fullName'] ?? data['name'] ?? 'User',
+              'email': data['email'] ?? '',
+              'role': roleStr,
+              'dept': data['department'] ?? data['departmentName'] ?? meta['department'] ?? 'Computer Science',
+              'status': data['status'] ?? (data['isActive'] == false ? 'Inactive' : 'Active'),
+              'phone': data['phoneNumber'] ?? data['phone'] ?? '-',
+              'joined': data['createdAt'] != null
+                  ? (data['createdAt'] is Timestamp
+                      ? (data['createdAt'] as Timestamp).toDate().toString().substring(0, 10)
+                      : data['createdAt'].toString().substring(0, 10))
+                  : 'Aug 2024',
+            };
+          }).toList();
+
+          setState(() {
+            _allUsers.clear();
+            _allUsers.addAll(liveList);
+          });
+        }
+      }, onError: (e) {
+        debugPrint('Firestore users stream notice: $e');
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveUserToFirestore(Map<String, dynamic> userMap) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final uid = userMap['id']?.toString() ?? 'USR_${DateTime.now().millisecondsSinceEpoch}';
+      await firestore.collection('users').doc(uid).set({
+        'uid': uid,
+        'fullName': userMap['name'],
+        'name': userMap['name'],
+        'email': userMap['email'],
+        'role': userMap['role']?.toString().toLowerCase(),
+        'department': userMap['dept'],
+        'status': userMap['status'] ?? 'Active',
+        'isActive': userMap['status'] != 'Inactive',
+        'phoneNumber': userMap['phone'],
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (userMap['role'] == 'STUDENT') {
+        await firestore.collection('students').doc(uid).set({
+          'userId': uid,
+          'fullName': userMap['name'],
+          'departmentId': userMap['dept'],
+          'registerNumber': uid,
+        }, SetOptions(merge: true));
+      } else if (userMap['role'] == 'STAFF') {
+        await firestore.collection('staff').doc(uid).set({
+          'userId': uid,
+          'fullName': userMap['name'],
+          'departmentId': userMap['dept'],
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Firestore save user error: $e');
+    }
+  }
+
+  Future<void> _deleteUserFromFirestore(String uid) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      await firestore.collection('users').doc(uid).delete();
+      await firestore.collection('students').doc(uid).delete();
+      await firestore.collection('staff').doc(uid).delete();
+    } catch (e) {
+      debugPrint('Firestore delete user error: $e');
+    }
+  }
+
   @override
   void dispose() {
+    _usersSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -925,6 +1020,27 @@ class _UserManagementModuleState extends State<UserManagementModule> {
                                 return;
                               }
 
+                              final userMap = isEditing
+                                  ? {
+                                      'id': userToEdit['id'],
+                                      'name': name,
+                                      'email': email,
+                                      'phone': phone.isNotEmpty ? phone : userToEdit['phone'],
+                                      'role': role,
+                                      'dept': dept,
+                                      'status': status,
+                                    }
+                                  : {
+                                      'id': 'USR-${1000 + _allUsers.length + 1}',
+                                      'name': name,
+                                      'email': email,
+                                      'phone': phone.isNotEmpty ? phone : '+1 (555) 000-0000',
+                                      'role': role,
+                                      'dept': dept,
+                                      'status': status,
+                                      'joined': 'Aug 2026',
+                                    };
+
                               setState(() {
                                 if (isEditing) {
                                   userToEdit['name'] = name;
@@ -934,18 +1050,11 @@ class _UserManagementModuleState extends State<UserManagementModule> {
                                   userToEdit['dept'] = dept;
                                   userToEdit['status'] = status;
                                 } else {
-                                  _allUsers.insert(0, {
-                                    'id': 'USR-${1000 + _allUsers.length + 1}',
-                                    'name': name,
-                                    'email': email,
-                                    'phone': phone.isNotEmpty ? phone : '+1 (555) 000-0000',
-                                    'role': role,
-                                    'dept': dept,
-                                    'status': status,
-                                    'joined': 'Aug 2026',
-                                  });
+                                  _allUsers.insert(0, userMap);
                                 }
                               });
+
+                              _saveUserToFirestore(userMap);
 
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1140,9 +1249,13 @@ class _UserManagementModuleState extends State<UserManagementModule> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () {
+                          final uid = user['id']?.toString() ?? '';
                           setState(() {
                             _allUsers.removeWhere((u) => u['id'] == user['id']);
                           });
+                          if (uid.isNotEmpty) {
+                            _deleteUserFromFirestore(uid);
+                          }
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

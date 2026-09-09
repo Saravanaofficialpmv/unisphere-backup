@@ -65,27 +65,27 @@ class _StudentFullDetailSheetState extends State<StudentFullDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final s = widget.student;
-    final String name = s['name'] ?? 'Student Name';
-    final String regNo = s['regNo'] ?? '917721104000';
-    final String year = s['year'] ?? '3rd Year';
-    final String section = s['section'] ?? 'CS-A';
-    final String photo = s['photo'] ?? 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150';
-    final String cgpa = s['cgpa'] ?? '8.85';
-    final String attendance = s['attendance'] ?? '95.0%';
+    final String name = s['name'] ?? '-';
+    final String regNo = s['regNo'] ?? '-';
+    final String year = s['year'] ?? '-';
+    final String section = s['section'] ?? '-';
+    final String photo = s['photo'] ?? '';
+    final String cgpa = s['cgpa'] ?? '-';
+    final String attendance = s['attendance'] ?? '-';
 
     final String leetcodeUsername = s['leetcodeUsername'] ?? '';
-    final int leetcodeSolved = leetcodeUsername.isEmpty ? 0 : (s['leetcodeSolved'] ?? 130);
-    final int leetcodeEasy = leetcodeUsername.isEmpty ? 0 : (s['leetcodeEasy'] ?? 104);
-    final int leetcodeMedium = leetcodeUsername.isEmpty ? 0 : (s['leetcodeMedium'] ?? 24);
-    final int leetcodeHard = leetcodeUsername.isEmpty ? 0 : (s['leetcodeHard'] ?? 2);
-    final int leetcodeStreak = leetcodeUsername.isEmpty ? 0 : (s['leetcodeStreak'] ?? 12);
+    final int leetcodeSolved = (s['leetcodeSolved'] as num?)?.toInt() ?? 0;
+    final int leetcodeEasy = (s['leetcodeEasy'] as num?)?.toInt() ?? 0;
+    final int leetcodeMedium = (s['leetcodeMedium'] as num?)?.toInt() ?? 0;
+    final int leetcodeHard = (s['leetcodeHard'] as num?)?.toInt() ?? 0;
+    final int leetcodeStreak = (s['leetcodeStreak'] as num?)?.toInt() ?? 0;
 
     final String githubUsername = s['githubUsername'] ?? '';
-    final int githubRepos = githubUsername.isEmpty ? 0 : (s['githubRepos'] ?? 14);
-    final int githubCommits = githubUsername.isEmpty ? 0 : (s['githubCommits'] ?? 87);
-    final int githubStars = githubUsername.isEmpty ? 0 : (s['githubStars'] ?? 0);
+    final int githubRepos = (s['githubRepos'] as num?)?.toInt() ?? 0;
+    final int githubCommits = (s['githubCommits'] as num?)?.toInt() ?? 0;
+    final int githubStars = (s['githubStars'] as num?)?.toInt() ?? 0;
     final List<String> techStack = List<String>.from(
-      s['githubTopTech'] ?? ['Flutter/Dart', 'C++', 'Java', 'Python'],
+      s['githubTopTech'] ?? const [],
     );
 
 
@@ -1439,23 +1439,23 @@ class _StudentFullDetailSheetState extends State<StudentFullDetailSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildDetailRow('Full Name', s['name'] ?? 'Aravind Swamy'),
-          _buildDetailRow('Register Number', s['regNo'] ?? '917721104012'),
-          _buildDetailRow('Email Address', s['email'] ?? 'student@unisphere.edu'),
-          _buildDetailRow('Phone Number', s['phone'] ?? '+91 98765 43210'),
-          _buildDetailRow('Faculty Advisor', s['advisor'] ?? 'Dr. S. Meenakshi'),
-          _buildDetailRow('Residency Type', s['type'] ?? 'Day Scholar'),
+          _buildDetailRow('Full Name', s['name']?.toString() ?? '-'),
+          _buildDetailRow('Register Number', s['regNo']?.toString() ?? '-'),
+          _buildDetailRow('Email Address', s['email']?.toString() ?? '-'),
+          _buildDetailRow('Phone Number', s['phone']?.toString() ?? '-'),
+          _buildDetailRow('Faculty Advisor', s['advisor']?.toString() ?? '-'),
+          _buildDetailRow('Residency Type', s['type']?.toString() ?? '-'),
           _buildDetailRow(
             'Professional Membership',
             (s['membershipId'] != null && s['membershipId'] != 'N/A')
                 ? '${s['membershipOrg'] ?? 'Society'} (${s['membershipId']})'
                 : (s['membership']?['membershipId'] != null && s['membership']?['membershipId'] != 'N/A')
                     ? '${s['membership']?['membershipOrg'] ?? 'Society'} (${s['membership']?['membershipId']})'
-                    : 'ISTE Society (ISTE-2024-9842)',
+                    : '-',
           ),
-          _buildDetailRow('Father / Guardian', s['fatherName'] ?? s['parents']?['father']?['name'] ?? 'Ramesh Swamy (+91 94444 12345)'),
-          _buildDetailRow('Parent Annual Income', s['parentAnnualIncome'] ?? s['parents']?['parentAnnualIncome'] ?? s['parents']?['annualIncome'] ?? '₹4,50,000 / annum'),
-          _buildDetailRow('Residential Address', s['address'] ?? s['contact']?['permanentAddress']?['addressLine1'] ?? 'No. 45, Anna Nagar 2nd Street, Chennai - 600040'),
+          _buildDetailRow('Father / Guardian', s['fatherName'] ?? s['parents']?['father']?['name'] ?? '-'),
+          _buildDetailRow('Parent Annual Income', s['parentAnnualIncome'] ?? s['parents']?['parentAnnualIncome'] ?? s['parents']?['annualIncome'] ?? '-'),
+          _buildDetailRow('Residential Address', s['address'] ?? s['contact']?['permanentAddress']?['addressLine1'] ?? '-'),
         ],
       ),
     );

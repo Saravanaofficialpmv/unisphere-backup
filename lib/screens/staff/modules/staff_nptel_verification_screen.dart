@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/nptel_certificate_model.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/nptel_service.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
-class StaffNptelVerificationScreen extends StatefulWidget {
+class StaffNptelVerificationScreen extends ConsumerStatefulWidget {
   const StaffNptelVerificationScreen({super.key});
 
   @override
-  State<StaffNptelVerificationScreen> createState() => _StaffNptelVerificationScreenState();
+  ConsumerState<StaffNptelVerificationScreen> createState() => _StaffNptelVerificationScreenState();
 }
 
-class _StaffNptelVerificationScreenState extends State<StaffNptelVerificationScreen> {
+class _StaffNptelVerificationScreenState extends ConsumerState<StaffNptelVerificationScreen> {
   final NptelService _nptelService = NptelService();
   String _selectedFilter = 'Pending Verification';
 
@@ -31,7 +33,9 @@ class _StaffNptelVerificationScreenState extends State<StaffNptelVerificationScr
   }
 
   void _verifyCert(NptelCertificateModel cert) {
-    _nptelService.verifyCertificate(cert.id, 'Dr. Sarah Miller (HOD - CSE)');
+    final user = ref.read(currentUserProvider).value;
+    final reviewer = (user?.name != null && user!.name.isNotEmpty) ? user.name : 'Faculty Reviewer';
+    _nptelService.verifyCertificate(cert.id, reviewer);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Verified NPTEL Certificate for ${cert.studentName} (${cert.courseName})'),
@@ -83,8 +87,9 @@ class _StaffNptelVerificationScreenState extends State<StaffNptelVerificationScr
               final reason = reasonController.text.trim().isEmpty
                   ? 'Certificate ID mismatch or file illegible. Please re-verify and re-upload.'
                   : reasonController.text.trim();
-              _nptelService.rejectCertificate(cert.id, reason, 'Dr. Sarah Miller (HOD - CSE)');
-              Navigator.of(context).pop();
+              final user = ref.read(currentUserProvider).value;
+              final reviewer = (user?.name != null && user!.name.isNotEmpty) ? user.name : 'Faculty Reviewer';
+              _nptelService.rejectCertificate(cert.id, reason, reviewer);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Rejected certificate for ${cert.studentName}. Student notified for re-upload.'),

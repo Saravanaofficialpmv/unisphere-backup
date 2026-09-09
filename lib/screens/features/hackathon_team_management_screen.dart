@@ -1,13 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/hackathon_model.dart';
+import 'package:unisphere/models/hackathon_registration_model.dart';
+import 'package:unisphere/controllers/hackathon_registration_controller.dart';
+import 'package:unisphere/services/auth_service.dart';
 
-class HackathonTeamManagementScreen extends StatelessWidget {
+class HackathonTeamManagementScreen extends ConsumerWidget {
   final HackathonModel hackathon;
 
   const HackathonTeamManagementScreen({super.key, required this.hackathon});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final allRegs = ref.watch(hackathonRegistrationProvider);
+    final reg = allRegs.cast<HackathonRegistrationModel?>().firstWhere(
+      (r) => r?.hackathonId == hackathon.id,
+      orElse: () => null,
+    );
+
+    final teamName = reg?.teamName ?? 'My Hackathon Team';
+    final leadName = reg?.studentName ?? user?.fullName ?? user?.name ?? 'Team Leader';
+    final leadEmail = reg?.email ?? user?.email ?? '';
+    final members = reg?.teamMembers ?? [leadName];
+    final status = reg != null
+        ? (reg.isVerified
+            ? 'Confirmed & Ready for Check-in'
+            : (reg.verificationStatus.isNotEmpty ? reg.verificationStatus.toUpperCase() : reg.status.toUpperCase()))
+        : 'Registered';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -81,11 +102,11 @@ class HackathonTeamManagementScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _buildMetaRow('Team Name', 'CodeCatalysts'),
+                  _buildMetaRow('Team Name', teamName),
                   const Divider(height: 20),
-                  _buildMetaRow('Team Lead', 'Alex Johnson (alex.j@unisphere.edu)'),
+                  _buildMetaRow('Team Lead', '$leadName${leadEmail.isNotEmpty ? ' ($leadEmail)' : ''}'),
                   const Divider(height: 20),
-                  _buildMetaRow('Status', 'Confirmed & Ready for Check-in'),
+                  _buildMetaRow('Status', status),
                 ],
               ),
             ),
@@ -94,11 +115,16 @@ class HackathonTeamManagementScreen extends StatelessWidget {
             const Text('Roster & Members', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             const SizedBox(height: 12),
 
-            _buildMemberTile('Alex Johnson', 'Team Leader / Full-Stack', 'alex.j@unisphere.edu', true),
-            const SizedBox(height: 8),
-            _buildMemberTile('Sarah Connor', 'Frontend Specialist', 'sarah.c@unisphere.edu', false),
-            const SizedBox(height: 8),
-            _buildMemberTile('David Kim', 'AI & Data Engineer', 'david.k@unisphere.edu', false),
+            for (int i = 0; i < members.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildMemberTile(
+                  members[i],
+                  i == 0 ? 'Team Leader' : 'Team Member',
+                  i == 0 ? leadEmail : 'Member',
+                  i == 0,
+                ),
+              ),
             const SizedBox(height: 24),
 
             const Text('Project Submission Portal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),

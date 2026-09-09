@@ -423,9 +423,19 @@ class _GradebookScreenState extends ConsumerState<GradebookScreen> with SingleTi
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Failed to stream marks: $err',
+                        'Unable to load internal marks ($err)',
                         style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), fontWeight: FontWeight.bold),
                       ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        if (studentId.isNotEmpty) {
+                          ref.invalidate(studentAcademicRecordsStreamProvider(studentId));
+                        } else {
+                          ref.invalidate(currentStudentAcademicRecordsStreamProvider);
+                        }
+                      },
+                      child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
                     ),
                   ],
                 ),

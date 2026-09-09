@@ -5,6 +5,7 @@ import 'package:unisphere/controllers/hackathon_controller.dart';
 import 'package:unisphere/controllers/hackathon_registration_controller.dart';
 import 'package:unisphere/widgets/hackathons/create_hackathon_dialog.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/services/auth_service.dart';
 
 class HodHackathonManagementScreen extends ConsumerStatefulWidget {
   const HodHackathonManagementScreen({super.key});
@@ -153,10 +154,14 @@ class _HodHackathonManagementScreenState extends ConsumerState<HodHackathonManag
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
                     onPressed: () {
+                      final currentUser = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+                      final userName = (currentUser?.fullName != null && currentUser!.fullName.isNotEmpty)
+                          ? currentUser.fullName
+                          : 'Head of Department';
                       CreateHackathonDialog.show(
                         context,
                         userRole: 'hod',
-                        userName: 'Dr. R. Kumar (HOD CSE)',
+                        userName: userName,
                       );
                     },
                     icon: const Icon(Icons.add_rounded, size: 20),

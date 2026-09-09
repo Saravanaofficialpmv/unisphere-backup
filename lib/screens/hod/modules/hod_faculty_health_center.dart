@@ -26,13 +26,13 @@ class HodFacultyHealthCenter extends ConsumerWidget {
     final schedule = ref.watch(hodTodayScheduleProvider);
     final workloads = ref.watch(hodFacultyWorkloadProvider);
 
-    final totalFaculty = summary.totalFaculty > 0 ? summary.totalFaculty : (staffList.isNotEmpty ? staffList.length : 24);
+    final totalFaculty = summary.totalFaculty > 0 ? summary.totalFaculty : staffList.length;
     final onLeaveCount = leaves.where((l) {
       final s = (l['status'] ?? '').toString().toLowerCase();
       return s == 'approved' || s == 'pending';
     }).length;
     final presentToday = (totalFaculty - onLeaveCount).clamp(0, totalFaculty);
-    final classesToday = schedule.isNotEmpty ? schedule.length : (summary.totalClasses > 0 ? summary.totalClasses * 2 : 6);
+    final classesToday = schedule.isNotEmpty ? schedule.length : (summary.totalClasses > 0 ? summary.totalClasses * 2 : 0);
 
     final overloadedCount = workloads.where((w) => w.workloadStatus == FacultyWorkloadStatus.overloaded).length;
     final balancedCount = workloads.where((w) => w.workloadStatus == FacultyWorkloadStatus.balanced).length;

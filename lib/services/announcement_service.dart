@@ -10,27 +10,24 @@ class AnnouncementService extends ChangeNotifier {
   StreamSubscription<List<AnnouncementModel>>? _subscription;
 
   AnnouncementService._internal() {
-    _initSeedAnnouncements();
     _connectFirestoreStream();
   }
 
   final List<AnnouncementModel> _announcements = [];
-  final String _currentUserId = 'std_alex_01'; // Default student ID
+  final String _currentUserId = '';
 
   List<AnnouncementModel> get announcements => List.unmodifiable(_announcements);
 
-  int get unreadCount => _announcements.where((a) => !a.isReadBy(_currentUserId)).length;
+  int get unreadCount => _currentUserId.isEmpty ? 0 : _announcements.where((a) => !a.isReadBy(_currentUserId)).length;
 
   void _connectFirestoreStream() {
     try {
       final firestoreService = FirebaseFirestoreService();
       _subscription = firestoreService.getAnnouncements().listen(
         (list) {
-          if (list.isNotEmpty) {
-            _announcements.clear();
-            _announcements.addAll(list);
-            notifyListeners();
-          }
+          _announcements.clear();
+          _announcements.addAll(list);
+          notifyListeners();
         },
         onError: (e) {
           debugPrint('AnnouncementService stream error: $e');
@@ -39,46 +36,6 @@ class AnnouncementService extends ChangeNotifier {
     } catch (e) {
       debugPrint('AnnouncementService connect error: $e');
     }
-  }
-
-  void _initSeedAnnouncements() {
-    final now = DateTime.now();
-
-    _announcements.addAll([
-      AnnouncementModel(
-        id: 'ann_101',
-        title: 'College Holiday Notice',
-        content: 'College will remain closed on 15th August for Independence Day celebrations. Regular academic classes will resume on Monday.',
-        authorName: 'Office of Dean & Campus Administration',
-        createdAt: now.subtract(const Duration(hours: 2)),
-        category: 'Holiday',
-        priority: 'Important',
-        isNew: true,
-        imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800',
-      ),
-      AnnouncementModel(
-        id: 'ann_102',
-        title: 'Off-Campus Placement & Internship Drive 2026',
-        content: 'Registrations are open for the upcoming Off-Campus Placement & Internship Drive hosted by Google, Microsoft, and Cognizant. Eligible 3rd & 4th-year students must register before 14th August.',
-        authorName: 'Career Guidance & Placement Cell',
-        createdAt: now.subtract(const Duration(hours: 6)),
-        category: 'Placement',
-        priority: 'Urgent',
-        isNew: true,
-        relatedLinks: ['https://placement.unisphere.edu/apply-2026'],
-      ),
-      AnnouncementModel(
-        id: 'ann_103',
-        title: 'UNISPHERE Annual Cultural Fest 2026 Registrations Open',
-        content: 'Registrations are now open for UNISPHERE Cultural Fest 2026! Participate in music, dance, coding battles, and dramatic events.',
-        authorName: 'Student Activity & Cultural Council',
-        createdAt: now.subtract(const Duration(days: 1)),
-        category: 'Event',
-        priority: 'Normal',
-        isNew: false,
-        readByUsers: [_currentUserId],
-      ),
-    ]);
   }
 
   List<AnnouncementModel> getFilteredAnnouncements({
@@ -116,6 +73,12 @@ class AnnouncementService extends ChangeNotifier {
     _announcements.insert(0, announcement);
     notifyListeners();
     FirebaseFirestoreService().addAnnouncement(announcement);
+  }
+
+  void deleteAnnouncement(String announcementId) {
+    _announcements.removeWhere((a) => a.id == announcementId);
+    notifyListeners();
+    FirebaseFirestoreService().deleteAnnouncement(announcementId);
   }
 
   List<String> get availableCategories => [

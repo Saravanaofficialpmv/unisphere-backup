@@ -54,10 +54,10 @@ class _CompleteProfileDialogState extends ConsumerState<CompleteProfileDialog> {
   void initState() {
     super.initState();
     final meta = widget.user.metadata ?? {};
-    _regNoController = TextEditingController(text: meta['registerNumber'] ?? 'RA2111003010001');
-    _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '+91 98765 43210');
-    _sectionController = TextEditingController(text: meta['section'] ?? 'Sec A');
-    _batchController = TextEditingController(text: meta['batch'] ?? '2023 - 2027');
+    _regNoController = TextEditingController(text: meta['registerNumber']?.toString() ?? meta['regNo']?.toString() ?? '');
+    _phoneController = TextEditingController(text: widget.user.phoneNumber ?? '');
+    _sectionController = TextEditingController(text: meta['section']?.toString() ?? '');
+    _batchController = TextEditingController(text: meta['batch']?.toString() ?? '');
 
     final deptVal = meta['department']?.toString() ?? '';
     _selectedDept = AppDepartments.list.firstWhere(

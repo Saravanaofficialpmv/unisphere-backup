@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
+import 'package:unisphere/models/models.dart';
 import 'package:unisphere/providers/attendance_system_provider.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
+import 'package:unisphere/repositories/department_repository.dart';
+import 'package:unisphere/repositories/student_repository.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/widgets/common/app_liquid_pull_to_refresh.dart';
 
@@ -61,18 +64,7 @@ class _StaffAttendanceMarkingModuleState
     '02:30 - 03:30 PM',
   ];
 
-  final List<Map<String, dynamic>> _studentsList = [
-    {'id': '917722104001', 'name': 'Aarav Sharma', 'isPresent': true},
-    {'id': '917722104002', 'name': 'Aditi Rao', 'isPresent': true},
-    {'id': '917722104003', 'name': 'Bhavya Nair', 'isPresent': true},
-    {'id': '917722104018', 'name': 'Deepak Kumar', 'isPresent': false},
-    {'id': '917722104022', 'name': 'Karthik Raja', 'isPresent': true},
-    {'id': '917722104030', 'name': 'Meera Patel', 'isPresent': true},
-    {'id': '917722104045', 'name': 'Rohan Gupta', 'isPresent': true},
-    {'id': '917722104052', 'name': 'Sanjay V.', 'isPresent': false},
-    {'id': '917722104060', 'name': 'Tanvi Iyer', 'isPresent': true},
-    {'id': '917722104068', 'name': 'Vikram Singh', 'isPresent': true},
-  ];
+  final Map<String, bool> _attendanceOverrides = {};
 
   @override
   void initState() {
@@ -95,10 +87,11 @@ class _StaffAttendanceMarkingModuleState
     super.dispose();
   }
 
-  void _markAll(bool present) {
+  void _markAll(List<StudentModel> students, bool present) {
     setState(() {
-      for (final s in _studentsList) {
-        s['isPresent'] = present;
+      for (final s in students) {
+        final key = s.registerNumber.isNotEmpty ? s.registerNumber : s.studentId;
+        _attendanceOverrides[key] = present;
       }
     });
   }
@@ -140,23 +133,50 @@ class _StaffAttendanceMarkingModuleState
     });
   }
 
-  void _submitAttendance() {
+  void _submitAttendance(String? facultyName, List<StudentModel> students) {
+    if (students.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot submit: No students enrolled in this section.',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final code = _selectedSubject.split(' - ')[0];
     final name = _selectedSubject.contains(' - ')
         ? _selectedSubject.split(' - ')[1]
         : _selectedSubject;
 
+    final resolvedFaculty = (facultyName != null && facultyName.trim().isNotEmpty)
+        ? facultyName.trim()
+        : 'Faculty Member';
+
+    final studentResults = students.map((s) {
+      final key = s.registerNumber.isNotEmpty ? s.registerNumber : s.studentId;
+      final isPresent = _attendanceOverrides[key] ?? true;
+      return {
+        'id': key,
+        'name': s.fullName,
+        'isPresent': isPresent,
+      };
+    }).toList();
+
     ref.read(attendanceSystemProvider.notifier).submitStaffSessionAttendance(
           subjectCode: code,
           subjectName: name,
-          facultyName: 'Staff Faculty Member',
+          facultyName: resolvedFaculty,
           timeSlot: _selectedSlot,
-          studentResults: _studentsList,
+          studentResults: studentResults,
         );
 
     final presentCount =
-        _studentsList.where((s) => s['isPresent'] == true).length;
-    final total = _studentsList.length;
+        studentResults.where((s) => s['isPresent'] == true).length;
+    final total = studentResults.length;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -174,13 +194,6 @@ class _StaffAttendanceMarkingModuleState
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
-    final presentCount =
-        _studentsList.where((s) => s['isPresent'] == true).length;
-    final absentCount = _studentsList.length - presentCount;
-    final attendanceMetric = ref.watch(staffMonthlyAttendanceMetricProvider);
-    final todayScheduleAsync = ref.watch(staffTodayScheduleStreamProvider);
-    final sessions = todayScheduleAsync.valueOrNull ?? [];
-
     final authUser = ref.watch(currentUserProvider).valueOrNull ??
         ref.watch(authServiceProvider).currentUser;
     final profileAsync = ref.watch(currentStaffProfileStreamProvider);
@@ -198,6 +211,35 @@ class _StaffAttendanceMarkingModuleState
         ? staff.departmentName
         : (authUser?.metadata?['department']?.toString() ??
             'Computer Science & Engineering');
+
+    final String deptId = (staff?.departmentId != null && staff!.departmentId.isNotEmpty)
+        ? staff.departmentId
+        : (authUser?.departmentId ??
+            authUser?.metadata?['departmentId']?.toString() ??
+            DepartmentRepository.deriveDepartmentId(staffDept));
+
+    final studentsAsync = ref.watch(departmentStudentsStreamProvider(deptId));
+    final allStudents = studentsAsync.valueOrNull ?? [];
+
+    List<StudentModel> currentStudents = allStudents.where((s) {
+      final sec = _selectedSection.toUpperCase().replaceAll(' ', '').replaceAll('-', '');
+      final sSec = s.section.toUpperCase().replaceAll(' ', '').replaceAll('-', '');
+      if (sSec.isEmpty) return true;
+      return sec.contains(sSec) || sSec.contains(sec);
+    }).toList();
+
+    if (currentStudents.isEmpty && allStudents.isNotEmpty) {
+      currentStudents = allStudents;
+    }
+
+    final presentCount = currentStudents.where((s) {
+      final key = s.registerNumber.isNotEmpty ? s.registerNumber : s.studentId;
+      return _attendanceOverrides[key] ?? true;
+    }).length;
+    final absentCount = currentStudents.length - presentCount;
+    final attendanceMetric = ref.watch(staffMonthlyAttendanceMetricProvider);
+    final todayScheduleAsync = ref.watch(staffTodayScheduleStreamProvider);
+    final sessions = todayScheduleAsync.valueOrNull ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -785,7 +827,7 @@ class _StaffAttendanceMarkingModuleState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           TextButton.icon(
-                            onPressed: () => _markAll(true),
+                            onPressed: () => _markAll(currentStudents, true),
                             icon: const Icon(Icons.check_circle_outline_rounded,
                                 size: 16),
                             label: Text(
@@ -797,7 +839,7 @@ class _StaffAttendanceMarkingModuleState
                             ),
                           ),
                           TextButton.icon(
-                            onPressed: () => _markAll(false),
+                            onPressed: () => _markAll(currentStudents, false),
                             icon: const Icon(Icons.highlight_off_rounded,
                                 size: 16, color: AppColors.error),
                             label: Text(
@@ -816,84 +858,132 @@ class _StaffAttendanceMarkingModuleState
                   const SizedBox(height: 12),
 
                   // ── 5. Student List Roster ──
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _studentsList.length,
-                    itemBuilder: (context, index) {
-                      final student = _studentsList[index];
-                      final bool isPresent = student['isPresent'] == true;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isPresent
-                                ? const Color(0xFFE2E8F0)
-                                : const Color(0xFFFCA5A5),
+                  if (studentsAsync.isLoading && currentStudents.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (currentStudents.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.people_outline_rounded,
+                              size: 40, color: Color(0xFF94A3B8)),
+                          const SizedBox(height: 10),
+                          Text(
+                            'No students enrolled in $_selectedSection',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: const Color(0xFF475569),
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: isPresent
-                                      ? const Color(0xFFEFF6FF)
-                                      : const Color(0xFFFEE2E2),
-                                  child: Text(
-                                    student['name'][0],
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isPresent
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFFDC2626),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Students allocated to this class roster will appear here automatically.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: currentStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = currentStudents[index];
+                        final studentKey = student.registerNumber.isNotEmpty
+                            ? student.registerNumber
+                            : student.studentId;
+                        final bool isPresent =
+                            _attendanceOverrides[studentKey] ?? true;
+
+                        final initialLetter = student.fullName.isNotEmpty
+                            ? student.fullName[0].toUpperCase()
+                            : 'S';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isPresent
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFFFCA5A5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: isPresent
+                                        ? const Color(0xFFEFF6FF)
+                                        : const Color(0xFFFEE2E2),
+                                    child: Text(
+                                      initialLetter,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isPresent
+                                            ? const Color(0xFF2563EB)
+                                            : const Color(0xFFDC2626),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      student['name'],
-                                      style: GoogleFonts.outfit(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13.5,
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        student.fullName,
+                                        style: GoogleFonts.outfit(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13.5,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      'Reg: ${student['id']}',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary,
+                                      Text(
+                                        'Reg: $studentKey',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Switch(
-                              value: isPresent,
-                              activeThumbColor: const Color(0xFF059669),
-                              onChanged: (val) {
-                                setState(() {
-                                  student['isPresent'] = val;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Switch(
+                                value: isPresent,
+                                activeThumbColor: const Color(0xFF059669),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _attendanceOverrides[studentKey] = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   const SizedBox(height: 20),
 
                   // ── 6. Submit Button ──
@@ -901,7 +991,9 @@ class _StaffAttendanceMarkingModuleState
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: _submitAttendance,
+                      onPressed: currentStudents.isEmpty
+                          ? null
+                          : () => _submitAttendance(staffName, currentStudents),
                       icon: const Icon(Icons.send_rounded, size: 18),
                       label: Text(
                         'Submit Session Attendance',

@@ -12,7 +12,7 @@ import 'package:unisphere/providers/post_od_provider.dart';
 final currentHodUidProvider = Provider<String>((ref) {
   final user = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
   final uid = user?.uid ?? '';
-  return uid.isNotEmpty ? uid : 'DEMO-HOD';
+  return uid;
 });
 
 // ── 2. Authenticated HOD Department Resolution Provider ──
@@ -208,7 +208,7 @@ final hodDepartmentSummaryMetricsProvider = Provider<HodDepartmentSummary>((ref)
     totalStudents: totalStudents,
     totalFaculty: totalFaculty,
     totalAdvisors: advisorStaffIds.length,
-    totalClasses: classesSet.isNotEmpty ? classesSet.length : 8,
+    totalClasses: classesSet.length,
     averageAttendance: double.parse(avgAtt.toStringAsFixed(1)),
     averageCgpa: double.parse(avgCgpa.toStringAsFixed(2)),
     atRiskCount: atRisk,
@@ -363,45 +363,7 @@ class DepartmentScheduleItem {
 }
 
 final hodTodayScheduleProvider = Provider<List<DepartmentScheduleItem>>((ref) {
-  return const [
-    DepartmentScheduleItem(
-      period: '09:00 - 10:00',
-      time: 'Period 1',
-      courseCode: 'CS8601',
-      subject: 'Artificial Intelligence',
-      facultyName: 'Dr. Anita Roy',
-      room: 'Room 204',
-      yearSection: 'III Year • Sec A',
-      isLive: true,
-    ),
-    DepartmentScheduleItem(
-      period: '10:00 - 11:00',
-      time: 'Period 2',
-      courseCode: 'CS8651',
-      subject: 'Internet Programming',
-      facultyName: 'Dr. S. Meenakshi',
-      room: 'Lab 3',
-      yearSection: 'III Year • Sec B',
-    ),
-    DepartmentScheduleItem(
-      period: '11:15 - 12:15',
-      time: 'Period 3',
-      courseCode: 'CS8492',
-      subject: 'Database Management Systems',
-      facultyName: 'Prof. Rajesh Kumar',
-      room: 'Room 301',
-      yearSection: 'II Year • Sec A',
-    ),
-    DepartmentScheduleItem(
-      period: '02:00 - 03:00',
-      time: 'HOD Session',
-      courseCode: 'DEPT-MEET',
-      subject: 'Department Faculty & Curriculum Review',
-      facultyName: 'HOD Office • All Staff',
-      room: 'HOD Boardroom',
-      yearSection: 'All Department Staff',
-    ),
-  ];
+  return const [];
 });
 
 // ── 16. Student Risk Profiles Provider ──
@@ -527,17 +489,21 @@ final hodActionCenterProvider = Provider<List<HodActionItem>>((ref) {
   }
 
   // 5. Academic Exam / Marks Moderation
-  items.add(const HodActionItem(
-    id: 'marks_internal_review',
-    category: 'marks',
-    title: 'Cycle Test 2 Marks Moderation',
-    contextDescription: 'Department faculty submission window closing. Review subject averages.',
-    deadline: 'Tomorrow, 04:00 PM',
-    priority: HodPriorityLevel.high,
-    actionLabel: 'Review Marks',
-    targetRouteIndex: 17, // Examination & Marks
-    icon: Icons.assessment_outlined,
-  ));
+  final marksDocs = ref.watch(hodMarksDocumentsStreamProvider).valueOrNull ?? [];
+  final pendingMarks = marksDocs.where((d) => d.approvalStatus.toLowerCase().contains('pending')).length;
+  if (pendingMarks > 0) {
+    items.add(HodActionItem(
+      id: 'marks_internal_review',
+      category: 'marks',
+      title: 'Exam Marks Moderation',
+      contextDescription: '$pendingMarks internal marks submission${pendingMarks > 1 ? "s" : ""} awaiting HOD moderation.',
+      deadline: 'Moderation Window Open',
+      priority: HodPriorityLevel.high,
+      actionLabel: 'Review Marks',
+      targetRouteIndex: 17, // Examination & Marks
+      icon: Icons.assessment_outlined,
+    ));
+  }
 
   items.sort((a, b) => a.priority.index.compareTo(b.priority.index));
   return items;
@@ -553,7 +519,7 @@ final hodFacultyWorkloadProvider = Provider<List<FacultyWorkloadSummary>>((ref) 
   return staff.map((s) {
     final staffAssignments = assignments.where((a) => a.staffId == s.userId && a.status == 'active').toList();
     final subjectCount = staffAssignments.length;
-    final periods = subjectCount > 0 ? subjectCount * 4 : 12;
+    final periods = subjectCount * 4;
     final loadPct = (periods / 16.0) * 100;
     final status = loadPct > 105
         ? FacultyWorkloadStatus.overloaded
@@ -561,7 +527,7 @@ final hodFacultyWorkloadProvider = Provider<List<FacultyWorkloadSummary>>((ref) 
 
     return FacultyWorkloadSummary(
       staff: s,
-      assignedSubjectsCount: subjectCount > 0 ? subjectCount : 3,
+      assignedSubjectsCount: subjectCount,
       weeklyPeriodsCount: periods,
       workloadStatus: status,
       loadPercentage: loadPct,
@@ -571,49 +537,7 @@ final hodFacultyWorkloadProvider = Provider<List<FacultyWorkloadSummary>>((ref) 
 
 // ── 19. Department Deadlines Intelligence Provider ──
 final hodDepartmentDeadlinesProvider = Provider<List<DepartmentDeadlineItem>>((ref) {
-  final now = DateTime.now();
-  return [
-    DepartmentDeadlineItem(
-      id: 'd1',
-      title: 'Internal Assessment II Marks Entry',
-      category: 'Exams & Marks',
-      dueDate: now.add(const Duration(days: 1)),
-      relativeTime: 'Tomorrow, 5:00 PM',
-      daysRemaining: 1,
-      targetRouteIndex: 17,
-      isUrgent: true,
-    ),
-    DepartmentDeadlineItem(
-      id: 'd2',
-      title: 'Mid-Semester Syllabus Coverage Audit',
-      category: 'Academic Administration',
-      dueDate: now.add(const Duration(days: 3)),
-      relativeTime: 'In 3 days',
-      daysRemaining: 3,
-      targetRouteIndex: 13,
-      isUrgent: false,
-    ),
-    DepartmentDeadlineItem(
-      id: 'd3',
-      title: 'NBA / NAAC Faculty Course File Sign-off',
-      category: 'Compliance & Quality',
-      dueDate: now.add(const Duration(days: 5)),
-      relativeTime: 'In 5 days',
-      daysRemaining: 5,
-      targetRouteIndex: 20,
-      isUrgent: false,
-    ),
-    DepartmentDeadlineItem(
-      id: 'd4',
-      title: 'Department Faculty & Curriculum Council',
-      category: 'Governance & Meeting',
-      dueDate: now.add(const Duration(days: 6)),
-      relativeTime: 'This Friday, 2:00 PM',
-      daysRemaining: 6,
-      targetRouteIndex: 21,
-      isUrgent: false,
-    ),
-  ];
+  return const [];
 });
 
 // ── 20. Executive Department Health Provider ──
@@ -624,15 +548,47 @@ final hodExecutiveHealthProvider = Provider<ExecutiveDepartmentHealth>((ref) {
 
   final totalFac = summary.totalFaculty > 0 ? summary.totalFaculty : staff.length;
   final onLeave = leaves.where((l) => (l['status'] ?? '').toString().toLowerCase() == 'approved').length;
-  final coverageRate = totalFac > 0 ? ((totalFac - onLeave) / totalFac) * 100 : 96.0;
+  final coverageRate = totalFac > 0 ? (((totalFac - onLeave) / totalFac) * 100).clamp(0.0, 100.0) : 0.0;
+
+  final hasAtt = summary.averageAttendance > 0;
+  final hasCgpa = summary.averageCgpa > 0;
+  final hasFaculty = totalFac > 0;
 
   return ExecutiveDepartmentHealth(
-    attendanceRate: summary.averageAttendance > 0 ? summary.averageAttendance : 92.4,
-    academicAverageCgpa: summary.averageCgpa > 0 ? summary.averageCgpa : 7.84,
+    attendanceRate: summary.averageAttendance,
+    academicAverageCgpa: summary.averageCgpa,
     facultyCoverageRate: double.parse(coverageRate.toStringAsFixed(1)),
     pendingActionsCount: summary.pendingActionsCount,
     totalStudents: summary.totalStudents,
     totalFaculty: totalFac,
     activeClasses: summary.totalClasses,
+    attendanceTrend: hasAtt ? '+${summary.averageAttendance}% recorded' : 'No attendance data',
+    academicTrend: hasCgpa ? 'Avg CGPA ${summary.averageCgpa}' : 'No grades recorded',
+    coverageTrend: hasFaculty ? '${totalFac - onLeave} of $totalFac on duty' : 'No faculty enrolled',
   );
+});
+
+// ── 21. HOD Exam Evaluation Status Stream Provider ──
+final hodEvaluationStatusStreamProvider = StreamProvider.family<List<ExamEvaluationSubjectStatus>, ({String examTitle, int semester})>((ref, arg) {
+  final deptId = ref.watch(hodDepartmentIdProvider);
+  final repo = ref.watch(examManagementRepositoryProvider);
+  return repo.watchDepartmentEvaluationStatus(
+    departmentId: deptId,
+    examTitle: arg.examTitle,
+    semester: arg.semester,
+  );
+});
+
+// ── 22. HOD Marks Documents Stream Provider ──
+final hodMarksDocumentsStreamProvider = StreamProvider<List<MarksDocumentModel>>((ref) {
+  final deptId = ref.watch(hodDepartmentIdProvider);
+  final repo = ref.watch(examManagementRepositoryProvider);
+  return repo.watchDepartmentMarksDocuments(deptId);
+});
+
+// ── 23. HOD Department Rank List Stream Provider ──
+final hodDepartmentRankListProvider = StreamProvider.family<List<DepartmentRankItem>, int?>((ref, semester) {
+  final deptId = ref.watch(hodDepartmentIdProvider);
+  final repo = ref.watch(examManagementRepositoryProvider);
+  return repo.watchDepartmentRankList(deptId, semester: semester);
 });

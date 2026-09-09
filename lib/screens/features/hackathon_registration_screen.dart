@@ -4,6 +4,7 @@ import 'package:unisphere/models/hackathon_model.dart';
 import 'package:unisphere/controllers/hackathon_controller.dart';
 import 'package:unisphere/controllers/hackathon_registration_controller.dart';
 import 'package:unisphere/screens/features/hackathon_team_management_screen.dart';
+import 'package:unisphere/services/auth_service.dart';
 
 class HackathonRegistrationScreen extends ConsumerStatefulWidget {
   final HackathonModel hackathon;
@@ -17,17 +18,17 @@ class HackathonRegistrationScreen extends ConsumerStatefulWidget {
 class _HackathonRegistrationScreenState extends ConsumerState<HackathonRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _studentIdController = TextEditingController(text: 'STU-2026-042');
-  final _studentNameController = TextEditingController(text: 'Alex Johnson');
-  final _departmentController = TextEditingController(text: 'Computer Science & Engineering');
-  final _leaderEmailController = TextEditingController(text: 'alex.j@unisphere.edu');
-  final _phoneController = TextEditingController(text: '+91 98765 43210');
-  final _teamNameController = TextEditingController(text: 'CodeCatalysts');
-  final _externalRegIdController = TextEditingController(text: 'UNSTOP-2026-8841');
-  final _screenshotUrlController = TextEditingController(text: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&q=80');
+  late final TextEditingController _studentIdController;
+  late final TextEditingController _studentNameController;
+  late final TextEditingController _departmentController;
+  late final TextEditingController _leaderEmailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _teamNameController;
+  late final TextEditingController _externalRegIdController;
+  late final TextEditingController _screenshotUrlController;
 
   String _selectedYear = '3rd Year';
-  String _selectedSection = 'Sec B';
+  String _selectedSection = 'Sec A';
 
   final List<String> _years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
   final List<String> _sections = ['Sec A', 'Sec B', 'Sec C', 'Sec D'];
@@ -38,6 +39,26 @@ class _HackathonRegistrationScreenState extends ConsumerState<HackathonRegistrat
   @override
   void initState() {
     super.initState();
+    final user = ref.read(currentUserProvider).value ?? ref.read(authServiceProvider).currentUser;
+    final meta = user?.metadata ?? {};
+    _studentIdController = TextEditingController(text: meta['registerNumber']?.toString() ?? meta['regNo']?.toString() ?? user?.uid ?? '');
+    _studentNameController = TextEditingController(text: user?.fullName ?? user?.name ?? '');
+    _departmentController = TextEditingController(text: meta['department']?.toString() ?? user?.departmentName ?? user?.department ?? '');
+    _leaderEmailController = TextEditingController(text: user?.email ?? '');
+    _phoneController = TextEditingController(text: user?.phoneNumber ?? meta['phone']?.toString() ?? '');
+    _teamNameController = TextEditingController();
+    _externalRegIdController = TextEditingController();
+    _screenshotUrlController = TextEditingController();
+
+    final userYear = meta['year']?.toString();
+    if (userYear != null && _years.contains(userYear)) {
+      _selectedYear = userYear;
+    }
+    final userSection = meta['section']?.toString();
+    if (userSection != null && _sections.contains(userSection)) {
+      _selectedSection = userSection;
+    }
+
     // Default up to 5 additional members (Max team size 6 total)
     final initialExtraMembers = (widget.hackathon.teamSize - 1).clamp(1, 5);
     for (int i = 0; i < initialExtraMembers; i++) {
@@ -79,16 +100,10 @@ class _HackathonRegistrationScreenState extends ConsumerState<HackathonRegistrat
   }
 
   String _getAdvisorName() {
-    if (_selectedYear.contains('3rd') && _selectedSection.contains('B')) {
-      return 'Dr. S. Meenakshi (Class Advisor 3rd Year Sec B)';
-    } else if (_selectedYear.contains('3rd') && _selectedSection.contains('A')) {
-      return 'Prof. Robert Vance (Class Advisor 3rd Year Sec A)';
-    } else if (_selectedYear.contains('2nd')) {
-      return 'Dr. Anita Sharma (Class Advisor 2nd Year Sec A)';
-    } else if (_selectedYear.contains('4th')) {
-      return 'Prof. David Miller (Class Advisor 4th Year Sec A)';
+    if (_selectedYear.isNotEmpty && _selectedSection.isNotEmpty) {
+      return 'Class Advisor ($_selectedYear Sec $_selectedSection)';
     }
-    return 'Dr. S. Meenakshi (Department Advisor)';
+    return 'Assigned Class Advisor';
   }
 
   Future<void> _submitRegistration() async {

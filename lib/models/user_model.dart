@@ -37,7 +37,9 @@ class UserModel {
         phone = (phone != null && phone.isNotEmpty)
             ? phone
             : (phoneNumber ?? ''),
-        createdAt = createdAt ?? _resolveDefaultCreatedAt(uid, metadata);
+        createdAt = (createdAt != null && !isTodayOrLoginDate(createdAt, lastLoginAt))
+            ? createdAt
+            : resolveDefaultCreatedAt(uid, metadata, email, role);
 
   String get name => fullName;
   String? get phoneNumber => phone;
@@ -53,8 +55,53 @@ class UserModel {
 
   bool get isAdvisor => metadata?['isAdvisor'] == true || role == UserRole.advisor;
 
+  String? get registerNumber =>
+      metadata?['registerNumber']?.toString() ??
+      metadata?['regNo']?.toString() ??
+      metadata?['registrationNumber']?.toString() ??
+      metadata?['studentId']?.toString();
+
+  static bool isTodayOrLoginDate(DateTime date, DateTime? lastLogin) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final isLogin = lastLogin != null &&
+        date.year == lastLogin.year &&
+        date.month == lastLogin.month &&
+        date.day == lastLogin.day;
+    return isToday || isLogin;
+  }
+
+  static DateTime resolveDefaultCreatedAt(String uid, Map<String, dynamic>? metadata, [String? email, UserRole? role]) {
+    if (metadata != null) {
+      final raw = metadata['accountCreatedAt'] ??
+          metadata['registrationDate'] ??
+          metadata['admissionDate'] ??
+          metadata['joiningDate'] ??
+          metadata['createdAt'] ??
+          metadata['created_at'];
+      if (raw is DateTime) {
+        if (!isTodayOrLoginDate(raw, null)) return raw;
+      } else if (raw != null) {
+        try {
+          final dynamic dyn = raw;
+          if (dyn.toDate is Function) {
+            final dt = dyn.toDate() as DateTime;
+            if (!isTodayOrLoginDate(dt, null)) return dt;
+          }
+        } catch (_) {}
+        final parsed = DateTime.tryParse(raw.toString());
+        if (parsed != null && !isTodayOrLoginDate(parsed, null)) return parsed;
+      }
+    }
+
+    return DateTime.now();
+  }
+
   String get formattedCreatedAt {
-    final date = createdAt ?? DateTime(2023, 8, 15);
+    DateTime? date = createdAt;
+    if (date == null || isTodayOrLoginDate(date, lastLoginAt)) {
+      date = resolveDefaultCreatedAt(uid, metadata, email, role);
+    }
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -63,27 +110,6 @@ class UserModel {
     final month = months[date.month - 1];
     final year = date.year;
     return '$day $month $year';
-  }
-
-  static DateTime _resolveDefaultCreatedAt(String uid, Map<String, dynamic>? metadata) {
-    if (metadata != null) {
-      final raw = metadata['createdAt'] ?? metadata['created_at'];
-      if (raw is DateTime) return raw;
-      if (raw != null) {
-        try {
-          final dynamic dyn = raw;
-          if (dyn.toDate is Function) return dyn.toDate() as DateTime;
-        } catch (_) {}
-        final parsed = DateTime.tryParse(raw.toString());
-        if (parsed != null) return parsed;
-      }
-    }
-    if (uid == 'DEMO-HOD') return DateTime(2021, 6, 15);
-    if (uid == 'DEMO-ADM') return DateTime(2020, 1, 10);
-    if (uid == 'DEMO-STF') return DateTime(2022, 7, 20);
-    if (uid == 'DEMO-PRT') return DateTime(2023, 9, 5);
-    if (uid == 'DEMO-STU') return DateTime(2023, 8, 22);
-    return DateTime.now();
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
@@ -116,10 +142,16 @@ class UserModel {
     if (map['department_id'] != null && map['department_id'].toString().isNotEmpty && metaMap['department_id'] == null) {
       metaMap['department_id'] = map['department_id'].toString();
     }
-    final creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap['createdAt'] ?? metaMap['created_at']);
 
     final rawRole = map['role'] ?? map['userRole'] ?? map['user_role'] ?? metaMap['role'] ?? metaMap['userRole'];
     UserRole parsedRole = _parseRole(rawRole?.toString());
+
+    final rawEmail = (map['email'] ?? metaMap['email'] ?? metaMap['collegeEmail'] ?? '').toString().trim().toLowerCase();
+    DateTime? creationDate = parseDate(map['createdAt'] ?? map['created_at'] ?? metaMap['createdAt'] ?? metaMap['created_at'] ?? metaMap['accountCreatedAt']);
+    final loginDate = parseDate(map['lastLoginAt'] ?? map['last_login_at']);
+    if (creationDate == null || isTodayOrLoginDate(creationDate, loginDate)) {
+      creationDate = resolveDefaultCreatedAt(id, metaMap, rawEmail, parsedRole);
+    }
 
     if (parsedRole == UserRole.student || parsedRole == UserRole.unknown) {
       final hasWards = map['wardRegisterNumbers'] != null ||
@@ -130,6 +162,13 @@ class UserModel {
           metaMap['studentIds'] != null;
       if (hasWards) {
         parsedRole = UserRole.parent;
+      } else if (map['isAdvisor'] == true || metaMap['isAdvisor'] == true) {
+        parsedRole = UserRole.advisor;
+      } else if (map['staffId'] != null ||
+          map['employeeId'] != null ||
+          metaMap['staffId'] != null ||
+          metaMap['employeeId'] != null) {
+        parsedRole = UserRole.staff;
       }
     }
 
@@ -165,7 +204,9 @@ class UserModel {
       if (department != null) 'department': department,
       if (departmentName != null) 'departmentName': departmentName,
       if (departmentId != null) 'departmentId': departmentId,
-      'createdAt': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'createdAt': (createdAt != null && !isTodayOrLoginDate(createdAt!, lastLoginAt))
+          ? createdAt!.toIso8601String()
+          : resolveDefaultCreatedAt(uid, metadata, email, role).toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),
       'metadata': metadata,
@@ -224,27 +265,93 @@ class UserModel {
   }
 
 
+  List<UserRole> get availableRoles {
+    final list = <UserRole>[role];
+    if (metadata != null) {
+      final rawRoles = metadata!['availableRoles'] ?? metadata!['roles'];
+      if (rawRoles is List) {
+        for (final r in rawRoles) {
+          final parsed = parseRole(r.toString());
+          if (parsed != UserRole.unknown && !list.contains(parsed)) {
+            list.add(parsed);
+          }
+        }
+      }
+      if (metadata!['isAdvisor'] == true && !list.contains(UserRole.advisor)) {
+        list.add(UserRole.advisor);
+      }
+    }
+    return list;
+  }
+
+  List<String> get availableInstitutions {
+    final list = <String>[];
+    if (metadata != null) {
+      final rawInsts = metadata!['availableInstitutions'] ?? metadata!['institutions'];
+      if (rawInsts is List) {
+        for (final inst in rawInsts) {
+          if (inst != null && inst.toString().trim().isNotEmpty) {
+            final str = inst.toString().trim();
+            if (!list.contains(str)) list.add(str);
+          }
+        }
+      }
+      final primary = metadata!['institutionName'] ?? metadata!['collegeName'] ?? metadata!['institution'];
+      if (primary != null && primary.toString().trim().isNotEmpty) {
+        final str = primary.toString().trim();
+        if (!list.contains(str)) list.add(str);
+      }
+    }
+    if (list.isEmpty) {
+      list.add('VSB Engineering College');
+    }
+    return list;
+  }
+
+  static UserRole parseRole(String? role) => _parseRole(role);
+
   static UserRole _parseRole(String? role) {
     if (role == null) return UserRole.student;
-    switch (role.toLowerCase().trim()) {
-      case 'admin':
-        return UserRole.admin;
-      case 'student':
-        return UserRole.student;
-      case 'staff':
-      case 'faculty':
-        return UserRole.staff;
-      case 'parent':
-        return UserRole.parent;
-      case 'hod':
-      case 'head of department':
-        return UserRole.hod;
-      case 'advisor':
-      case 'class advisor':
-        return UserRole.advisor;
-      default:
-        return UserRole.unknown;
+    final r = role.toLowerCase().trim();
+    if (r == 'admin' ||
+        r == 'administrator' ||
+        r == 'superadmin' ||
+        r == 'userrole.admin') {
+      return UserRole.admin;
     }
+    if (r == 'hod' ||
+        r == 'head of department' ||
+        r == 'department (hod)' ||
+        r == 'department(hod)' ||
+        r == 'department hod' ||
+        r == 'dept head' ||
+        r == 'department head' ||
+        r == 'userrole.hod') {
+      return UserRole.hod;
+    }
+    if (r == 'staff' ||
+        r == 'faculty' ||
+        r == 'teacher' ||
+        r == 'professor' ||
+        r == 'staff / faculty' ||
+        r == 'faculty / staff' ||
+        r == 'userrole.staff') {
+      return UserRole.staff;
+    }
+    if (r == 'advisor' || r == 'class advisor' || r == 'userrole.advisor') {
+      return UserRole.advisor;
+    }
+    if (r == 'parent' ||
+        r == 'guardian' ||
+        r == 'parent / guardian' ||
+        r == 'parent/guardian' ||
+        r == 'userrole.parent') {
+      return UserRole.parent;
+    }
+    if (r == 'student' || r == 'userrole.student' || r == 'pupil' || r == 'learner') {
+      return UserRole.student;
+    }
+    return UserRole.unknown;
   }
 }
 

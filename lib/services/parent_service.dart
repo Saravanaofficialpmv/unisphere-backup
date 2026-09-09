@@ -148,11 +148,7 @@ class ParentService {
     return null;
   }
 
-  static final Map<String, List<String>> _inMemoryParentWards = {
-    'DEMO-PRT': ['23CSE1042', '24ECE2018'],
-    'parent@unisphere.edu': ['23CSE1042', '24ECE2018'],
-    'heydigitals.care@gmail.com': ['23CSE1042', '24ECE2018'],
-  };
+  static final Map<String, List<String>> _inMemoryParentWards = {};
 
   /// Links a parent with multiple student wards (children) in Firestore
   Future<void> linkParentWithChildren({
@@ -643,7 +639,7 @@ class ParentService {
                     ? studentRaw['cgpa'].toString()
                     : ((meta['cgpa'] != null && meta['cgpa'].toString().isNotEmpty && meta['cgpa'].toString() != '-')
                         ? meta['cgpa'].toString()
-                        : '8.78')),
+                        : '-')),
             'academicTrend': (academic['trend'] != null && academic['trend'].toString().isNotEmpty && academic['trend'].toString() != '-')
                 ? academic['trend'].toString()
                 : ((studentRaw['academicTrend'] != null && studentRaw['academicTrend'].toString().isNotEmpty && studentRaw['academicTrend'] != '-')
@@ -664,58 +660,6 @@ class ParentService {
 
           cacheStudentProfile(clean, resolvedProfile);
           return resolvedProfile;
-        } else if (clean.length == 12 && RegExp(r'^[0-9]{12}$').hasMatch(clean)) {
-          final knownNames = {
-            '922523243098': 'Sam',
-            '922523243100': 'saravana',
-            '922523243078': 'saravana',
-            '917721104012': 'Aravind Swamy',
-            '917721104045': 'Priya Dharshini',
-            '917722104022': 'Karthik Raja',
-            '917723104089': 'Sneha Murali',
-          };
-          final resolvedName = knownNames[clean] ?? knownNames[clean.toUpperCase()] ?? 'Student $clean';
-          final dept = inferred['department']!;
-          final year = inferred['year']!;
-          final sem = inferred['semester']!;
-          final initials = resolvedName.startsWith('Student ')
-              ? 'ST'
-              : resolvedName.split(' ').where((s) => s.isNotEmpty).map((s) => s[0].toUpperCase()).take(2).join();
-
-          final batch = (year.contains('II Year') || year.contains('2nd') || year.contains('IV Semester'))
-              ? '2024 - 2028'
-              : ((year.contains('IV Year') || year.contains('4th') || year.contains('VIII Semester'))
-                  ? '2022 - 2026'
-                  : '2023 - 2027');
-
-          final fallbackProfile = {
-            'fullName': resolvedName,
-            'name': resolvedName,
-            'registerNumber': clean,
-            'regNo': clean,
-            'departmentName': dept,
-            'department': dept,
-            'semester': sem,
-            'yearSection': '$dept • $year • $sem',
-            'currentYear': year,
-            'currentSemester': sem,
-            'batch': batch,
-            'avatarInitials': initials.isNotEmpty ? initials : 'ST',
-            'attendancePercent': '87.5%',
-            'presentCount': 142,
-            'absentCount': 15,
-            'leaveOdCount': 6,
-            'todayStatus': 'Present',
-            'cgpa': '8.78',
-            'academicTrend': '+0.3 from previous sem',
-            'academicStatus': 'First Class with Distinction',
-            'totalFees': 50000.0,
-            'paidFees': 37500.0,
-            'pendingFees': 12500.0,
-            'subjectGrades': <Map<String, dynamic>>[],
-          };
-          cacheStudentProfile(clean, fallbackProfile);
-          return fallbackProfile;
         }
       } catch (e) {
         debugPrint('ParentService lookupStudentByRegNo Firestore query notice: $e');
@@ -729,17 +673,7 @@ class ParentService {
       return _inMemoryStudentProfiles[clean.toUpperCase()]!;
     }
 
-    // Test environment fallback when firestore is null
-    final testFixtures = {
-      '23CSE1042': {'fullName': 'Arun Kumar', 'name': 'Arun Kumar', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-      '24ECE2018': {'fullName': 'Kavya Kumar', 'name': 'Kavya Kumar', 'departmentName': 'Electronics & Comm. Engineering', 'department': 'Electronics & Comm. Engineering', 'semester': 'IV Semester'},
-      'RA2111003010001': {'fullName': 'Alex Johnson', 'name': 'Alex Johnson', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-      '917721104012': {'fullName': 'Aravind Swamy', 'name': 'Aravind Swamy', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-      '917722104022': {'fullName': 'Karthik Raja', 'name': 'Karthik Raja', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-      'DEMO-STU': {'fullName': 'Alex Johnson', 'name': 'Alex Johnson', 'departmentName': 'Computer Science & Engineering', 'department': 'Computer Science & Engineering', 'semester': 'VI Semester'},
-    };
-
-    return testFixtures[clean.toUpperCase()] ?? testFixtures[clean];
+    return null;
   }
 
   /// Get student wards for a given parent user from Firestore / Cache
@@ -821,11 +755,8 @@ class ParentService {
       _cachedActiveWardRegNo[clean] = activePreference.toUpperCase();
     }
 
-    // Default demo fallback ONLY for demo parent or when explicitly empty
+    // When explicitly empty
     if (wardRegNos.isEmpty) {
-      if (clean == 'DEMO-PRT' || clean.toLowerCase() == 'parent@unisphere.edu' || clean.toLowerCase() == 'heydigitals.care@gmail.com' || clean.isEmpty) {
-        return getDefaultStudentWards();
-      }
       return [];
     }
 
@@ -848,7 +779,7 @@ class ParentService {
           : '$dept • $curYear • $sem';
       final String cgpa = (data['cgpa'] != null && data['cgpa'].toString().isNotEmpty && data['cgpa'].toString() != '-')
           ? data['cgpa'].toString()
-          : '8.78';
+          : '-';
       final String rawAtt = (data['attendancePercent'] ?? '87.5%').toString();
       final double attVal = (double.tryParse(rawAtt.replaceAll('%', '')) ?? 87.5) / (double.tryParse(rawAtt.replaceAll('%', '')) != null && double.parse(rawAtt.replaceAll('%', '')) > 1 ? 100.0 : 1.0);
 
@@ -997,79 +928,8 @@ class ParentService {
     return controller.stream;
   }
 
-  /// Returns default mapped student wards for parent dashboard (Arun Kumar & Kavya Kumar)
-  List<ParentStudentWard> getDefaultStudentWards() {
-    return [
-      ParentStudentWard(
-        id: 'ward_23cse1042',
-        name: 'Arun Kumar',
-        regNo: '23CSE1042',
-        department: 'Computer Science & Engineering',
-        yearSection: 'CSE • III Year • VI Semester',
-        currentYear: 'III Year',
-        currentSemester: 'VI Semester',
-        batch: '2023 - 2027',
-        photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200',
-        fatherPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-        motherPhotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-        avatarInitials: 'AK',
-        attendancePercent: 0.87,
-        presentCount: 142,
-        absentCount: 15,
-        leaveOdCount: 6,
-        cgpa: '8.2',
-        academicTrend: '+0.3 from Sem V',
-        academicStatus: 'Good Standing',
-        statusColor: const Color(0xFF10B981),
-        totalFees: 50000,
-        paidFees: 37500,
-        pendingFees: 12500,
-        feeDueDate: DateTime(2026, 9, 15),
-        feeStatus: 'Payment Pending',
-        isFeeOverdue: false,
-        subjectGrades: [
-          ParentSubjectGrade(subjectCode: 'CS601', subjectName: 'Core Algorithms & Data Structures', grade: 'O', color: const Color(0xFF059669)),
-          ParentSubjectGrade(subjectCode: 'CS602', subjectName: 'Database Management Systems (DBMS)', grade: 'A+', color: const Color(0xFF2563EB)),
-          ParentSubjectGrade(subjectCode: 'CS603', subjectName: 'Operating Systems & Architecture', grade: 'A', color: const Color(0xFFD97706)),
-          ParentSubjectGrade(subjectCode: 'CS604', subjectName: 'Computer Networks & Security', grade: 'O', color: const Color(0xFF7C3AED)),
-        ],
-      ),
-      ParentStudentWard(
-        id: 'ward_24ece2018',
-        name: 'Kavya Kumar',
-        regNo: '24ECE2018',
-        department: 'Electronics & Comm. Engineering',
-        yearSection: 'ECE • II Year • IV Semester',
-        currentYear: 'II Year',
-        currentSemester: 'IV Semester',
-        batch: '2024 - 2028',
-        photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200',
-        fatherPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-        motherPhotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
-        avatarInitials: 'KK',
-        attendancePercent: 0.94,
-        presentCount: 156,
-        absentCount: 8,
-        leaveOdCount: 2,
-        cgpa: '9.1',
-        academicTrend: '+0.2 from Sem III',
-        academicStatus: 'Dean\'s Scholar',
-        statusColor: const Color(0xFF7C3AED),
-        totalFees: 48000,
-        paidFees: 48000,
-        pendingFees: 0,
-        feeDueDate: DateTime(2026, 11, 30),
-        feeStatus: 'All Fees Cleared',
-        todayStatus: 'Present',
-        subjectGrades: [
-          ParentSubjectGrade(subjectCode: 'EC401', subjectName: 'Signals & Systems Analysis', grade: 'O', color: const Color(0xFF059669)),
-          ParentSubjectGrade(subjectCode: 'EC402', subjectName: 'Analog Circuits & Devices', grade: 'O', color: const Color(0xFF2563EB)),
-          ParentSubjectGrade(subjectCode: 'EC403', subjectName: 'Electromagnetic Fields & Waves', grade: 'A+', color: const Color(0xFF7C3AED)),
-          ParentSubjectGrade(subjectCode: 'MA401', subjectName: 'Probability & Random Processes', grade: 'O', color: const Color(0xFF059669)),
-        ],
-      ),
-    ];
-  }
+  /// Returns default mapped student wards for parent dashboard
+  List<ParentStudentWard> getDefaultStudentWards() => const [];
 
   /// Stream real-time data for a specific student ward directly from Firestore
   Stream<ParentStudentWard?> watchStudentWard(String regNo) {
@@ -1278,12 +1138,12 @@ class ParentService {
     final firestore = _firestore;
     if (clean.isEmpty) return Stream.value(null);
     if (firestore == null) {
-      return Stream.value(_generateDefaultAcademicPerformance(clean));
+      return Stream.value(null);
     }
 
     return firestore.collection('academic_performance').doc(clean).snapshots().map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) {
-        return _generateDefaultAcademicPerformance(clean);
+        return null;
       }
       final data = snapshot.data()!;
       data['id'] = snapshot.id;
@@ -1297,7 +1157,7 @@ class ParentService {
     final firestore = _firestore;
     if (clean.isEmpty) return null;
     if (firestore == null) {
-      return _generateDefaultAcademicPerformance(clean);
+      return null;
     }
 
     try {
@@ -1310,82 +1170,7 @@ class ParentService {
     } catch (e) {
       debugPrint('Error getting student academic performance: $e');
     }
-    return _generateDefaultAcademicPerformance(clean);
-  }
-
-  Map<String, dynamic> _generateDefaultAcademicPerformance(String regNo) {
-    final clean = regNo.trim().toUpperCase();
-    final isArun = clean == '922523243079' || clean == '23CSE1042';
-    final name = isArun ? 'Arun Kumar' : 'Alex Johnson';
-    final dept = isArun ? 'Artificial Intelligence & Data Science' : 'Computer Science & Engineering';
-
-    return {
-      'regNo': clean,
-      'studentName': name,
-      'department': dept,
-      'currentYear': 'III Year',
-      'currentSemester': 'Semester 6',
-      'cgpa': isArun ? '8.78' : '8.92',
-      'standing': 'Top 5%',
-      'semesters': {
-        'sem_5': {
-          'semesterIndex': 5,
-          'semesterName': 'Semester 6',
-          'sgpa': '9.10',
-          'creditsCompleted': '140 / 160',
-          'subjects': [
-            {
-              'code': 'CS3401',
-              'name': 'Design & Analysis of Algorithms',
-              'faculty': 'Dr. S. Ramanathan (CSE)',
-              'ia1': '44 / 50',
-              'ia1Conv': '13.2 / 15',
-              'ia1Initial': '20 / 50',
-              'hasIa1Retest': true,
-              'ia1Retest': '44 / 50',
-              'ia1RetestStatus': 'Retest Cleared (+24 Marks Improved)',
-              'ia2': '46 / 50',
-              'ia2Conv': '13.8 / 15',
-              'ia2Initial': '46 / 50',
-              'hasIa2Retest': false,
-              'modelExam': '92 / 100',
-              'modelConv': '18.4 / 20',
-              'modelInitial': '92 / 100',
-              'hasModelRetest': false,
-              'attAssign': '9.8 / 10',
-              'totalInternal': '55.2 / 60',
-              'percent': 0.92,
-              'grade': 'O (Outstanding)',
-              'remarks': 'Exceptional problem solving and dynamic programming algorithmic optimizations.',
-              'status': 'Live Verified in Firebase',
-            },
-            {
-              'code': 'CS3492',
-              'name': 'Database Management Systems',
-              'faculty': 'Prof. K. Sundaram (IT)',
-              'ia1': '42 / 50',
-              'ia1Conv': '12.6 / 15',
-              'ia1Initial': '42 / 50',
-              'hasIa1Retest': false,
-              'ia2': '45 / 50',
-              'ia2Conv': '13.5 / 15',
-              'ia2Initial': '45 / 50',
-              'hasIa2Retest': false,
-              'modelExam': '88 / 100',
-              'modelConv': '17.6 / 20',
-              'modelInitial': '88 / 100',
-              'hasModelRetest': false,
-              'attAssign': '9.2 / 10',
-              'totalInternal': '52.9 / 60',
-              'percent': 0.88,
-              'grade': 'A+ (Excellent)',
-              'remarks': 'Strong query optimization and relational schema normalisation skills.',
-              'status': 'Live Verified in Firebase',
-            },
-          ],
-        },
-      },
-    };
+    return null;
   }
 
 
@@ -1435,8 +1220,8 @@ class ParentService {
         'department': department ?? existingData['department'] ?? 'Artificial Intelligence & Data Science',
         'currentYear': currentYear ?? existingData['currentYear'] ?? 'III Year',
         'currentSemester': currentSemester ?? existingData['currentSemester'] ?? 'Semester 6',
-        'cgpa': cgpa ?? existingData['cgpa'] ?? '8.78',
-        'standing': standing ?? existingData['standing'] ?? 'Top 5%',
+        'cgpa': cgpa ?? existingData['cgpa'] ?? '-',
+        'standing': standing ?? existingData['standing'] ?? 'Good Standing',
         'semesters': existingSemesters,
         'updatedAt': FieldValue.serverTimestamp(),
         'lastSyncedAt': nowStr,
@@ -1446,7 +1231,7 @@ class ParentService {
 
       // Mirror to student_profiles
       await firestore.collection('student_profiles').doc(clean).set({
-        'cgpa': cgpa ?? existingData['cgpa'] ?? '8.78',
+        'cgpa': cgpa ?? existingData['cgpa'] ?? '-',
         'academicStatus': standing ?? existingData['standing'] ?? 'Top 5%',
         'department': department ?? existingData['department'],
         'lastAcademicSync': nowStr,

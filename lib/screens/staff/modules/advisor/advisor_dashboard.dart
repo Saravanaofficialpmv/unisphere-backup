@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/staff_dashboard_provider.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_academic_performance.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_announcements.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_attendance.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_attention_section.dart';
+import 'package:unisphere/screens/staff/modules/advisor/advisor_class_overview.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_leave_od.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_student_directory.dart';
 import 'package:unisphere/screens/staff/modules/advisor/advisor_tasks.dart';
-import 'package:unisphere/screens/staff/modules/shared/staff_metric_card.dart';
 import 'package:unisphere/screens/staff/staff_dashboard.dart';
 
 class AdvisorDashboard extends ConsumerStatefulWidget {
@@ -39,7 +38,6 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
     final authUser = ref.watch(currentUserProvider).valueOrNull ?? ref.watch(authServiceProvider).currentUser;
     final profileAsync = ref.watch(currentStaffProfileStreamProvider);
     final advisorAssignment = ref.watch(activeClassAdvisorAssignmentProvider);
-    final summary = ref.watch(advisorClassSummaryProvider);
     final staff = profileAsync.valueOrNull;
 
     final String staffName = (staff?.fullName != null && staff!.fullName.trim().isNotEmpty)
@@ -234,69 +232,10 @@ class _AdvisorDashboardState extends ConsumerState<AdvisorDashboard> {
               ),
               const SizedBox(height: 18),
 
-              // ── 2. Top Metric Cards ──
-              Row(
-                children: [
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: 'Students',
-                      value: '${summary.totalStudents}',
-                      icon: Icons.groups_rounded,
-                      iconColor: AppColors.staffRole,
-                      gradientColors: const [
-                        Color(0xFF2563EB),
-                        Color(0xFF1D4ED8),
-                      ],
-                      isDense: true,
-                      onTap: () => setState(() => _activeDirectoryFilter = 'all'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: 'Attendance',
-                      value: '${summary.overallAttendance.toInt()}%',
-                      icon: Icons.insights_rounded,
-                      iconColor: const Color(0xFF10B981),
-                      gradientColors: const [
-                        Color(0xFF10B981),
-                        Color(0xFF059669),
-                      ],
-                      isDense: true,
-                      onTap: () => setState(() => _activeDirectoryFilter = 'attendance'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: 'Avg CGPA',
-                      value: '${summary.averageCgpa}',
-                      icon: Icons.school_rounded,
-                      iconColor: const Color(0xFF2563EB),
-                      gradientColors: const [
-                        Color(0xFF3B82F6),
-                        Color(0xFF1D4ED8),
-                      ],
-                      isDense: true,
-                      onTap: () => setState(() => _activeDirectoryFilter = 'top'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: StaffMetricCard(
-                      title: 'At Risk',
-                      value: '${summary.atRiskCount}',
-                      icon: Icons.warning_amber_rounded,
-                      iconColor: const Color(0xFFDC2626),
-                      gradientColors: const [
-                        Color(0xFFEF4444),
-                        Color(0xFFDC2626),
-                      ],
-                      isDense: true,
-                      onTap: () => setState(() => _activeDirectoryFilter = 'at_risk'),
-                    ),
-                  ),
-                ],
+              // ── 2. Top Metric Cards (Class Overview) ──
+              AdvisorClassOverviewSection(
+                onViewAll: () => setState(() => _activeDirectoryFilter = 'all'),
+                onFilterCategory: (category) => setState(() => _activeDirectoryFilter = category),
               ),
               const SizedBox(height: 20),
 

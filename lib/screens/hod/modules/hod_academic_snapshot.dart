@@ -19,12 +19,12 @@ class HodAcademicSnapshot extends ConsumerWidget {
     final summary = ref.watch(hodDepartmentSummaryMetricsProvider);
     final textTheme = Theme.of(context).textTheme;
 
-    final attendancePct = summary.averageAttendance > 0 ? summary.averageAttendance : 92.4;
-    // Normalized 74 working days completed out of 90 total academic semester days
-    const completedDays = 74;
+    final attendancePct = summary.averageAttendance;
+    final hasAcademicData = summary.totalClasses > 0 || summary.totalStudents > 0;
+    final completedDays = hasAcademicData ? 74 : 0;
     const totalDays = 90;
-    const workingDaysRatio = completedDays / totalDays;
-    const classesCompletedPct = 0.84;
+    final workingDaysRatio = totalDays > 0 ? (completedDays / totalDays) : 0.0;
+    final classesCompletedPct = hasAcademicData ? 0.84 : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

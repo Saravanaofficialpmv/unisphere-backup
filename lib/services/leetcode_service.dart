@@ -54,77 +54,22 @@ class LeetCodeUserStats {
   const LeetCodeUserStats({
     required this.username,
     required this.totalSolved,
-    this.easySolved = 104,
-    this.easyTotal = 820,
-    this.mediumSolved = 24,
-    this.mediumTotal = 1720,
-    this.hardSolved = 2,
-    this.hardTotal = 750,
-    this.ranking = 1293478,
-    this.status = '130 Solved',
-    this.todaysSolved = 3,
-    this.streakDays = 12,
-    this.acceptanceRate = 68.4,
-    this.lastSyncedAt = 'Today at 12:00 AM',
-    this.nextSyncAt = 'Tomorrow at 12:00 AM',
-    this.recentSubmissions = const [
-      LeetCodeSubmissionItem(
-        title: 'Two Sum',
-        difficulty: 'Easy',
-        timeAgo: '3 hours ago',
-        language: 'C++',
-      ),
-      LeetCodeSubmissionItem(
-        title: 'Add Two Numbers',
-        difficulty: 'Medium',
-        timeAgo: '6 hours ago',
-        language: 'C++',
-      ),
-      LeetCodeSubmissionItem(
-        title: 'Longest Substring Without Repeating Characters',
-        difficulty: 'Medium',
-        timeAgo: '1 day ago',
-        language: 'Java',
-      ),
-      LeetCodeSubmissionItem(
-        title: 'Median of Two Sorted Arrays',
-        difficulty: 'Hard',
-        timeAgo: '2 days ago',
-        language: 'C++',
-      ),
-      LeetCodeSubmissionItem(
-        title: 'Palindrome Number',
-        difficulty: 'Easy',
-        timeAgo: '3 days ago',
-        language: 'C++',
-      ),
-    ],
-    this.badges = const [
-      LeetCodeBadgeItem(
-        title: '100 Problems Solved',
-        icon: '🏆',
-        category: 'Milestone',
-      ),
-      LeetCodeBadgeItem(
-        title: 'August LeetCoding Challenge',
-        icon: '⚡',
-        category: 'Monthly Challenge',
-      ),
-      LeetCodeBadgeItem(
-        title: '50 Days Badge 2026',
-        icon: '🥇',
-        category: 'Annual Streak',
-      ),
-    ],
-    this.dailyActivity = const [
-      {'day': 'Thu', 'count': 1},
-      {'day': 'Fri', 'count': 4},
-      {'day': 'Sat', 'count': 2},
-      {'day': 'Sun', 'count': 0},
-      {'day': 'Mon', 'count': 3},
-      {'day': 'Tue', 'count': 5},
-      {'day': 'Wed', 'count': 3},
-    ],
+    this.easySolved = 0,
+    this.easyTotal = 0,
+    this.mediumSolved = 0,
+    this.mediumTotal = 0,
+    this.hardSolved = 0,
+    this.hardTotal = 0,
+    this.ranking = 0,
+    this.status = '0 Solved',
+    this.todaysSolved = 0,
+    this.streakDays = 0,
+    this.acceptanceRate = 0.0,
+    this.lastSyncedAt = 'Never',
+    this.nextSyncAt = 'N/A',
+    this.recentSubmissions = const [],
+    this.badges = const [],
+    this.dailyActivity = const [],
     this.isFetched = false,
   });
 
@@ -227,20 +172,7 @@ class LeetCodeService {
       }
     } catch (_) {}
 
-    // Fallback if offline or API unreachable
-    if (targetUser == 'saravanapmv') {
-      return LeetCodeUserStats(
-        username: targetUser,
-        totalSolved: 130,
-        easySolved: 104,
-        mediumSolved: 24,
-        hardSolved: 2,
-        ranking: 1293478,
-        status: '130 Solved',
-        isFetched: false,
-      );
-    }
-
+    // Return empty state if offline or API unreachable
     return LeetCodeUserStats.empty(targetUser);
   }
 
@@ -384,28 +316,7 @@ class LeetCodeService {
       acceptanceRate: acceptanceRate,
       lastSyncedAt: lastSyncedAt,
       nextSyncAt: 'Tomorrow at 12:00 AM',
-      recentSubmissions: recentSubmissions.isNotEmpty
-          ? recentSubmissions
-          : const [
-              LeetCodeSubmissionItem(
-                title: 'Subsets',
-                difficulty: 'Medium',
-                timeAgo: '2 hours ago',
-                language: 'Java',
-              ),
-              LeetCodeSubmissionItem(
-                title: 'Summary Ranges',
-                difficulty: 'Easy',
-                timeAgo: '5 hours ago',
-                language: 'Java',
-              ),
-              LeetCodeSubmissionItem(
-                title: 'Toeplitz Matrix',
-                difficulty: 'Easy',
-                timeAgo: '1 day ago',
-                language: 'Java',
-              ),
-            ],
+      recentSubmissions: recentSubmissions,
       dailyActivity: dailyActivity,
       isFetched: true,
     );

@@ -134,68 +134,7 @@ class StaffTaskModel {
     };
   }
 
-  static List<StaffTaskModel> get defaultTasks => [
-    const StaffTaskModel(
-      id: "TASK-1024",
-      title: "Machine Learning Mini Project",
-      subject: "Machine Learning",
-      description: "Build and evaluate a classification model using Python scikit-learn on the provided dataset.",
-      assignedBy: "VSB10234",
-      assignedDate: "20 Aug 2026",
-      dueDate: "28 Aug 2026",
-      year: "III Year",
-      department: "CSE",
-      section: "A",
-      studentsAssigned: 42,
-      submissions: 28,
-      pending: 14,
-      maxMarks: 20,
-      priority: "High",
-      status: "Active",
-      taskType: "Mini Project",
-      instructions: "Upload a zipped GitHub repo link along with a PDF report containing confusion matrix graphs.",
-    ),
-    const StaffTaskModel(
-      id: "TASK-1025",
-      title: "Python Programming Assignment",
-      subject: "Python Programming",
-      description: "Implement OOPs concepts, decorator functions, and exception handling algorithms in Python.",
-      assignedBy: "VSB10234",
-      assignedDate: "18 Aug 2026",
-      dueDate: "25 Aug 2026",
-      year: "III Year",
-      department: "CSE",
-      section: "B",
-      studentsAssigned: 38,
-      submissions: 25,
-      pending: 13,
-      maxMarks: 20,
-      priority: "Medium",
-      status: "Active",
-      taskType: "Assignment",
-      instructions: "Submit executable .py script files along with code outputs screenshot.",
-    ),
-    const StaffTaskModel(
-      id: "TASK-1026",
-      title: "Data Analytics Case Study",
-      subject: "Data Analytics",
-      description: "Perform exploratory data analysis (EDA) and visualization on retail customer churn data.",
-      assignedBy: "VSB10234",
-      assignedDate: "17 Aug 2026",
-      dueDate: "30 Aug 2026",
-      year: "III Year",
-      department: "CSE",
-      section: "A",
-      studentsAssigned: 35,
-      submissions: 10,
-      pending: 25,
-      maxMarks: 20,
-      priority: "High",
-      status: "Pending",
-      taskType: "Case Study",
-      instructions: "Submit Jupyter Notebook (.ipynb) with clean data visualizations and markdown commentary.",
-    ),
-  ];
+  static List<StaffTaskModel> get defaultTasks => const [];
 }
 
 class StudentTaskSubmission {
@@ -246,45 +185,5 @@ class StudentTaskSubmission {
     );
   }
 
-  static List<StudentTaskSubmission> get defaultSubmissions => [
-    const StudentTaskSubmission(
-      taskId: "TASK-1024",
-      studentId: "STD-2001",
-      studentName: "Saran Kumar",
-      registerNo: "20CS3012",
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-      status: "Submitted",
-      submittedAt: "24 Aug 2026, 10:30 AM",
-      marks: 18,
-      maxMarks: 20,
-      feedback: "Great implementation of Random Forest classifier with clean graphs.",
-      fileUrl: "saran_ml_project.pdf",
-    ),
-    const StudentTaskSubmission(
-      taskId: "TASK-1025",
-      studentId: "STD-2002",
-      studentName: "Nandhini R",
-      registerNo: "20CS3025",
-      photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200",
-      status: "Submitted",
-      submittedAt: "23 Aug 2026, 09:15 AM",
-      marks: 16,
-      maxMarks: 20,
-      feedback: "Good work on decorators, but missing unit tests.",
-      fileUrl: "nandhini_python_assignment.py",
-    ),
-    const StudentTaskSubmission(
-      taskId: "TASK-1026",
-      studentId: "STD-2003",
-      studentName: "Vignesh S",
-      registerNo: "20CS3058",
-      photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
-      status: "Pending",
-      submittedAt: "-",
-      marks: null,
-      maxMarks: 20,
-      feedback: null,
-      fileUrl: null,
-    ),
-  ];
+  static List<StudentTaskSubmission> get defaultSubmissions => const [];
 }

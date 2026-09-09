@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:unisphere/models/manual_notification_draft_model.dart';
@@ -109,6 +110,7 @@ class ManualNotificationComposerNotifier
   final NotificationEngine _engine;
   final NotificationRepository _repository;
   final UserModel? _currentUser;
+  List<UserModel> _fetchedUsers = [];
 
   ManualNotificationComposerNotifier(
     this._engine,
@@ -116,7 +118,15 @@ class ManualNotificationComposerNotifier
     this._currentUser,
   ) : super(ManualNotificationComposerState()) {
     _applyRbacDefaults();
-    recalculateAudience();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').get();
+      _fetchedUsers = snap.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList();
+      recalculateAudience();
+    } catch (_) {}
   }
 
   void _applyRbacDefaults() {
@@ -214,21 +224,27 @@ class ManualNotificationComposerNotifier
   /// Recalculate matched target audience list & count
   void recalculateAudience() {
     final List<RecipientAudienceItem> audience = [];
-    final mockUsers = [
-      RecipientAudienceItem(uid: 'DEMO-STU', name: 'Alex Johnson', role: 'student', department: 'Computer Science', details: 'Roll: 22CS01 | Sec B | Att: 74.5%'),
-      RecipientAudienceItem(uid: 'STU-002', name: 'Priya Sharma', role: 'student', department: 'Computer Science', details: 'Roll: 22CS02 | Sec B | Att: 88.0%'),
-      RecipientAudienceItem(uid: 'STU-003', name: 'Karthik Raja', role: 'student', department: 'Information Technology', details: 'Roll: 22IT05 | Sec A | Att: 69.2%'),
-      RecipientAudienceItem(uid: 'DEMO-PRT', name: 'Rajesh Kumar (Parent)', role: 'parent', department: 'Computer Science', details: 'Ward: Alex Johnson'),
-      RecipientAudienceItem(uid: 'DEMO-STF', name: 'Dr. K. Tharani Kumar (Faculty)', role: 'staff', department: 'Computer Science', details: 'Assistant Professor'),
-      RecipientAudienceItem(uid: 'DEMO-HOD', name: 'Dr. R. Kumar (HOD)', role: 'hod', department: 'Computer Science', details: 'Head of Department'),
-    ];
+    final candidates = _fetchedUsers.map((u) {
+      final meta = u.metadata ?? {};
+      final regNo = meta['registerNumber'] ?? meta['regNo'] ?? '';
+      final sec = meta['section'] ?? '';
+      final att = meta['attendance'] != null ? ' | Att: ${meta['attendance']}%' : '';
+      final detail = 'Reg: $regNo | $sec$att';
+      return RecipientAudienceItem(
+        uid: u.uid,
+        name: u.fullName.isNotEmpty ? u.fullName : (u.name.isNotEmpty ? u.name : u.email),
+        role: u.role.name,
+        department: meta['department']?.toString() ?? u.departmentName ?? u.department ?? '',
+        details: detail,
+      );
+    }).toList();
 
     final sender = _currentUser;
-    final senderDept = sender?.metadata?['department'] ?? sender?.metadata?['department_name'] ?? 'Computer Science';
+    final senderDept = sender?.metadata?['department'] ?? sender?.metadata?['department_name'] ?? '';
 
-    for (final item in mockUsers) {
+    for (final item in candidates) {
       // 1. RBAC Department Isolation Check for HOD
-      if (sender?.role == UserRole.hod && item.department.toLowerCase() != senderDept.toString().toLowerCase()) {
+      if (sender?.role == UserRole.hod && senderDept.isNotEmpty && item.department.toLowerCase() != senderDept.toString().toLowerCase()) {
         continue; // Enforce HOD department boundary
       }
 
@@ -245,19 +261,21 @@ class ManualNotificationComposerNotifier
       } else if (state.targetType == 'filter') {
         switch (state.selectedDynamicFilter) {
           case 'low_attendance':
-            matches = item.details.contains('74.5%') || item.details.contains('69.2%');
+            final attMatch = RegExp(r'Att:\s*(\d+)').firstMatch(item.details);
+            final attVal = attMatch != null ? int.tryParse(attMatch.group(1)!) : null;
+            matches = attVal != null && attVal < 75;
             break;
           case 'pending_fees':
             matches = item.role == 'student' || item.role == 'parent';
             break;
           case 'incomplete_profile':
-            matches = item.uid == 'STU-003';
+            matches = item.role == 'student';
             break;
           case 'placement_eligible':
-            matches = item.role == 'student' && !item.details.contains('69.2%');
+            matches = item.role == 'student';
             break;
           case 'event_registered':
-            matches = item.uid == 'DEMO-STU';
+            matches = true;
             break;
           default:
             matches = true;

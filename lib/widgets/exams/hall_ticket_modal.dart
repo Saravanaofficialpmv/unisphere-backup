@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/exam_model.dart';
+import 'package:unisphere/services/auth_service.dart';
 import 'package:intl/intl.dart';
 
-class HallTicketModal extends StatelessWidget {
+class HallTicketModal extends ConsumerWidget {
   final ExamModel exam;
 
   const HallTicketModal({super.key, required this.exam});
@@ -18,7 +20,12 @@ class HallTicketModal extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).value ?? ref.watch(authServiceProvider).currentUser;
+    final studentName = user?.fullName ?? user?.name ?? (user?.email.split('@').first ?? 'Student');
+    final regNo = (user?.metadata?['registerNumber'] ?? user?.metadata?['regNo'] ?? '-').toString();
+    final dept = (user?.metadata?['department'] ?? user?.departmentName ?? user?.department ?? '-').toString();
+    final sem = (user?.metadata?['semester'] ?? user?.metadata?['year'] ?? '-').toString();
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
@@ -113,10 +120,10 @@ class HallTicketModal extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Student Metadata Grid
-                    _buildInfoRow('Student Name', 'Alex Johnson'),
-                    _buildInfoRow('Register Number', 'RA2111003010001'),
-                    _buildInfoRow('Department', 'Computer Science & Engineering'),
-                    _buildInfoRow('Semester / Year', 'Semester VI / 3rd Year'),
+                    _buildInfoRow('Student Name', studentName),
+                    _buildInfoRow('Register Number', regNo),
+                    _buildInfoRow('Department', dept),
+                    _buildInfoRow('Semester / Year', sem),
                     _buildInfoRow('Exam Center', '${exam.venue} — ${exam.roomNumber}'),
                     _buildInfoRow('Exam Date', DateFormat('EEEE, MMM dd, yyyy').format(exam.date)),
                     _buildInfoRow('Timings', '${exam.startTime} – ${exam.endTime}'),

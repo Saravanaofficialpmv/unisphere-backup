@@ -73,7 +73,7 @@ class AttendanceRecord {
 
   factory AttendanceRecord.fromMap(Map<String, dynamic> map) {
     AttendanceStatus parsedStatus = AttendanceStatus.present;
-    final statusStr = map['status']?.toString().toLowerCase() ?? 'present';
+    final statusStr = (map['status'] ?? 'present').toString().toLowerCase();
     if (statusStr == 'absent') {
       parsedStatus = AttendanceStatus.absent;
     } else if (statusStr == 'onduty' || statusStr == 'on duty') {
@@ -82,16 +82,32 @@ class AttendanceRecord {
       parsedStatus = AttendanceStatus.late;
     }
 
+    DateTime recordDate = DateTime.now();
+    final rawDate = map['date'] ?? map['timestamp'] ?? map['createdAt'];
+    if (rawDate != null) {
+      if (rawDate is DateTime) {
+        recordDate = rawDate;
+      } else if (rawDate is String) {
+        recordDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+      } else {
+        try {
+          recordDate = (rawDate as dynamic).toDate();
+        } catch (_) {
+          recordDate = DateTime.now();
+        }
+      }
+    }
+
     return AttendanceRecord(
       id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      studentUid: map['student_uid'] ?? '',
-      studentName: map['student_name'] ?? 'Student',
-      subjectCode: map['subject_code'] ?? 'CS301',
-      subjectName: map['subject_name'] ?? 'Subject',
-      date: map['date'] != null ? DateTime.parse(map['date']) : DateTime.now(),
-      timeSlot: map['time_slot'] ?? '09:00 - 10:00 AM',
+      studentUid: map['student_uid'] ?? map['studentUid'] ?? map['studentId'] ?? map['registerNumber'] ?? '',
+      studentName: map['student_name'] ?? map['studentName'] ?? 'Student',
+      subjectCode: map['subject_code'] ?? map['subjectCode'] ?? 'CS301',
+      subjectName: map['subject_name'] ?? map['subjectName'] ?? 'Subject',
+      date: recordDate,
+      timeSlot: map['time_slot'] ?? map['timeSlot'] ?? '09:00 - 10:00 AM',
       status: parsedStatus,
-      facultyName: map['faculty_name'] ?? 'Faculty',
+      facultyName: map['faculty_name'] ?? map['facultyName'] ?? 'Faculty',
     );
   }
 
@@ -99,13 +115,19 @@ class AttendanceRecord {
     return {
       'id': id,
       'student_uid': studentUid,
+      'studentUid': studentUid,
       'student_name': studentName,
+      'studentName': studentName,
       'subject_code': subjectCode,
+      'subjectCode': subjectCode,
       'subject_name': subjectName,
+      'subjectName': subjectName,
       'date': date.toIso8601String(),
       'time_slot': timeSlot,
+      'timeSlot': timeSlot,
       'status': status.label,
       'faculty_name': facultyName,
+      'facultyName': facultyName,
     };
   }
 }
@@ -245,7 +267,12 @@ class SemesterAttendance {
 /// Leave & On-Duty request model
 class LeaveRequestModel {
   final String id;
+  final String studentId;
   final String studentName;
+  final String registerNumber;
+  final String departmentId;
+  final String section;
+  final String role;
   final String type;
   final String duration;
   final String reason;
@@ -254,10 +281,17 @@ class LeaveRequestModel {
   final bool hasAttachment;
   final String? requestLetterUrl;
   final String? registrationScreenshotUrl;
+  final DateTime? createdAt;
+  final String? remarks;
 
   LeaveRequestModel({
     required this.id,
+    this.studentId = '',
     required this.studentName,
+    this.registerNumber = '',
+    this.departmentId = '',
+    this.section = '',
+    this.role = 'Student',
     required this.type,
     required this.duration,
     required this.reason,
@@ -266,5 +300,115 @@ class LeaveRequestModel {
     this.hasAttachment = false,
     this.requestLetterUrl,
     this.registrationScreenshotUrl,
+    this.createdAt,
+    this.remarks,
   });
+
+  factory LeaveRequestModel.fromMap(Map<String, dynamic> map, [String? docId]) {
+    DateTime? parsedCreatedAt;
+    final rawDate = map['createdAt'] ?? map['appliedDateTimestamp'];
+    if (rawDate != null) {
+      if (rawDate is DateTime) {
+        parsedCreatedAt = rawDate;
+      } else if (rawDate is String) {
+        parsedCreatedAt = DateTime.tryParse(rawDate);
+      } else {
+        try {
+          parsedCreatedAt = (rawDate as dynamic).toDate();
+        } catch (_) {}
+      }
+    }
+
+    return LeaveRequestModel(
+      id: docId ?? map['id']?.toString() ?? '',
+      studentId: map['studentId'] ?? map['student_id'] ?? map['studentUid'] ?? '',
+      studentName: map['studentName'] ?? map['student_name'] ?? map['name'] ?? 'Student',
+      registerNumber: map['registerNumber'] ?? map['register_number'] ?? '',
+      departmentId: map['departmentId'] ?? map['department_id'] ?? '',
+      section: map['section'] ?? '',
+      role: map['role'] ?? 'Student',
+      type: map['type'] ?? map['leaveCategory'] ?? 'Medical Leave',
+      duration: map['duration'] ?? map['dates'] ?? '',
+      reason: map['reason'] ?? '',
+      status: map['status'] ?? 'Pending Approval',
+      appliedDate: map['appliedDate'] ?? map['applied_date'] ?? 'Today',
+      hasAttachment: map['hasAttachment'] ?? map['has_attachment'] ?? (map['requestLetterUrl'] != null || map['document'] != null),
+      requestLetterUrl: map['requestLetterUrl'] ?? map['document'],
+      registrationScreenshotUrl: map['registrationScreenshotUrl'] ?? map['screenshotUrl'],
+      createdAt: parsedCreatedAt,
+      remarks: map['remarks'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'studentId': studentId,
+      'student_id': studentId,
+      'studentName': studentName,
+      'student_name': studentName,
+      'name': studentName,
+      'registerNumber': registerNumber,
+      'register_number': registerNumber,
+      'departmentId': departmentId,
+      'department_id': departmentId,
+      'section': section,
+      'role': role,
+      'type': type,
+      'leaveCategory': type,
+      'duration': duration,
+      'dates': duration,
+      'reason': reason,
+      'status': status,
+      'appliedDate': appliedDate,
+      'applied_date': appliedDate,
+      'hasAttachment': hasAttachment,
+      'has_attachment': hasAttachment,
+      if (requestLetterUrl != null) 'requestLetterUrl': requestLetterUrl,
+      if (requestLetterUrl != null) 'document': requestLetterUrl,
+      if (registrationScreenshotUrl != null) 'registrationScreenshotUrl': registrationScreenshotUrl,
+      if (remarks != null) 'remarks': remarks,
+      'createdAt': createdAt != null ? createdAt!.toIso8601String() : DateTime.now().toIso8601String(),
+    };
+  }
+
+  LeaveRequestModel copyWith({
+    String? id,
+    String? studentId,
+    String? studentName,
+    String? registerNumber,
+    String? departmentId,
+    String? section,
+    String? role,
+    String? type,
+    String? duration,
+    String? reason,
+    String? status,
+    String? appliedDate,
+    bool? hasAttachment,
+    String? requestLetterUrl,
+    String? registrationScreenshotUrl,
+    DateTime? createdAt,
+    String? remarks,
+  }) {
+    return LeaveRequestModel(
+      id: id ?? this.id,
+      studentId: studentId ?? this.studentId,
+      studentName: studentName ?? this.studentName,
+      registerNumber: registerNumber ?? this.registerNumber,
+      departmentId: departmentId ?? this.departmentId,
+      section: section ?? this.section,
+      role: role ?? this.role,
+      type: type ?? this.type,
+      duration: duration ?? this.duration,
+      reason: reason ?? this.reason,
+      status: status ?? this.status,
+      appliedDate: appliedDate ?? this.appliedDate,
+      hasAttachment: hasAttachment ?? this.hasAttachment,
+      requestLetterUrl: requestLetterUrl ?? this.requestLetterUrl,
+      registrationScreenshotUrl: registrationScreenshotUrl ?? this.registrationScreenshotUrl,
+      createdAt: createdAt ?? this.createdAt,
+      remarks: remarks ?? this.remarks,
+    );
+  }
 }

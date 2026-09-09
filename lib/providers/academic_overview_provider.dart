@@ -80,51 +80,12 @@ class AcademicOverviewNotifier extends StateNotifier<AcademicOverviewData> {
   }
 
   static AcademicOverviewData _buildInitialState(UserModel? user) {
-    final email = user?.email.toLowerCase().trim() ?? '';
     final meta = user?.metadata ?? {};
 
     final double? savedCgpa = double.tryParse(meta['cgpa']?.toString() ?? '');
     final double? savedAtt = double.tryParse(meta['attendance']?.toString() ?? '');
 
-    // Demo student account gets demo metrics unless custom database values exist
-    if ((email == 'saravanapmvofficial@gmail.com' || (user != null && user.uid == 'DEMO-STU')) && savedCgpa == null && savedAtt == null) {
-      return const AcademicOverviewData(
-        attendancePercentage: 85.0,
-        attendanceTrend: 5.0,
-        attendanceStatus: 'Good',
-        cgpa: 8.72,
-        cgpaTrend: 0.24,
-        cgpaLabel: 'Current CGPA',
-        odDays: 4,
-        odStatus: 'Approved',
-        leetcodeSolved: 130,
-        leetcodeStatus: '130 Solved',
-        leetcodeUsername: 'saravanapmv',
-        githubUsername: 'Saravanaofficialpmv',
-        githubRepos: 14,
-        githubStars: 0,
-        githubCommits: 87,
-        linkedinUrl: 'https://www.linkedin.com/in/saravana-selvaraju/',
-        linkedinConnections: '500+',
-        linkedinHeadline: 'Flutter & Mobile Developer | AI Systems Innovator @ UNISPHERE',
-        customLinks: [
-          CustomUserLink(
-            id: 'cl_1',
-            title: 'Codeforces Handle',
-            url: 'https://codeforces.com/profile/saravanapmv',
-            category: 'Coding',
-          ),
-          CustomUserLink(
-            id: 'cl_2',
-            title: 'Kaggle AI Ranks',
-            url: 'https://kaggle.com/saravanaofficialpmv',
-            category: 'AI',
-          ),
-        ],
-      );
-    }
-
-    // Real / fresh signups read live values from user metadata in database
+    // Live values from user metadata in database or empty defaults
     final leetcodeUser = meta['leetcodeUsername']?.toString() ?? '';
     final githubUser = meta['githubUsername']?.toString() ?? '';
     final linkedinUrl = meta['linkedinUrl']?.toString() ?? '';

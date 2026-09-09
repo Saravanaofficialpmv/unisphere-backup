@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/providers/attendance_system_provider.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
 
 class AttendanceManagementModule extends ConsumerStatefulWidget {
   const AttendanceManagementModule({super.key});
@@ -145,6 +146,12 @@ class _AttendanceManagementModuleState extends ConsumerState<AttendanceManagemen
   }
 
   Widget _buildAtRiskStudents() {
+    final allStudents = ref.watch(allStudentsStreamProvider).value ?? [];
+    final atRisk = allStudents.where((s) {
+      final att = (s.metadata?['attendance'] as num?)?.toDouble() ?? 100.0;
+      return att < 75.0;
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
@@ -155,15 +162,40 @@ class _AttendanceManagementModuleState extends ConsumerState<AttendanceManagemen
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('At-Risk Students', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)), child: const Text('3 Flagged', style: TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (atRisk.isEmpty ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${atRisk.length} Flagged',
+                  style: TextStyle(
+                    color: atRisk.isEmpty ? Colors.green : Colors.red,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          _atRiskCard('Deepak Kumar', '68% Attendance', 'CS303'),
-          _atRiskCard('Karthik Raja', '71.5% Attendance', 'CS301'),
-          _atRiskCard('Sanjay V.', '73.2% Attendance', 'CS302'),
-          const SizedBox(height: 20),
-          Center(child: TextButton(onPressed: () {}, child: const Text('View All Critical Cases', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)))),
+          if (atRisk.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text('No students currently flagged below 75% attendance.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ),
+            )
+          else ...[
+            ...atRisk.map((s) {
+              final att = (s.metadata?['attendance'] as num?)?.toDouble() ?? 0.0;
+              final dept = s.department?.toUpperCase() ?? 'CSE';
+              return _atRiskCard(s.fullName.isNotEmpty ? s.fullName : s.name, '${att.toStringAsFixed(1)}% Attendance', dept);
+            }),
+            const SizedBox(height: 20),
+            Center(child: TextButton(onPressed: () {}, child: const Text('View All Critical Cases', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)))),
+          ],
         ],
       ),
     );
@@ -192,6 +224,8 @@ class _AttendanceManagementModuleState extends ConsumerState<AttendanceManagemen
   }
 
   Widget _buildClassPerformanceTable() {
+    final timetables = ref.watch(allTimetablesStreamProvider).value ?? [];
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
@@ -222,38 +256,47 @@ class _AttendanceManagementModuleState extends ConsumerState<AttendanceManagemen
             ],
           ),
           const SizedBox(height: 24),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 32,
-              headingRowHeight: 40,
-              dataRowMinHeight: 60,
-              dataRowMaxHeight: 65,
-              columns: const [
-                DataColumn(label: Text('CLASS / GROUP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
-                DataColumn(label: Text('DEPARTMENT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
-                DataColumn(label: Text('LEAD INSTRUCTOR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
-                DataColumn(label: Text('AVG. ATTENDANCE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
-                DataColumn(label: Text('STATUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
-              ],
-              rows: [
-                _tableRow('Computer Science - Year 3A', 'Engineering', 'Dr. Roland V.', '92.4%', 'OPTIMAL', Colors.green),
-                _tableRow('Applied Mathematics - 2B', 'Sciences', 'Prof. Marcus S.', '72.1%', 'LOW ATTENDANCE', Colors.red),
-                _tableRow('Business Analytics - Grad 1', 'Economics', 'Ms. Karen L.', '88.9%', 'OPTIMAL', Colors.green),
-                _tableRow('Mechanical Eng. - Lab 4', 'Engineering', 'Thomas H.', '64.5%', 'CRITICAL', Colors.red),
-              ],
+          if (timetables.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              alignment: Alignment.center,
+              child: const Text('No class-wise attendance records available.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 32,
+                headingRowHeight: 40,
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 65,
+                columns: const [
+                  DataColumn(label: Text('CLASS / GROUP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
+                  DataColumn(label: Text('DEPARTMENT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
+                  DataColumn(label: Text('LEAD INSTRUCTOR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
+                  DataColumn(label: Text('AVG. ATTENDANCE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
+                  DataColumn(label: Text('STATUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey))),
+                ],
+                rows: timetables.map((t) {
+                  final className = t['className']?.toString() ?? t['name']?.toString() ?? 'Class';
+                  final dept = t['department']?.toString() ?? 'General';
+                  final lead = t['faculty']?.toString() ?? t['instructor']?.toString() ?? 'Faculty';
+                  final attend = t['avgAttendance']?.toString() ?? '100%';
+                  return _tableRow(className, dept, lead, attend, 'ACTIVE', Colors.green);
+                }).toList(),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
   DataRow _tableRow(String name, String dept, String lead, String attend, String status, Color color) {
+    final leadInitial = lead.isNotEmpty ? lead[0].toUpperCase() : 'F';
     return DataRow(cells: [
       DataCell(Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
       DataCell(Text(dept, style: const TextStyle(fontSize: 12))),
-      DataCell(Row(children: [CircleAvatar(radius: 12, backgroundColor: Colors.blue.withValues(alpha: 0.1), child: Text(lead.split(' ')[1][0], style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blue))), const SizedBox(width: 8), Text(lead, style: const TextStyle(fontSize: 11))])),
+      DataCell(Row(children: [CircleAvatar(radius: 12, backgroundColor: Colors.blue.withValues(alpha: 0.1), child: Text(leadInitial, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blue))), const SizedBox(width: 8), Text(lead, style: const TextStyle(fontSize: 11))])),
       DataCell(Text(attend, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
       DataCell(Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)), child: Text(status, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold)))),
     ]);

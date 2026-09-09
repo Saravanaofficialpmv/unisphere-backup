@@ -82,35 +82,7 @@ class SyllabusService {
       debugPrint('SyllabusService error loading from Firestore: $e');
     }
 
-    if (_hasClearedAllSyllabi) return [];
-
-    // Fallback to built-in syllabus repository
-    final builtIn = _getBuiltInSyllabusDatabase(department);
-    return builtIn.where((s) {
-      // Must be published
-      if (!s.isPublished) return false;
-
-      // STRICT SECURITY RULE: effectiveStartYear MUST BE <= studentStartYear
-      if (s.effectiveStartYear > studentStartYear) return false;
-
-      final matchesDept = s.department.isEmpty ||
-          s.department.toLowerCase() == 'all' ||
-          _normalizeDepartment(s.department) == normalizedDept;
-      if (!matchesDept) return false;
-
-      if (!includePreviousYears && s.effectiveStartYear < studentStartYear) {
-        return false;
-      }
-
-      if (year != null && year.isNotEmpty && _normalizeYear(s.year) != _normalizeYear(year)) {
-        return false;
-      }
-      if (semester != null && semester.isNotEmpty && _normalizeSemester(s.semester) != _normalizeSemester(semester)) {
-        return false;
-      }
-
-      return true;
-    }).toList();
+    return [];
   }
 
   /// Fetch HOD/Admin syllabus records (includes Current, Previous, Future, Draft, and Published).
@@ -120,9 +92,6 @@ class SyllabusService {
     final normalizedDept = _normalizeDepartment(department);
     try {
       final snapshot = await _firestore.collection('syllabi').get();
-      if (_hasClearedAllSyllabi && snapshot.docs.isEmpty) {
-        return [];
-      }
       if (snapshot.docs.isNotEmpty) {
         final allDocs = snapshot.docs
             .map((doc) => SyllabusSubjectModel.fromMap(doc.data(), doc.id))
@@ -133,8 +102,7 @@ class SyllabusService {
     } catch (e) {
       debugPrint('SyllabusService error loading HOD records: $e');
     }
-    if (_hasClearedAllSyllabi) return [];
-    return _getBuiltInSyllabusDatabase(department);
+    return [];
   }
 
   /// Add a new subject record to Firestore syllabi collection
@@ -345,8 +313,4 @@ class SyllabusService {
     return 'Semester 1';
   }
 
-  /// Built-in dataset repository (cleared)
-  List<SyllabusSubjectModel> _getBuiltInSyllabusDatabase(String department) {
-    return [];
-  }
 }

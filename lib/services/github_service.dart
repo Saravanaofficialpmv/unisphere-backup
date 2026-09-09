@@ -75,71 +75,18 @@ class GitHubUserStats {
 
   const GitHubUserStats({
     required this.username,
-    this.name = 'saravana perumal',
-    this.avatarUrl = 'https://avatars.githubusercontent.com/u/200975098?v=4',
-    this.bio = 'Flutter Developer & AI Enthusiast • Building Smart Campus Systems @ UNISPHERE',
-    this.publicRepos = 14,
-    this.followers = 2,
-    this.following = 1,
+    this.name = '',
+    this.avatarUrl = '',
+    this.bio = '',
+    this.publicRepos = 0,
+    this.followers = 0,
+    this.following = 0,
     this.starsEarned = 0,
-    this.commitsThisYear = 87,
-    this.topLanguages = const ['HTML', 'TypeScript', 'Dart', 'JavaScript', 'Python', 'Java'],
-    this.languageBreakdown = const {
-      'HTML': 33.3,
-      'TypeScript': 25.0,
-      'Dart': 16.7,
-      'JavaScript': 8.3,
-      'Python': 8.3,
-      'Java': 8.3,
-    },
-    this.featuredRepos = const [
-      GitHubRepoItem(
-        name: 'unisphere',
-        description: 'Cross-platform Smart Campus ERP built with Flutter & Supabase.',
-        language: 'Dart',
-        stars: 0,
-        forks: 0,
-        htmlUrl: 'https://github.com/Saravanaofficialpmv/unisphere',
-        updatedAt: '2026-08-12',
-      ),
-      GitHubRepoItem(
-        name: 'personal-portfolio-v2',
-        description: 'Modern Developer Portfolio v2 built with TypeScript & React.',
-        language: 'TypeScript',
-        stars: 0,
-        forks: 0,
-        htmlUrl: 'https://github.com/Saravanaofficialpmv/personal-portfolio-v2',
-        updatedAt: '2026-08-09',
-      ),
-      GitHubRepoItem(
-        name: 'agency-sitefile',
-        description: 'Agency & Corporate landing web project.',
-        language: 'HTML',
-        stars: 0,
-        forks: 0,
-        htmlUrl: 'https://github.com/Saravanaofficialpmv/agency-sitefile',
-        updatedAt: '2026-07-03',
-      ),
-      GitHubRepoItem(
-        name: 'ai-helpdesk',
-        description: 'AI-powered Helpdesk Support & Ticket Management System.',
-        language: 'TypeScript',
-        stars: 0,
-        forks: 0,
-        htmlUrl: 'https://github.com/Saravanaofficialpmv/ai-helpdesk',
-        updatedAt: '2026-06-09',
-      ),
-      GitHubRepoItem(
-        name: 'Sentimental-Recommendation-for-Gold-Crypto',
-        description: 'Sentimental analysis & recommendation engine for Gold and Crypto assets.',
-        language: 'Python',
-        stars: 0,
-        forks: 0,
-        htmlUrl: 'https://github.com/Saravanaofficialpmv/Sentimental-Recommendation-for-Gold-Crypto',
-        updatedAt: '2026-03-12',
-      ),
-    ],
-    this.lastSyncedAt = 'Today at 12:00 AM',
+    this.commitsThisYear = 0,
+    this.topLanguages = const [],
+    this.languageBreakdown = const {},
+    this.featuredRepos = const [],
+    this.lastSyncedAt = 'Never',
     this.isFetched = false,
   });
 
@@ -293,88 +240,6 @@ class GitHubService {
   }
 
   static GitHubUserStats _getFallbackStats(String username) {
-    if (username.isEmpty) {
-      return GitHubUserStats.empty();
-    }
-    if (username.toLowerCase() != 'saravanaofficialpmv') {
-      return GitHubUserStats.empty(username);
-    }
-
-    final now = DateTime.now();
-    final hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final formattedHour = (hour % 12 == 0 ? 12 : hour % 12).toString().padLeft(2, '0');
-    final lastSyncedAt = 'Today at $formattedHour:$minute $period';
-
-    return GitHubUserStats(
-      username: username,
-      name: 'saravana perumal',
-      avatarUrl: 'https://avatars.githubusercontent.com/u/200975098?v=4',
-      bio: 'Flutter Developer & AI Enthusiast • Building Smart Campus Systems @ UNISPHERE',
-      publicRepos: 14,
-      followers: 2,
-      following: 1,
-      starsEarned: 0,
-      commitsThisYear: 87,
-      topLanguages: const ['HTML', 'TypeScript', 'Dart', 'JavaScript', 'Python', 'Java'],
-      languageBreakdown: const {
-        'HTML': 33.3,
-        'TypeScript': 25.0,
-        'Dart': 16.7,
-        'JavaScript': 8.3,
-        'Python': 8.3,
-        'Java': 8.3,
-      },
-      featuredRepos: const [
-        GitHubRepoItem(
-          name: 'unisphere',
-          description: 'Cross-platform Smart Campus ERP built with Flutter & Supabase.',
-          language: 'Dart',
-          stars: 0,
-          forks: 0,
-          htmlUrl: 'https://github.com/Saravanaofficialpmv/unisphere',
-          updatedAt: '2026-08-12',
-        ),
-        GitHubRepoItem(
-          name: 'personal-portfolio-v2',
-          description: 'Modern Developer Portfolio v2 built with TypeScript & React.',
-          language: 'TypeScript',
-          stars: 0,
-          forks: 0,
-          htmlUrl: 'https://github.com/Saravanaofficialpmv/personal-portfolio-v2',
-          updatedAt: '2026-08-09',
-        ),
-        GitHubRepoItem(
-          name: 'agency-sitefile',
-          description: 'Agency & Corporate landing web project.',
-          language: 'HTML',
-          stars: 0,
-          forks: 0,
-          htmlUrl: 'https://github.com/Saravanaofficialpmv/agency-sitefile',
-          updatedAt: '2026-07-03',
-        ),
-        GitHubRepoItem(
-          name: 'ai-helpdesk',
-          description: 'AI-powered Helpdesk Support & Ticket Management System.',
-          language: 'TypeScript',
-          stars: 0,
-          forks: 0,
-          htmlUrl: 'https://github.com/Saravanaofficialpmv/ai-helpdesk',
-          updatedAt: '2026-06-09',
-        ),
-        GitHubRepoItem(
-          name: 'Sentimental-Recommendation-for-Gold-Crypto',
-          description: 'Sentimental analysis & recommendation engine for Gold and Crypto assets.',
-          language: 'Python',
-          stars: 0,
-          forks: 0,
-          htmlUrl: 'https://github.com/Saravanaofficialpmv/Sentimental-Recommendation-for-Gold-Crypto',
-          updatedAt: '2026-03-12',
-        ),
-      ],
-      lastSyncedAt: lastSyncedAt,
-      isFetched: true,
-    );
+    return GitHubUserStats.empty(username);
   }
 }

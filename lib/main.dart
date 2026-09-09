@@ -5,11 +5,13 @@ import 'package:unisphere/core/theme/app_theme.dart';
 import 'package:unisphere/core/utils/url_strategy.dart';
 import 'package:unisphere/navigation/app_router.dart';
 import 'package:unisphere/services/firebase_service.dart';
+import 'package:unisphere/services/web_firebase_registrant.dart';
 
 void main() async {
   // Configure clean path URL strategy (removes '#' on web)
   configureAppUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
+  registerWebFirebasePlugins();
   
   // Suppress Flutter framework semantics and layout pass debug assertions during hot restart / layout passes
   final originalOnError = FlutterError.onError;
@@ -22,6 +24,43 @@ void main() async {
       return;
     }
     originalOnError?.call(details);
+  };
+
+  // Graceful institutional ErrorWidget builder to permanently prevent red screen of death
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('Institutional ErrorWidget intercepted: ${details.exceptionAsString()}');
+    return Material(
+      color: Colors.transparent,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.shield_outlined, size: 18, color: Color(0xFF3B82F6)),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Section temporarily synchronizing. Pull down to refresh.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   };
 
   // Initialize Firebase Core & Auth services

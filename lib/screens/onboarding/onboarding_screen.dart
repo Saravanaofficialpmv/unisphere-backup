@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/core/constants/app_departments.dart';
+import 'package:unisphere/models/department_model.dart';
+import 'package:unisphere/repositories/department_repository.dart';
 import 'package:unisphere/screens/onboarding/widgets/campus_hero_art.dart';
 import 'package:unisphere/services/parent_service.dart';
 
@@ -34,11 +36,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final Map<int, bool> _isCheckingChild = {};
   final Map<int, String?> _childLookupErrors = {};
   final ParentService _parentService = ParentService();
+  final DepartmentRepository _departmentRepo = DepartmentRepository();
 
   // Selection states
   String? _selectedRole;
   String? _selectedDept;
   String _parentRelationship = 'Father';
+
+  // Active departments with HOD
+  List<DepartmentModel> _departmentsWithHod = [];
+  bool _isLoadingActiveDepts = false;
 
   // Inline Validation Error States (Highlights boxes in red instead of popup snackbars)
   bool _hasRoleError = false;
@@ -47,6 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _hasIdError = false;
   String _idErrorMessage = 'Please enter your ID';
   bool _hasDeptError = false;
+  String _deptErrorMessage = 'Please select department';
   final Set<int> _childErrors = {};
 
   // Student register number existence checking states
@@ -60,10 +68,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchActiveDepartments();
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go('/login');
       });
+    }
+  }
+
+  Future<void> _fetchActiveDepartments() async {
+    if (_isLoadingActiveDepts) return;
+    setState(() => _isLoadingActiveDepts = true);
+    try {
+      final list = await _departmentRepo.getDepartmentsWithActiveHod();
+      if (mounted) {
+        setState(() {
+          _departmentsWithHod = list;
+          _isLoadingActiveDepts = false;
+          // If current role is Student and previously selected dept is not in active list, clear it
+          if (_selectedRole == 'Student' && _selectedDept != null) {
+            final hasHod = _departmentsWithHod.any((d) =>
+                DepartmentRepository.normalizeDepartmentKey(d.name) ==
+                DepartmentRepository.normalizeDepartmentKey(_selectedDept!));
+            if (!hasHod && _departmentsWithHod.isNotEmpty) {
+              _selectedDept = null;
+            }
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingActiveDepts = false);
     }
   }
 
@@ -223,19 +257,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     }
 
-    if (!alreadyExists) {
-      const existingDemoRegs = [
-        'RA2111003010001',
-        '917721104012',
-        '917722104022',
-        '917721104045',
-        '922523243100',
-      ];
-      if (existingDemoRegs.contains(clean) || existingDemoRegs.contains(clean.toUpperCase())) {
-        alreadyExists = true;
-      }
-    }
-
     if (mounted) {
       setState(() {
         _isCheckingStudentId = false;
@@ -375,7 +396,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
           if (_selectedDept == null) {
             _hasDeptError = true;
+            _deptErrorMessage = 'Please select department';
             hasError = true;
+          } else if (_selectedRole == 'Student') {
+            final hasHod = _departmentsWithHod.any((d) =>
+                DepartmentRepository.normalizeDepartmentKey(d.name) ==
+                DepartmentRepository.normalizeDepartmentKey(_selectedDept!));
+            if (!hasHod && _departmentsWithHod.isNotEmpty) {
+              _hasDeptError = true;
+              _deptErrorMessage = 'Department has no active HOD';
+              hasError = true;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Selected department does not have an active Head of Department (HOD) yet.'),
+                  backgroundColor: Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           }
           if (hasError) {
             HapticFeedback.mediumImpact();
@@ -833,6 +871,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         setState(() {
           _selectedRole = role;
           _hasRoleError = false;
+          if (role == 'Student' && _selectedDept != null) {
+            final hasHod = _departmentsWithHod.any((d) =>
+                DepartmentRepository.normalizeDepartmentKey(d.name) ==
+                DepartmentRepository.normalizeDepartmentKey(_selectedDept!));
+            if (!hasHod && _departmentsWithHod.isNotEmpty) {
+              _selectedDept = null;
+            }
+          }
         });
       },
       child: AnimatedContainer(
@@ -1010,6 +1056,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _openDepartmentPicker() {
     HapticFeedback.lightImpact();
+    if (_selectedRole == 'Student' && _departmentsWithHod.isEmpty && !_isLoadingActiveDepts) {
+      _fetchActiveDepartments();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1019,11 +1069,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
       builder: (context) {
         String searchQuery = '';
+        final isStudent = _selectedRole == 'Student';
+
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final filtered = _departments
-                .where((d) => d.toLowerCase().contains(searchQuery.toLowerCase()))
-                .toList();
+            // For Student: show ONLY departments that have an active HOD created!
+            // For HOD / other roles: show full catalog so HOD can initialize a new department
+            final List<dynamic> sourceItems = isStudent ? _departmentsWithHod : _departments;
+
+            final filtered = sourceItems.where((item) {
+              if (item is DepartmentModel) {
+                return item.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                    item.code.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                    (item.hodName != null && item.hodName!.toLowerCase().contains(searchQuery.toLowerCase()));
+              }
+              return item.toString().toLowerCase().contains(searchQuery.toLowerCase());
+            }).toList();
 
             return Padding(
               padding: EdgeInsets.only(
@@ -1064,7 +1125,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                         Text(
-                          '${_departments.length} programs',
+                          isStudent
+                              ? '${filtered.length} active ${filtered.length == 1 ? "department" : "departments"}'
+                              : '${_departments.length} programs',
                           style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),
@@ -1080,7 +1143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       autofocus: false,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
-                        hintText: 'Search department name...',
+                        hintText: isStudent ? 'Search active department or HOD...' : 'Search department name...',
                         hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
@@ -1107,71 +1170,182 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // List
+                    // List or Empty / Loading State
                     Expanded(
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final dept = filtered[index];
-                          final isSelected = _selectedDept == dept;
-
-                          return InkWell(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _selectedDept = dept;
-                                _hasDeptError = false;
-                              });
-                              Navigator.pop(context);
-                            },
-                            borderRadius: BorderRadius.circular(14),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF0F172A)
-                                    : const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFF0F172A)
-                                      : const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Row(
+                      child: _isLoadingActiveDepts && isStudent
+                          ? const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.school_outlined,
-                                    size: 20,
-                                    color: isSelected ? Colors.white : AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      dept,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                                      ),
+                                  CircularProgressIndicator(strokeWidth: 2.5),
+                                  SizedBox(height: 14),
+                                  Text(
+                                    'Loading active departments...',
+                                    style: TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  if (isSelected)
-                                    const Icon(
-                                      Icons.check_circle_rounded,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                            )
+                          : (filtered.isEmpty)
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFEF3C7),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.domain_disabled_rounded,
+                                            size: 32,
+                                            color: Color(0xFFD97706),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Text(
+                                          isStudent && searchQuery.isEmpty
+                                              ? 'No Active Departments Yet'
+                                              : 'No Departments Found',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          isStudent && searchQuery.isEmpty
+                                              ? 'A Head of Department (HOD) must register first to activate a department for student sign-up.'
+                                              : 'No departments matched "$searchQuery". Try another keyword.',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF64748B),
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (context, index) {
+                                    final item = filtered[index];
+                                    final String deptName = item is DepartmentModel ? item.name : item.toString();
+                                    final String? hodName = item is DepartmentModel ? item.hodName : null;
+                                    final String? deptCode = item is DepartmentModel ? item.code : null;
+                                    final isSelected = _selectedDept == deptName;
+
+                                    return InkWell(
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setState(() {
+                                          _selectedDept = deptName;
+                                          _hasDeptError = false;
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? const Color(0xFF0F172A)
+                                              : const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? const Color(0xFF0F172A)
+                                                : const Color(0xFFE2E8F0),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.school_outlined,
+                                              size: 20,
+                                              color: isSelected ? Colors.white : AppColors.primary,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    deptName,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                                                    ),
+                                                  ),
+                                                  if (isStudent && (hodName != null || deptCode != null)) ...[
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        if (deptCode != null && deptCode.isNotEmpty) ...[
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                            decoration: BoxDecoration(
+                                                              color: isSelected
+                                                                  ? Colors.white.withValues(alpha: 0.2)
+                                                                  : const Color(0xFF10B981).withValues(alpha: 0.12),
+                                                              borderRadius: BorderRadius.circular(6),
+                                                            ),
+                                                            child: Text(
+                                                              deptCode,
+                                                              style: TextStyle(
+                                                                fontSize: 10.5,
+                                                                fontWeight: FontWeight.w800,
+                                                                color: isSelected ? Colors.white : const Color(0xFF059669),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                        ],
+                                                        Flexible(
+                                                          child: Text(
+                                                            'HOD: ${hodName ?? "Registered"}',
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: TextStyle(
+                                                              fontSize: 11.5,
+                                                              color: isSelected ? Colors.white70 : const Color(0xFF64748B),
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            if (isSelected)
+                                              const Icon(
+                                                Icons.check_circle_rounded,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                     ),
                   ],
                 ),
@@ -1325,9 +1499,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             if (_hasDeptError)
-              const Text(
-                'Please select department',
-                style: TextStyle(
+              Text(
+                _deptErrorMessage,
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFFEF4444),

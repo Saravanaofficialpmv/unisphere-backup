@@ -5,6 +5,33 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:unisphere/models/user_model.dart';
 import 'package:unisphere/services/firebase_auth_service.dart';
 
+class GoogleSignInCancelledException implements Exception {
+  final String message;
+  const GoogleSignInCancelledException([this.message = 'Sign-in cancelled.']);
+  @override
+  String toString() => message;
+}
+
+class UnisphereAccountNotRegisteredException implements Exception {
+  final String? email;
+  final String message;
+  const UnisphereAccountNotRegisteredException({
+    this.email,
+    this.message = 'Your Google account is authenticated, but you do not currently have access to a Unisphere institution. Please contact your institution administrator.',
+  });
+  @override
+  String toString() => message;
+}
+
+class UnisphereAccountDeactivatedException implements Exception {
+  final String message;
+  const UnisphereAccountDeactivatedException([
+    this.message = 'Your Unisphere account has been deactivated. Please contact your institution administrator.',
+  ]);
+  @override
+  String toString() => message;
+}
+
 abstract class AuthService {
   Stream<UserModel?> get authStateChanges;
   Future<void> signInWithEmail(String email, String password);
@@ -40,11 +67,9 @@ class SupabaseAuthService implements AuthService {
   final SupabaseClient _supabase;
   UserModel? _currentUser;
   final _stateController = StreamController<UserModel?>.broadcast();
-  UserModel? _mockUser;
 
   SupabaseAuthService(this._supabase) {
     _supabase.auth.onAuthStateChange.listen((data) async {
-      if (_mockUser != null) return;
       final user = data.session?.user;
       if (user == null) {
         _currentUser = null;
@@ -74,51 +99,16 @@ class SupabaseAuthService implements AuthService {
   }
 
   Future<UserModel?> _getCurrentUser() async {
-    if (_mockUser != null) return _mockUser;
     final suUser = _supabase.auth.currentUser;
     if (suUser == null) return null;
     return await getUserData(suUser.id);
   }
 
   @override
-  UserModel? get currentUser => _mockUser ?? _currentUser; 
+  UserModel? get currentUser => _currentUser; 
 
   @override
   Future<void> signInWithEmail(String email, String password) async {
-    final lowerEmail = email.toLowerCase().trim();
-
-    // DEMO BYPASS
-    if (lowerEmail == 'hod.cse@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-HOD', email: email, fullName: 'Dr. R. Kumar', role: UserRole.hod);
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
-      return;
-    }
-    if (lowerEmail == 'admin@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-ADM', email: email, fullName: 'Demo Admin', role: UserRole.admin);
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
-      return;
-    }
-    if (lowerEmail == 'staff@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-STF', email: email, fullName: 'Dr. K. Tharani Kumar', role: UserRole.staff);
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
-      return;
-    }
-    if (lowerEmail == 'student@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-STU', email: email, fullName: 'Demo Student', role: UserRole.student);
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
-      return;
-    }
-    if (lowerEmail == 'parent@unisphere.edu') {
-      _mockUser = UserModel(uid: 'DEMO-PRT', email: email, fullName: 'Demo Parent', role: UserRole.parent);
-      _currentUser = _mockUser;
-      _stateController.add(_mockUser);
-      return;
-    }
-
     // REAL SIGN IN
     try {
       await _supabase.auth.signInWithPassword(email: email, password: password);
@@ -140,57 +130,49 @@ class SupabaseAuthService implements AuthService {
     String? phoneNumber,
     Map<String, dynamic>? metadata,
   }) async {
-    _mockUser = UserModel(
-      uid: 'DEMO-REG-${DateTime.now().millisecondsSinceEpoch}',
+    final res = await _supabase.auth.signUp(
       email: email,
-      fullName: name,
-      role: role,
-      phone: phoneNumber,
-      metadata: metadata,
+      password: password,
+      data: {
+        'name': name,
+        'role': role.name,
+        if (phoneNumber != null) 'phone': phoneNumber,
+        ...?metadata,
+      },
     );
-    _currentUser = _mockUser;
-    _stateController.add(_mockUser);
+    if (res.user != null) {
+      _currentUser = await getUserData(res.user!.id);
+      _stateController.add(_currentUser);
+    }
   }
 
   @override
   Future<void> signInWithGoogle() async {
-    _mockUser = UserModel(
-      uid: 'DEMO-GGL-USER',
-      email: 'alex.google@unisphere.edu',
-      fullName: 'Alex Johnson (Google)',
-      role: UserRole.student,
-    );
-    _currentUser = _mockUser;
-    _stateController.add(_mockUser);
+    try {
+      await _supabase.auth.signInWithOAuth(OAuthProvider.google);
+    } catch (e) {
+      throw 'Google Sign-In failed: $e';
+    }
   }
 
   @override
   Future<void> signInWithApple() async {
-    _mockUser = UserModel(
-      uid: 'DEMO-APL-USER',
-      email: 'alex.apple@unisphere.edu',
-      fullName: 'Alex Johnson (Apple)',
-      role: UserRole.student,
-    );
-
-    _currentUser = _mockUser;
-    _stateController.add(_mockUser);
+    try {
+      await _supabase.auth.signInWithOAuth(OAuthProvider.apple);
+    } catch (e) {
+      throw 'Apple Sign-In failed: $e';
+    }
   }
 
   @override
   Future<void> updateUserProfile(UserModel updatedUser) async {
-    _mockUser = updatedUser;
     _currentUser = updatedUser;
     _stateController.add(updatedUser);
   }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    try {
-      await _supabase.auth.resetPasswordForEmail(email);
-    } catch (e) {
-      // Ignored for demo
-    }
+    await _supabase.auth.resetPasswordForEmail(email);
   }
 
   @override
@@ -201,8 +183,8 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {
-    _mockUser = null;
     await _supabase.auth.signOut();
+    _currentUser = null;
     _stateController.add(null);
   }
 

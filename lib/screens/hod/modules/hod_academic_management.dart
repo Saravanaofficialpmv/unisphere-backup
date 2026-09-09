@@ -18,72 +18,10 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
   String _selectedTab = 'Allocations';
 
   // Dynamic state for Course & Faculty Allocation
-  final List<Map<String, dynamic>> _courseAllocations = [
-    {
-      'code': 'CS301',
-      'title': 'Distributed Systems & Cloud',
-      'semester': 'Semester 6',
-      'section': 'CS-A',
-      'credits': 4,
-      'faculty': 'Dr. S. Meenakshi',
-      'facultyUid': 'STF-001',
-      'hoursPerWeek': 4,
-      'type': 'Theory',
-    },
-    {
-      'code': 'CS302',
-      'title': 'Applied Machine Learning',
-      'semester': 'Semester 6',
-      'section': 'CS-A & B',
-      'credits': 4,
-      'faculty': 'Dr. Anita Roy',
-      'facultyUid': 'STF-002',
-      'hoursPerWeek': 4,
-      'type': 'Theory',
-    },
-    {
-      'code': 'CS303',
-      'title': 'Database Management & Warehousing',
-      'semester': 'Semester 4',
-      'section': 'CS-B',
-      'credits': 3,
-      'faculty': 'Prof. Vikram Sharma',
-      'facultyUid': 'STF-003',
-      'hoursPerWeek': 3,
-      'type': 'Theory',
-    },
-    {
-      'code': 'CS304',
-      'title': 'Cloud Computing Laboratory',
-      'semester': 'Semester 6',
-      'section': 'CS-A',
-      'credits': 2,
-      'faculty': 'Prof. Rajesh Kumar',
-      'facultyUid': 'STF-004',
-      'hoursPerWeek': 3,
-      'type': 'Practical',
-    },
-    {
-      'code': 'CS305',
-      'title': 'Design & Analysis of Algorithms',
-      'semester': 'Semester 4',
-      'section': 'CS-A',
-      'credits': 4,
-      'faculty': 'Dr. K. Tharani Kumar',
-      'facultyUid': 'DEMO-STF',
-      'hoursPerWeek': 4,
-      'type': 'Theory',
-    },
-  ];
+  final List<Map<String, dynamic>> _courseAllocations = [];
 
   // Class Advisors per section
-  final List<Map<String, String>> _sectionAdvisors = [
-    {'section': '3rd Year CS-A', 'advisor': 'Dr. S. Meenakshi', 'students': '64 Students', 'room': 'LH-201'},
-    {'section': '3rd Year CS-B', 'advisor': 'Prof. Rajesh Kumar', 'students': '62 Students', 'room': 'LH-202'},
-    {'section': '2nd Year CS-A', 'advisor': 'Dr. Anita Roy', 'students': '65 Students', 'room': 'LH-105'},
-    {'section': '2nd Year CS-B', 'advisor': 'Prof. Vikram Sharma', 'students': '60 Students', 'room': 'LH-106'},
-    {'section': '1st Year CS-A', 'advisor': 'Dr. K. Tharani Kumar', 'students': '66 Students', 'room': 'LH-003'},
-  ];
+  final List<Map<String, String>> _sectionAdvisors = [];
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +136,18 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
           ],
         ),
         const SizedBox(height: 14),
-        ListView.separated(
+        if (_courseAllocations.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('No active course allocations. Tap "+ Allocate Subject" to add.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          )
+        else
+          ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _courseAllocations.length,
@@ -281,13 +230,13 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
   }
 
   Widget _buildFacultyWorkloadSection(List<StaffModel> staffList) {
-    final workloads = [
-      {'name': 'Dr. S. Meenakshi', 'designation': 'Associate Professor', 'hours': 18, 'subjects': 'CS301, CS102 Lab', 'status': 'Optimal (18/20 hrs)'},
-      {'name': 'Dr. Anita Roy', 'designation': 'Assistant Professor (Sr.G)', 'hours': 16, 'subjects': 'CS302, Elective-I', 'status': 'Optimal (16/20 hrs)'},
-      {'name': 'Prof. Vikram Sharma', 'designation': 'Assistant Professor', 'hours': 20, 'subjects': 'CS303, CS304 Lab', 'status': 'Full Load (20/20 hrs)'},
-      {'name': 'Prof. Rajesh Kumar', 'designation': 'Assistant Professor', 'hours': 17, 'subjects': 'CS304 Lab, Soft Skills', 'status': 'Optimal (17/20 hrs)'},
-      {'name': 'Dr. K. Tharani Kumar', 'designation': 'Assistant Professor', 'hours': 16, 'subjects': 'CS305, Algo Lab', 'status': 'Optimal (16/20 hrs)'},
-    ];
+    final workloads = staffList.map((s) => {
+      'name': s.fullName.isNotEmpty ? s.fullName : s.name,
+      'designation': s.designation.isNotEmpty ? s.designation : 'Faculty Member',
+      'hours': 0,
+      'subjects': '—',
+      'status': 'Active',
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -375,7 +324,18 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
           ],
         ),
         const SizedBox(height: 12),
-        ListView.separated(
+        if (_sectionAdvisors.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('No section advisors designated.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          )
+        else
+          ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _sectionAdvisors.length,
@@ -552,7 +512,7 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
     String selectedSem = 'Semester 6';
     String selectedSec = 'CS-A';
     String selectedType = 'Theory';
-    String? selectedFaculty = staffList.isNotEmpty ? staffList.first.fullName : 'Dr. S. Meenakshi';
+    String? selectedFaculty = staffList.isNotEmpty ? staffList.first.fullName : null;
 
     showDialog(
       context: context,
@@ -593,16 +553,15 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
                     onChanged: (v) => setModalState(() => selectedSec = v!),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedFaculty,
-                    decoration: const InputDecoration(labelText: 'Assigned Faculty', border: OutlineInputBorder()),
-                    items: (staffList.isNotEmpty
-                            ? staffList.map((s) => s.fullName).toList()
-                            : ['Dr. S. Meenakshi', 'Dr. Anita Roy', 'Prof. Vikram Sharma', 'Prof. Rajesh Kumar', 'Dr. K. Tharani Kumar'])
-                        .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                        .toList(),
-                    onChanged: (v) => setModalState(() => selectedFaculty = v),
-                  ),
+                  if (staffList.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedFaculty,
+                      decoration: const InputDecoration(labelText: 'Assigned Faculty', border: OutlineInputBorder()),
+                      items: staffList
+                          .map((s) => DropdownMenuItem(value: s.fullName, child: Text(s.fullName)))
+                          .toList(),
+                      onChanged: (v) => setModalState(() => selectedFaculty = v),
+                    ),
                 ],
               ),
             ),
@@ -660,16 +619,20 @@ class _HodAcademicManagementState extends ConsumerState<HodAcademicManagement> {
               children: [
                 Text(item['title'] as String, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedFaculty,
-                  decoration: const InputDecoration(labelText: 'Select Faculty Member', border: OutlineInputBorder()),
-                  items: (staffList.isNotEmpty
-                          ? staffList.map((s) => s.fullName).toList()
-                          : ['Dr. S. Meenakshi', 'Dr. Anita Roy', 'Prof. Vikram Sharma', 'Prof. Rajesh Kumar', 'Dr. K. Tharani Kumar'])
-                      .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                      .toList(),
-                  onChanged: (v) => setModalState(() => selectedFaculty = v),
-                ),
+                if (staffList.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedFaculty,
+                    decoration: const InputDecoration(labelText: 'Select Faculty Member', border: OutlineInputBorder()),
+                    items: staffList
+                        .map((f) => DropdownMenuItem(value: f.fullName, child: Text(f.fullName)))
+                        .toList(),
+                    onChanged: (v) => setModalState(() => selectedFaculty = v),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No department faculty available.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  ),
               ],
             ),
             actions: [

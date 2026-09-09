@@ -2156,7 +2156,7 @@ class _ParentAcademicPerformanceTabState extends ConsumerState<ParentAcademicPer
         if (mounted) {
           final matched = snap.docs.where((d) {
             final uid = (d.data()['student_uid'] ?? d.data()['studentId'] ?? d.data()['regNo'] ?? '').toString();
-            return uid.toUpperCase() == regUpper || uid.toLowerCase() == regLower || uid == 'DEMO-STU' || uid == cleanReg(regNo);
+            return uid.toUpperCase() == regUpper || uid.toLowerCase() == regLower || uid == cleanReg(regNo);
           }).map((d) {
             final data = d.data();
             data['id'] = d.id;
@@ -2183,7 +2183,7 @@ class _ParentAcademicPerformanceTabState extends ConsumerState<ParentAcademicPer
             for (final r in records) {
               if (r is Map) {
                 final rReg = (r['regNo'] ?? r['studentId'] ?? '').toString().trim().toUpperCase();
-                if (rReg == regUpper || rReg == regLower.toUpperCase() || rReg == 'DEMO-STU' || rReg.isEmpty) {
+                if (rReg.isNotEmpty && (rReg == regUpper || rReg == regLower.toUpperCase() || rReg == cleanReg(regNo).toUpperCase())) {
                   final initial = r['initial']?.toString() ?? '0';
                   final parts = initial.split('/');
                   final obt = double.tryParse(parts[0].trim()) ?? 0;
@@ -2254,7 +2254,7 @@ class _ParentAcademicPerformanceTabState extends ConsumerState<ParentAcademicPer
         final marksSnap = await firestore.collection('marks').get();
         final matchedMarks = marksSnap.docs.where((d) {
           final uid = (d.data()['student_uid'] ?? d.data()['studentId'] ?? d.data()['regNo'] ?? '').toString();
-          return uid.toUpperCase() == regUpper || uid.toLowerCase() == regLower || uid == 'DEMO-STU' || uid == cleanReg(regNo);
+          return uid.toUpperCase() == regUpper || uid.toLowerCase() == regLower || uid == cleanReg(regNo);
         }).map((d) {
           final data = d.data();
           data['id'] = d.id;
@@ -2271,7 +2271,7 @@ class _ParentAcademicPerformanceTabState extends ConsumerState<ParentAcademicPer
             for (final r in records) {
               if (r is Map) {
                 final rReg = (r['regNo'] ?? r['studentId'] ?? '').toString().trim().toUpperCase();
-                if (rReg == regUpper || rReg == regLower.toUpperCase() || rReg == 'DEMO-STU' || rReg.isEmpty) {
+                if (rReg.isNotEmpty && (rReg == regUpper || rReg == regLower.toUpperCase() || rReg == cleanReg(regNo).toUpperCase())) {
                   final initial = r['initial']?.toString() ?? '0';
                   final parts = initial.split('/');
                   final obt = double.tryParse(parts[0].trim()) ?? 0;

@@ -42,6 +42,27 @@ class _ClassAdvisorEditRequestsScreenState
         child: StreamBuilder<List<Map<String, dynamic>>>(
           stream: ref.watch(firebaseFirestoreServiceProvider).getProfileEditRequestsStream(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.assignment_turned_in_rounded, size: 54, color: Color(0xFF94A3B8)),
+                        SizedBox(height: 12),
+                        Text('No Pending Edit Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF475569))),
+                        SizedBox(height: 4),
+                        Text('All student profile edit requests have been reviewed.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: Loader(label: 'Loading edit requests...'));
             }

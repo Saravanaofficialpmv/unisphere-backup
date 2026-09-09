@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unisphere/models/student_resume_model.dart';
 import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/services/auth_service.dart';
+import 'package:unisphere/services/firebase_firestore_service.dart';
 import 'package:unisphere/services/resume_service.dart';
 import 'package:unisphere/widgets/resume/resume_document_view.dart';
 import 'package:unisphere/widgets/common/custom_loader.dart';
@@ -21,80 +22,6 @@ class _HodResumeBankScreenState extends ConsumerState<HodResumeBankScreen> {
   String _selectedYear = 'All';
   String _selectedSection = 'All';
   String _selectedCompleteness = 'All';
-
-  // Department Roster
-  final List<Map<String, dynamic>> _deptStudents = [
-    {
-      'id': 'DEMO-STU',
-      'regNo': 'RA2111003010001',
-      'name': 'Alex Johnson',
-      'year': '3rd Year',
-      'section': 'Sec B',
-      'cgpa': '8.92',
-      'attendance': '88.5%',
-      'completeness': 92,
-      'topSkills': ['Flutter', 'Firebase', 'Python', 'AWS'],
-      'certsCount': 3,
-      'projectsCount': 2,
-      'photo': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    },
-    {
-      'id': '917721104012',
-      'regNo': '917721104012',
-      'name': 'Aravind Swamy',
-      'year': '3rd Year',
-      'section': 'Sec A',
-      'cgpa': '9.12',
-      'attendance': '96.5%',
-      'completeness': 95,
-      'topSkills': ['Flutter/Dart', 'C++', 'Java', 'Firebase'],
-      'certsCount': 4,
-      'projectsCount': 3,
-      'photo': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
-    },
-    {
-      'id': '917721104045',
-      'regNo': '917721104045',
-      'name': 'Priya Dharshini',
-      'year': '3rd Year',
-      'section': 'Sec A',
-      'cgpa': '8.85',
-      'attendance': '92.0%',
-      'completeness': 94,
-      'topSkills': ['Python', 'Machine Learning', 'React', 'SQL'],
-      'certsCount': 3,
-      'projectsCount': 2,
-      'photo': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    },
-    {
-      'id': '917722104022',
-      'regNo': '917722104022',
-      'name': 'Karthik Raja',
-      'year': '2nd Year',
-      'section': 'Sec B',
-      'cgpa': '7.45',
-      'attendance': '71.5%',
-      'completeness': 72,
-      'topSkills': ['Java', 'C++', 'HTML/CSS', 'DSA'],
-      'certsCount': 1,
-      'projectsCount': 1,
-      'photo': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    },
-    {
-      'id': '917723104089',
-      'regNo': '917723104089',
-      'name': 'Sneha Murali',
-      'year': '1st Year',
-      'section': 'Sec C',
-      'cgpa': '9.50',
-      'attendance': '98.0%',
-      'completeness': 85,
-      'topSkills': ['C Programming', 'Python', 'Web Basics'],
-      'certsCount': 2,
-      'projectsCount': 1,
-      'photo': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    },
-  ];
 
   void _openResumeModal(String studentId, String studentName) {
     final resumeFuture = ref.read(resumeServiceProvider).generateResumeForStudent(studentId);
@@ -156,7 +83,30 @@ class _HodResumeBankScreenState extends ConsumerState<HodResumeBankScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _deptStudents.where((s) {
+    final dbStudents = ref.watch(allStudentsStreamProvider).value ?? [];
+    final deptStudents = dbStudents.map((u) {
+      final meta = u.metadata ?? {};
+      return {
+        'id': u.uid,
+        'regNo': (meta['registerNumber'] ?? meta['regNo'] ?? u.uid).toString(),
+        'name': u.fullName.isNotEmpty
+            ? u.fullName
+            : (u.name.isNotEmpty
+                ? u.name
+                : (u.email.contains('@') ? u.email.split('@').first : 'Student')),
+        'year': meta['year'] ?? (meta['semester'] ?? '1st Year'),
+        'section': meta['section'] ?? 'Sec A',
+        'cgpa': meta['cgpa']?.toString() ?? '0.0',
+        'attendance': meta['attendance'] != null ? '${meta['attendance']}%' : '-',
+        'completeness': meta['resumeCompleteness'] is int ? meta['resumeCompleteness'] as int : 50,
+        'topSkills': (meta['skills'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? <String>['Academic Student'],
+        'certsCount': 0,
+        'projectsCount': 0,
+        'photo': u.profileImageUrl ?? meta['photoUrl'] ?? '',
+      };
+    }).toList();
+
+    final filtered = deptStudents.where((s) {
       final matchesSearch = s['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           s['regNo'].toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
           (s['topSkills'] as List).any((sk) => sk.toString().toLowerCase().contains(_searchQuery.toLowerCase()));

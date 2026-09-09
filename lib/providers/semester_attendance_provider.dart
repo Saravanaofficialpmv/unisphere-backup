@@ -134,14 +134,10 @@ class SemesterAttendanceNotifier extends StateNotifier<SemesterAttendanceState> 
   SemesterAttendanceNotifier({UserModel? user}) : super(_buildInitialState(user));
 
   static SemesterAttendanceState _buildInitialState(UserModel? user) {
-    final email = user?.email.toLowerCase().trim() ?? '';
-    final isDemo = email == 'saravanapmvofficial@gmail.com' || (user != null && user.uid == 'DEMO-STU');
     final meta = user?.metadata ?? {};
-
     final double? dbAtt = double.tryParse(meta['attendance']?.toString() ?? '');
-    final double targetAtt = dbAtt ?? (isDemo ? 85.55 : 0.0);
+    final double targetAtt = dbAtt ?? 0.0;
     final int sem4Attended = ((targetAtt / 100.0) * 90).round();
-    final double trendPct = isDemo ? 5.0 : 0.0;
 
     return SemesterAttendanceState(
       hodSemesterConfigs: {
@@ -155,118 +151,16 @@ class SemesterAttendanceNotifier extends StateNotifier<SemesterAttendanceState> 
         8: const SemesterWorkingDaysConfig(semesterNumber: 8, semesterName: 'Semester 8', totalWorkingDays: 80),
       },
       studentSemesters: [
-        StudentSemesterAttendanceData(
-          semesterNumber: 1,
-          semesterName: 'Semester 1',
-          attendedWorkingDays: isDemo ? 79 : 0,
-          totalWorkingDays: 90,
-          monthlyTrendPercentage: isDemo ? 3.2 : 0.0,
-          isCurrentSemester: false,
-          subjectBreakdown: isDemo ? const [
-            {
-              'code': 'GE101',
-              'subject': 'Basic Electrical Engineering',
-              'attended': 43,
-              'total': 50,
-              'percentage': 0.860,
-              'faculty': 'Dr. K. Sharma',
-              'status': 'Completed',
-              'safeMargin': 'Good Standing',
-              'colorValue': 0xFF2563EB,
-              'credits': 4,
-            },
-            {
-              'code': 'GE102',
-              'subject': 'Engineering Graphics',
-              'attended': 45,
-              'total': 50,
-              'percentage': 0.900,
-              'faculty': 'Prof. V. Raman',
-              'status': 'Completed',
-              'safeMargin': 'Good Standing',
-              'colorValue': 0xFF059669,
-              'credits': 3,
-            },
-          ] : const [],
-        ),
-        StudentSemesterAttendanceData(
-          semesterNumber: 2,
-          semesterName: 'Semester 2',
-          attendedWorkingDays: isDemo ? 82 : 0,
-          totalWorkingDays: 90,
-          monthlyTrendPercentage: isDemo ? 4.5 : 0.0,
-          isCurrentSemester: false,
-          subjectBreakdown: isDemo ? const [
-            {
-              'code': 'CS101',
-              'subject': 'Python Programming',
-              'attended': 47,
-              'total': 50,
-              'percentage': 0.940,
-              'faculty': 'Dr. M. Tech',
-              'status': 'Completed',
-              'safeMargin': 'Distinction Standing',
-              'colorValue': 0xFF059669,
-              'credits': 4,
-            },
-          ] : const [],
-        ),
-        StudentSemesterAttendanceData(
-          semesterNumber: 3,
-          semesterName: 'Semester 3',
-          attendedWorkingDays: isDemo ? 85 : 0,
-          totalWorkingDays: 95,
-          monthlyTrendPercentage: isDemo ? 2.8 : 0.0,
-          isCurrentSemester: false,
-          subjectBreakdown: isDemo ? const [
-            {
-              'code': 'CS201',
-              'subject': 'Data Structures & Algorithms',
-              'attended': 46,
-              'total': 50,
-              'percentage': 0.920,
-              'faculty': 'Dr. Dennis Ritchie',
-              'status': 'Completed',
-              'safeMargin': 'Good Standing',
-              'colorValue': 0xFF2563EB,
-              'credits': 4,
-            },
-          ] : const [],
-        ),
-        StudentSemesterAttendanceData(
-          semesterNumber: 4,
-          semesterName: 'Semester 4',
-          attendedWorkingDays: sem4Attended,
-          totalWorkingDays: 90,
-          monthlyTrendPercentage: trendPct,
-          isCurrentSemester: true,
-          subjectBreakdown: [
-            {
-              'code': 'CS301',
-              'subject': 'Computer Networks',
-              'attended': ((targetAtt / 100.0) * 42).round(),
-              'total': 42,
-              'percentage': targetAtt / 100.0,
-              'faculty': 'Dr. Robert Vance',
-              'status': 'Good Standing',
-              'safeMargin': 'Active Semester',
-              'colorValue': 0xFF2563EB,
-              'credits': 4,
-            },
-            {
-              'code': 'CS302',
-              'subject': 'Database Systems',
-              'attended': ((targetAtt / 100.0) * 40).round(),
-              'total': 40,
-              'percentage': targetAtt / 100.0,
-              'faculty': 'Prof. Sarah Jenkins',
-              'status': 'Good Standing',
-              'safeMargin': 'Active Semester',
-              'colorValue': 0xFF059669,
-              'credits': 4,
-            },
-          ],
-        ),
+        for (int i = 1; i <= 8; i++)
+          StudentSemesterAttendanceData(
+            semesterNumber: i,
+            semesterName: 'Semester $i',
+            attendedWorkingDays: i == 4 ? sem4Attended : 0,
+            totalWorkingDays: i == 3 ? 95 : (i == 7 ? 85 : (i == 8 ? 80 : 90)),
+            monthlyTrendPercentage: 0.0,
+            isCurrentSemester: i == 4,
+            subjectBreakdown: const [],
+          ),
       ],
       selectedSemesterIndex: 3,
     );

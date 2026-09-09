@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:unisphere/core/constants/app_colors.dart';
 import 'package:unisphere/models/models.dart';
+import 'package:unisphere/providers/hod_dashboard_provider.dart';
 import 'package:unisphere/providers/notification_provider.dart';
+import 'package:unisphere/repositories/repositories.dart';
 import 'package:unisphere/services/auth_service.dart';
 import 'package:unisphere/services/marks_import_service.dart';
 
@@ -18,68 +20,12 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
   String _selectedExam = 'Internal Assessment 2';
   String _selectedYear = '3rd Year (Semester 6)';
 
-  late List<Map<String, dynamic>> _evaluationStatusData;
-
-  @override
-  void initState() {
-    super.initState();
-    _evaluationStatusData = [
-      {
-        'id': 'sub-1',
-        'code': 'CS301',
-        'sub': 'CS301 - Distributed Systems',
-        'faculty': 'Dr. S. Meenakshi',
-        'status': 'Approved',
-        'avgScore': '84.2%',
-        'passPct': '96.8%',
-        'totalStudents': 64,
-        'submittedAt': 'Yesterday, 4:30 PM',
-      },
-      {
-        'id': 'sub-2',
-        'code': 'CS302',
-        'sub': 'CS302 - Machine Learning',
-        'faculty': 'Dr. Anita Roy',
-        'status': 'Pending Verification',
-        'avgScore': '78.5%',
-        'passPct': '92.1%',
-        'totalStudents': 64,
-        'submittedAt': 'Today, 11:15 AM',
-      },
-      {
-        'id': 'sub-3',
-        'code': 'CS303',
-        'sub': 'CS303 - Database Management',
-        'faculty': 'Prof. Vikram Sharma',
-        'status': 'Approved',
-        'avgScore': '88.0%',
-        'passPct': '98.4%',
-        'totalStudents': 62,
-        'submittedAt': '01 Sep, 2:00 PM',
-      },
-      {
-        'id': 'sub-4',
-        'code': 'CS304',
-        'sub': 'CS304 - Cloud Computing Lab',
-        'faculty': 'Prof. Rajesh Kumar',
-        'status': 'Not Uploaded',
-        'avgScore': '—',
-        'passPct': '—',
-        'totalStudents': 64,
-        'submittedAt': 'Pending Faculty Submission',
-      },
-      {
-        'id': 'sub-5',
-        'code': 'CS305',
-        'sub': 'CS305 - Design & Analysis of Algorithms',
-        'faculty': 'Dr. K. Tharani Kumar',
-        'status': 'Approved',
-        'avgScore': '82.4%',
-        'passPct': '95.0%',
-        'totalStudents': 65,
-        'submittedAt': '02 Sep, 10:00 AM',
-      },
-    ];
+  int _getSemesterNumber(String yearStr) {
+    final match = RegExp(r'Semester (\d+)').firstMatch(yearStr);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '6') ?? 6;
+    }
+    return 6;
   }
 
   Color _getStatusColor(String status) {
@@ -97,9 +43,15 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
 
   @override
   Widget build(BuildContext context) {
-    final approvedCount = _evaluationStatusData.where((d) => d['status'] == 'Approved').length;
-    final totalCount = _evaluationStatusData.length;
-    final uploadPct = ((approvedCount / totalCount) * 100).toInt();
+    final sem = _getSemesterNumber(_selectedYear);
+    final evaluationAsync = ref.watch(
+      hodEvaluationStatusStreamProvider((examTitle: _selectedExam, semester: sem)),
+    );
+    final evaluationList = evaluationAsync.valueOrNull ?? [];
+
+    final approvedCount = evaluationList.where((d) => d.status == 'Approved').length;
+    final totalCount = evaluationList.isNotEmpty ? evaluationList.length : 5;
+    final uploadPct = evaluationList.isNotEmpty ? ((approvedCount / totalCount) * 100).toInt() : 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -135,10 +87,10 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
             _buildExamCards(uploadPct, approvedCount, totalCount),
             const SizedBox(height: 24),
 
-            _buildEvaluationStatusList(context),
+            _buildEvaluationStatusList(context, evaluationList, evaluationAsync.isLoading, sem),
             const SizedBox(height: 24),
 
-            _buildExamActions(context, approvedCount, totalCount),
+            _buildExamActions(context, approvedCount, totalCount, sem),
           ],
         ),
       ),
@@ -235,7 +187,12 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
     );
   }
 
-  Widget _buildEvaluationStatusList(BuildContext context) {
+  Widget _buildEvaluationStatusList(
+    BuildContext context,
+    List<ExamEvaluationSubjectStatus> evaluationList,
+    bool isLoading,
+    int sem,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -250,111 +207,130 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Faculty Evaluation & Marks Approval Status', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              Text('${_evaluationStatusData.length} Subjects', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text('${evaluationList.length} Subjects', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _evaluationStatusData.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final d = _evaluationStatusData[index];
-              final status = d['status'] as String;
-              final col = _getStatusColor(status);
+          if (isLoading && evaluationList.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (evaluationList.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                children: [
+                  const Icon(Icons.menu_book_rounded, size: 36, color: Color(0xFF94A3B8)),
+                  const SizedBox(height: 10),
+                  Text('No subjects configured for Semester $sem', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: evaluationList.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final d = evaluationList[index];
+                final status = d.status;
+                final col = _getStatusColor(status);
 
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(d['sub'].toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 2),
-                              Text('Faculty: ${d['faculty']} • ${d['submittedAt']}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                          child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: col)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _buildMiniScore('Class Avg', d['avgScore'].toString()),
-                        const SizedBox(width: 16),
-                        _buildMiniScore('Pass %', d['passPct'].toString()),
-                        const SizedBox(width: 16),
-                        _buildMiniScore('Enrolled', '${d['totalStudents']} Students'),
-                        const Spacer(),
-                        if (status == 'Pending Verification')
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                d['status'] = 'Approved';
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('🎉 Verified and signed off marks for ${d['code']}!'), backgroundColor: const Color(0xFF10B981)),
-                              );
-                            },
-                            icon: const Icon(Icons.check_rounded, size: 14),
-                            label: const Text('Sign Off', style: TextStyle(fontSize: 11)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: const Size(0, 32),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(d.sub, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 2),
+                                Text('Faculty: ${d.faculty} • ${d.submittedAt}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              ],
                             ),
-                          )
-                        else if (status == 'Not Uploaded')
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              ref.read(notificationProvider.notifier).addNotification(
-                                    title: '⚠️ Action Required: Marks Submission',
-                                    category: 'Examination',
-                                    summary: 'Reminder to upload marks for ${d['code']}.',
-                                    fullDetails: 'HOD reminder to submit marks.',
-                                    icon: Icons.warning_amber_rounded,
-                                    iconColor: AppColors.warning,
-                                    iconBgColor: const Color(0xFFFEF3C7),
-                                    badgeText: 'REMINDER',
-                                    badgeColor: AppColors.warning,
-                                    badgeTextColor: Colors.white,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                            child: Text(status, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: col)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildMiniScore('Class Avg', d.avgScore),
+                          const SizedBox(width: 16),
+                          _buildMiniScore('Pass %', d.passPct),
+                          const SizedBox(width: 16),
+                          _buildMiniScore('Enrolled', '${d.totalStudents} Students'),
+                          const Spacer(),
+                          if (status == 'Pending Verification')
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final user = ref.read(currentUserProvider).value;
+                                final approver = (user?.fullName != null && user!.fullName.isNotEmpty) ? user.fullName : 'HOD';
+                                if (d.documentId != null && d.documentId!.isNotEmpty) {
+                                  await ref.read(examManagementRepositoryProvider).approveMarksDocument(d.documentId!, approver);
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('🎉 Verified and signed off marks for ${d.code}!'), backgroundColor: const Color(0xFF10B981)),
                                   );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Sent submission reminder to ${d['faculty']}'), backgroundColor: AppColors.primary),
-                              );
-                            },
-                            icon: const Icon(Icons.send_rounded, size: 14),
-                            label: const Text('Remind', style: TextStyle(fontSize: 11)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.warning,
-                              side: const BorderSide(color: AppColors.warning),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: const Size(0, 32),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                }
+                              },
+                              icon: const Icon(Icons.check_rounded, size: 14),
+                              label: const Text('Sign Off', style: TextStyle(fontSize: 11)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: const Size(0, 32),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            )
+                          else if (status == 'Not Uploaded')
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                await ref.read(examManagementRepositoryProvider).remindFaculty(
+                                  facultyUid: d.facultyUid ?? '',
+                                  facultyName: d.faculty,
+                                  subjectCode: d.code,
+                                  examTitle: _selectedExam,
+                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Sent submission reminder to ${d.faculty}'), backgroundColor: AppColors.primary),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.send_rounded, size: 14),
+                              label: const Text('Remind', style: TextStyle(fontSize: 11)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.warning,
+                                side: const BorderSide(color: AppColors.warning),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: const Size(0, 32),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -370,7 +346,7 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
     );
   }
 
-  Widget _buildExamActions(BuildContext context, int approvedCount, int totalCount) {
+  Widget _buildExamActions(BuildContext context, int approvedCount, int totalCount, int sem) {
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -382,13 +358,13 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
         ),
         ElevatedButton.icon(
-          onPressed: () => _showPublishMarksDialog(context, approvedCount, totalCount),
+          onPressed: () => _showPublishMarksDialog(context, approvedCount, totalCount, sem),
           icon: const Icon(Icons.publish_rounded, size: 16),
           label: const Text('Publish Marks to Portals'),
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
         ),
         OutlinedButton.icon(
-          onPressed: () => _showRankListModal(context),
+          onPressed: () => _showRankListModal(context, sem),
           icon: const Icon(Icons.workspace_premium_outlined, size: 16),
           label: const Text('Department Rank List'),
         ),
@@ -405,13 +381,13 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
     );
   }
 
-  void _showPublishMarksDialog(BuildContext context, int approved, int total) {
+  void _showPublishMarksDialog(BuildContext context, int approved, int total, int sem) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.publish_rounded, color: AppColors.primary),
             SizedBox(width: 8),
             Text('Publish Examination Marks', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -436,23 +412,27 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              ref.read(notificationProvider.notifier).addNotification(
-                    title: '📢 Marks Published: $_selectedExam',
-                    category: 'Examination',
-                    summary: 'Marks released by HOD for $_selectedYear.',
-                    fullDetails: 'View your subject breakdown in academic portal.',
-                    icon: Icons.assessment_rounded,
-                    iconColor: AppColors.primary,
-                    iconBgColor: const Color(0xFFEEF2FF),
-                    badgeText: 'RESULTS',
-                    badgeColor: AppColors.primary,
-                    badgeTextColor: Colors.white,
-                  );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('🎉 $_selectedExam marks published to Student and Parent Portals!'), backgroundColor: const Color(0xFF10B981)),
+              final user = ref.read(currentUserProvider).value;
+              final approver = (user?.fullName != null && user!.fullName.isNotEmpty) ? user.fullName : 'HOD';
+              final deptId = ref.read(hodDepartmentIdProvider);
+
+              await ref.read(examManagementRepositoryProvider).publishDepartmentMarks(
+                departmentId: deptId,
+                examTitle: _selectedExam,
+                semester: sem,
+                publishedByName: approver,
               );
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('🎉 $_selectedExam marks published to Student and Parent Portals!'),
+                    backgroundColor: const Color(0xFF10B981),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
             child: const Text('Confirm & Publish'),
@@ -462,68 +442,84 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
     );
   }
 
-  void _showRankListModal(BuildContext context) {
-    final ranks = [
-      {'rank': 1, 'name': 'Sneha Murali', 'reg': '917723104089', 'gpa': '9.82', 'distinction': '5/5 O Grades'},
-      {'rank': 2, 'name': 'Aravind Swamy', 'reg': '917721104012', 'gpa': '9.65', 'distinction': '4/5 O Grades'},
-      {'rank': 3, 'name': 'Priya Dharshini', 'reg': '917721104045', 'gpa': '9.48', 'distinction': '4/5 O Grades'},
-      {'rank': 4, 'name': 'Alex Johnson', 'reg': 'RA2111003010001', 'gpa': '9.22', 'distinction': '3/5 O Grades'},
-      {'rank': 5, 'name': 'Karthik Raja', 'reg': '917722104022', 'gpa': '8.95', 'distinction': '2/5 O Grades'},
-    ];
-
+  void _showRankListModal(BuildContext context, int sem) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Department Rank List (Top 5)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            ...ranks.map((r) {
-              final rankNum = r['rank'] as int;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
-                child: Row(
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final rankAsync = ref.watch(hodDepartmentRankListProvider(sem));
+
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: rankAsync.when(
+              loading: () => const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text('Error loading rank list: $e', style: const TextStyle(color: AppColors.error)),
+              ),
+              data: (ranks) => SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: rankNum == 1 ? const Color(0xFFFEF3C7) : (rankNum == 2 ? const Color(0xFFF1F5F9) : const Color(0xFFFFF7ED)),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text('#$rankNum', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Department Rank List (${ranks.length} Ranked)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(r['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text('Reg: ${r['reg']} • ${r['distinction']}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                    Text('GPA: ${r['gpa']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+                    const SizedBox(height: 14),
+                    if (ranks.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: Text('No rank data available yet.')),
+                      )
+                    else
+                      ...ranks.map((r) {
+                        final rankNum = r.rank;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: rankNum == 1 ? const Color(0xFFFEF3C7) : (rankNum == 2 ? const Color(0xFFF1F5F9) : const Color(0xFFFFF7ED)),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text('#$rankNum', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text('Reg: ${r.reg} • ${r.distinction}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              Text('GPA: ${r.gpa}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+                            ],
+                          ),
+                        );
+                      }),
                   ],
                 ),
-              );
-            }),
-          ],
-        ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -531,16 +527,10 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
   void _showHodFinalSemesterUploadModal(BuildContext context) {
     String selectedSubject = 'CS301 - Distributed Systems';
     String selectedSemester = 'Semester 6';
-    String fileName = 'CS301_Final_Semester_Official_Marks.xlsx';
-    bool isPicked = true;
+    String fileName = '';
+    bool isPicked = false;
     bool isSubmitting = false;
-    List<Map<String, dynamic>> records = [
-      {'regNo': '917721104001', 'name': 'Aditya R', 'initial': '94/100', 'status': 'Distinction'},
-      {'regNo': '917721104012', 'name': 'Aravind Swamy', 'initial': '88/100', 'status': 'First Class'},
-      {'regNo': '917721104045', 'name': 'Priya Dharshini', 'initial': '92/100', 'status': 'Distinction'},
-      {'regNo': '917721104089', 'name': 'Sneha Murali', 'initial': '98/100', 'status': 'First Class with Distinction'},
-      {'regNo': 'RA2111003010001', 'name': 'Alex Johnson', 'initial': '85/100', 'status': 'First Class'},
-    ];
+    List<Map<String, dynamic>> records = [];
 
     showModalBottomSheet(
       context: context,
@@ -710,17 +700,26 @@ class _HodExamManagementState extends ConsumerState<HodExamManagement> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      ...records.map((r) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 3),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF10B981)),
-                                const SizedBox(width: 6),
-                                Expanded(child: Text('${r['regNo']} - ${r['name']}', style: const TextStyle(fontSize: 12))),
-                                Text(r['initial'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary)),
-                              ],
-                            ),
-                          )),
+                      if (records.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            'No records attached. Select an official Excel/CSV marks file above.',
+                            style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                          ),
+                        )
+                      else
+                        ...records.map((r) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF10B981)),
+                                  const SizedBox(width: 6),
+                                  Expanded(child: Text('${r['regNo']} - ${r['name']}', style: const TextStyle(fontSize: 12))),
+                                  Text(r['initial'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary)),
+                                ],
+                              ),
+                            )),
                     ],
                   ),
                 ),

@@ -28,6 +28,7 @@ export 'common/app_responsive_grid.dart';
 export 'student/student_floating_nav_bar.dart';
 export 'student/student_navigation_sheet.dart';
 export 'student/student_profile_completion_sheet.dart';
+export 'student/student_profile_completion_banner.dart';
 export 'student/student_profile_edit_request_modal.dart';
 export 'student/student_membership_modal.dart';
 export 'student/student_full_detail_modal.dart';

@@ -98,6 +98,42 @@ class StorageService {
     }
   }
 
+  /// Upload raw image bytes to Firebase Storage for user profile photo (Web and Desktop safe).
+  Future<String> uploadProfilePhotoBytes({
+    required String userId,
+    required Uint8List bytes,
+    String contentType = 'image/jpeg',
+  }) async {
+    final storage = _storage;
+    if (storage == null) {
+      throw Exception('Firebase Storage is currently unavailable. Please check your connection.');
+    }
+
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final storagePath = 'profile_photos/$userId/profile_$timestamp.jpg';
+      final ref = storage.ref().child(storagePath);
+      final metadata = SettableMetadata(
+        contentType: contentType,
+        customMetadata: {
+          'userId': userId,
+          'uploadedAt': DateTime.now().toIso8601String(),
+        },
+      );
+
+      final uploadTask = await ref.putData(bytes, metadata);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      if (downloadUrl.isEmpty || !downloadUrl.startsWith('http')) {
+        throw Exception('Failed to retrieve valid download URL from Firebase Storage.');
+      }
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('StorageService uploadProfilePhotoBytes error: $e');
+      rethrow;
+    }
+  }
+
   /// Standard Path Generator: Student Profile Photo
   String studentPhotoPath(String uid) => 'student-photos/$uid/profile';
 

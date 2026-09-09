@@ -49,7 +49,7 @@ class NotificationRepository {
           .where((n) {
         final targetRolesLower = n.targetRoles.map((r) => r.toLowerCase().trim()).toList();
 
-        // 1. Direct recipient match (e.g. DEMO-PRT, parent UID, or PRT-studentRoll)
+        // 1. Direct recipient match (e.g. user UID or PRT-studentRoll)
         if (n.recipientUserIds.contains(targetUserId)) {
           return true;
         }

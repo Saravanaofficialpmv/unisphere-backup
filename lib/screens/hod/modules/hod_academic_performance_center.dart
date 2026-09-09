@@ -21,12 +21,13 @@ class HodAcademicPerformanceCenter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(hodDepartmentSummaryMetricsProvider);
-    final attendancePct = summary.averageAttendance > 0 ? summary.averageAttendance : 92.4;
+    final attendancePct = summary.averageAttendance;
 
-    const completedDays = 74;
+    final hasAcademicData = summary.totalClasses > 0 || summary.totalStudents > 0;
+    final completedDays = hasAcademicData ? 74 : 0;
     const totalDays = 90;
-    const workingDaysRatio = completedDays / totalDays;
-    const classesCompletedPct = 0.84;
+    final workingDaysRatio = totalDays > 0 ? (completedDays / totalDays) : 0.0;
+    final classesCompletedPct = hasAcademicData ? 0.84 : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,16 +148,16 @@ class HodAcademicPerformanceCenter extends ConsumerWidget {
               // Metric 1: Working Days
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Flexible(
+                children: [
+                  const Flexible(
                     child: Text(
                       'Working Days Completed',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Text('$completedDays / $totalDays Days (82%)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(width: 8),
+                  Text('$completedDays / $totalDays Days (${(workingDaysRatio * 100).toInt()}%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -172,16 +173,16 @@ class HodAcademicPerformanceCenter extends ConsumerWidget {
               // Metric 2: Classes Completed
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Flexible(
+                children: [
+                  const Flexible(
                     child: Text(
                       'Syllabus & Classes Completed',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Text('84% Covered', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.hodRole)),
+                  const SizedBox(width: 8),
+                  Text('${(classesCompletedPct * 100).toInt()}% Covered', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.hodRole)),
                 ],
               ),
               const SizedBox(height: 6),

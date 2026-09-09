@@ -23,6 +23,12 @@ class MarksDocumentModel {
   final int successCount;
   final int errorCount;
   final List<Map<String, dynamic>> validationErrors;
+  final String approvalStatus; // 'Pending Verification', 'Approved', 'Rejected'
+  final bool isPublished;
+  final String? approvedBy;
+  final DateTime? approvedAt;
+  final DateTime? publishedAt;
+  final String? publishedBy;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -47,6 +53,12 @@ class MarksDocumentModel {
     required this.storagePath,
     this.processingStatus = 'uploaded',
     this.validationStatus = 'valid',
+    this.approvalStatus = 'Pending Verification',
+    this.isPublished = false,
+    this.approvedBy,
+    this.approvedAt,
+    this.publishedAt,
+    this.publishedBy,
     this.recordCount = 0,
     this.successCount = 0,
     this.errorCount = 0,
@@ -65,6 +77,8 @@ class MarksDocumentModel {
   bool get isFinalSemester => assessmentType.toLowerCase() == 'final_semester';
   bool get hasErrors => errorCount > 0 || validationErrors.isNotEmpty;
   int get validRecordsCount => successCount;
+  bool get isApproved => approvalStatus.toLowerCase() == 'approved';
+  bool get isPendingApproval => approvalStatus.toLowerCase().contains('pending');
 
   Map<String, dynamic> toMap() {
     return {
@@ -107,6 +121,18 @@ class MarksDocumentModel {
       'processing_status': processingStatus,
       'validationStatus': validationStatus,
       'validation_status': validationStatus,
+      'approvalStatus': approvalStatus,
+      'approval_status': approvalStatus,
+      'isPublished': isPublished,
+      'is_published': isPublished,
+      if (approvedBy != null) 'approvedBy': approvedBy,
+      if (approvedBy != null) 'approved_by': approvedBy,
+      if (approvedAt != null) 'approvedAt': approvedAt!.toIso8601String(),
+      if (approvedAt != null) 'approved_at': approvedAt!.toIso8601String(),
+      if (publishedAt != null) 'publishedAt': publishedAt!.toIso8601String(),
+      if (publishedAt != null) 'published_at': publishedAt!.toIso8601String(),
+      if (publishedBy != null) 'publishedBy': publishedBy,
+      if (publishedBy != null) 'published_by': publishedBy,
       'recordCount': recordCount,
       'record_count': recordCount,
       'successCount': successCount,
@@ -141,6 +167,11 @@ class MarksDocumentModel {
       }
     }
 
+    final rawPublished = map['isPublished'] ?? map['is_published'];
+    final bool parsedPublished = rawPublished is bool
+        ? rawPublished
+        : (rawPublished?.toString().toLowerCase() == 'true');
+
     return MarksDocumentModel(
       documentId: id,
       institutionId: map['institutionId'] ?? map['institution_id'] ?? 'default_institution',
@@ -162,6 +193,12 @@ class MarksDocumentModel {
       storagePath: map['storagePath'] ?? map['storage_path'] ?? '',
       processingStatus: map['processingStatus'] ?? map['processing_status'] ?? 'uploaded',
       validationStatus: map['validationStatus'] ?? map['validation_status'] ?? 'valid',
+      approvalStatus: map['approvalStatus'] ?? map['approval_status'] ?? 'Pending Verification',
+      isPublished: parsedPublished,
+      approvedBy: map['approvedBy'] ?? map['approved_by'],
+      approvedAt: parseDate(map['approvedAt'] ?? map['approved_at']),
+      publishedAt: parseDate(map['publishedAt'] ?? map['published_at']),
+      publishedBy: map['publishedBy'] ?? map['published_by'],
       recordCount: (map['recordCount'] ?? map['record_count'] as num?)?.toInt() ?? 0,
       successCount: (map['successCount'] ?? map['success_count'] as num?)?.toInt() ?? 0,
       errorCount: (map['errorCount'] ?? map['error_count'] as num?)?.toInt() ?? 0,
@@ -174,6 +211,12 @@ class MarksDocumentModel {
   MarksDocumentModel copyWith({
     String? processingStatus,
     String? validationStatus,
+    String? approvalStatus,
+    bool? isPublished,
+    String? approvedBy,
+    DateTime? approvedAt,
+    DateTime? publishedAt,
+    String? publishedBy,
     int? recordCount,
     int? successCount,
     int? errorCount,
@@ -201,6 +244,12 @@ class MarksDocumentModel {
       storagePath: storagePath,
       processingStatus: processingStatus ?? this.processingStatus,
       validationStatus: validationStatus ?? this.validationStatus,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      isPublished: isPublished ?? this.isPublished,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
+      publishedAt: publishedAt ?? this.publishedAt,
+      publishedBy: publishedBy ?? this.publishedBy,
       recordCount: recordCount ?? this.recordCount,
       successCount: successCount ?? this.successCount,
       errorCount: errorCount ?? this.errorCount,

@@ -1,7 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unisphere/widgets/common/unisphere_header_card.dart';
-
 
 class CampusEventModel {
   final String title;
@@ -32,35 +32,44 @@ class EventsScreen extends StatefulWidget {
 }
 
 class _EventsScreenState extends State<EventsScreen> {
-  final List<CampusEventModel> _events = [
-    CampusEventModel(
-      title: 'AI in Healthcare & Medical Robotics Seminar',
-      category: 'Technical Workshop',
-      date: 'Aug 14, 2026',
-      time: '10:00 AM - 01:00 PM',
-      location: 'Mini Auditorium 2',
-      speaker: 'Dr. Radhakrishnan (Apollo Tech Labs)',
-      color: const Color(0xFF2563EB),
-    ),
-    CampusEventModel(
-      title: 'SRM Annual Cultural Fest: Milan 2026',
-      category: 'Cultural',
-      date: 'Sep 02 - Sep 04, 2026',
-      time: 'All Day',
-      location: 'Main University Grounds',
-      speaker: 'Student Cultural Council',
-      color: const Color(0xFFEC4899),
-    ),
-    CampusEventModel(
-      title: 'Cloud Architecture & Microservices Bootcamp',
-      category: 'Hands-on Lab',
-      date: 'Sep 18, 2026',
-      time: '02:00 PM - 05:30 PM',
-      location: 'CS Tech Lab 4',
-      speaker: 'Prof. David Miller (AWS Educate)',
-      color: const Color(0xFF7C3AED),
-    ),
-  ];
+  List<CampusEventModel> _events = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('events').get();
+      if (mounted) {
+        setState(() {
+          _events = snap.docs.map((doc) {
+            final data = doc.data();
+            return CampusEventModel(
+              title: data['title']?.toString() ?? 'Campus Event',
+              category: data['category']?.toString() ?? 'General',
+              date: data['date']?.toString() ?? 'TBD',
+              location: data['location']?.toString() ?? 'Campus',
+              time: data['time']?.toString() ?? 'TBD',
+              speaker: data['speaker']?.toString() ?? '',
+              color: const Color(0xFF4F46E5),
+            );
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _events = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   void _navigateBackToFeatureHub(BuildContext context) async {
     if (widget.onBack != null) {
@@ -93,11 +102,33 @@ class _EventsScreenState extends State<EventsScreen> {
                     const Text('Upcoming Events & Workshops', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                     const SizedBox(height: 12),
 
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _events.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    if (_isLoading)
+                      const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                    else if (_events.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.event_busy_rounded, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            const Text('No Upcoming Events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 6),
+                            const Text('Campus workshops and symposiums will appear here once announced.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _events.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
                       itemBuilder: (context, index) {
                         final event = _events[index];
                         return Container(

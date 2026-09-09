@@ -43,7 +43,7 @@ class SubmissionModel {
       assignmentId: map['assignment_id']?.toString() ?? map['assignmentId']?.toString() ?? '',
       studentUid: map['student_uid']?.toString() ?? map['studentUid']?.toString() ?? '',
       studentName: map['student_name']?.toString() ?? map['studentName']?.toString() ?? '',
-      registerNumber: map['register_number']?.toString() ?? map['registerNumber']?.toString() ?? 'RA2111003010001',
+      registerNumber: map['register_number']?.toString() ?? map['registerNumber']?.toString() ?? '',
       fileName: map['file_name']?.toString() ?? map['fileName']?.toString(),
       fileUrl: map['file_url']?.toString() ?? map['fileUrl']?.toString(),
       fileType: map['file_type']?.toString() ?? map['fileType']?.toString() ?? 'PDF',
